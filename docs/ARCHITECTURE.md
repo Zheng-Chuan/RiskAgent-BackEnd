@@ -41,7 +41,7 @@
     | 写入 intent trace
     v
 [Step 2] retrieve planning memory
-    | Redis recent shared memory
+    | runtime recent shared memory
     | built-in semantic experience retrieval
     | 如果是 resume 则合并 memory_state 和 run_summary
     | 形成 orchestrator context.memory
@@ -108,9 +108,9 @@
     v
 [Step 8] persist and trace
     | build_run_trace_snapshot -> run_trace.v2
-    | category 包括 task plan step command receipt approval memory final
+    | category 包括 task message version_snapshot plan step command receipt approval memory final
     | RunTraceStore 内存缓存 + 持久化到 results/run_traces
-    | Redis 保存 run context 和 resume state
+    | 运行态存储保存 run context 和 resume state
     | eval/results 消费 trace 做 replay evaluator gate benchmark
     | 返回统一结果
     v
@@ -123,6 +123,9 @@
 # 文档保留范围
 ```text
 README.md
-docs/ARCHITECTURE.md
 docs/PRD.md
+docs/ARCHITECTURE.md
+docs/STRATEGY.md
+docs/decisions/
+docs/phases/
 ```

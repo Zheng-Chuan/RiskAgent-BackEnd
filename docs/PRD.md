@@ -18,7 +18,7 @@
 ### 2.1 成功标准
 
 - 简历中的每个关键能力都有对应代码模块, 测试, 文档, 评测样例
-- 主流程必须形成 `plan -> execute -> observe -> replan -> finalize` 真实闭环
+- 主流程必须形成 `intent -> retrieve planning memory -> orchestrator_plan -> critic_plan -> task_graph execution -> receipts approvals replan -> finalize -> persist and trace` 真实闭环
 - 工具调用必须产出真实 receipt, 并被后续 Agent 消费
 - 记忆必须在任务前检索, 任务中更新, 任务后沉淀, 并支持恢复执行
 - 副作用动作必须在真实审批链上通过或被拒绝
@@ -73,13 +73,14 @@
 | :--- | :--- | :--- | :--- |
 | Phase 0 | 对齐与止血 | ✓ 完成 | [phase-0-alignment.md](./phases/phase-0-alignment.md) |
 | Phase 1 | 真实执行闭环 | ✓ 完成 | [phase-1-execution-loop.md](./phases/phase-1-execution-loop.md) |
-| Phase 2 | 记忆闭环和恢复执行 | ✓ 完成 | [phase-2-memory-closure.md](./phases/phase-2-memory-closure.md) |
+| Phase 2 | 记忆闭环和恢复执行 | △ 已实现核心能力, 验收未通过 | [phase-2-memory-closure.md](./phases/phase-2-memory-closure.md) |
 | Phase 3 | 事件驱动和主动协作 | ✓ 完成 | [phase-3-event-driven.md](./phases/phase-3-event-driven.md) |
 | Phase 4 | 评测和门禁生产化 | ✓ 完成 | [phase-4-evaluation.md](./phases/phase-4-evaluation.md) |
 | Phase 5 | 技能自创闭环 | ✓ 完成 | [phase-5-skill-creation.md](./phases/phase-5-skill-creation.md) |
 | Phase 6 | 记忆永久化与上下文压缩 | ✓ 完成 | [phase-6-memory-persistence.md](./phases/phase-6-memory-persistence.md) |
-| Phase 7 | 调度与多平台 | ✓ 完成 | [phase-7-scheduling-gateway.md](./phases/phase-7-scheduling-gateway.md) |
-| Phase 8 | 提示词优化与自我改进闭环 | ✓ 完成 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
+| Phase 7 | 调度与多平台 | ✓ 抽象层收口完成 | [phase-7-scheduling-gateway.md](./phases/phase-7-scheduling-gateway.md) |
+| Phase 8 | 提示词优化与自我改进闭环 | △ 核心模块和 benchmark runner 已实现, 对照报告待跑 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
+| Phase 9 | 证据优先收口与验收补强 | △ 进行中 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
 
 ---
 
@@ -92,7 +93,8 @@
 | 统一记忆架构 | Implemented | [ADR-003](./decisions/ADR-003-unified-memory-design.md) |
 | 零信任工具治理 | Implemented | [ADR-004](./decisions/ADR-004-tool-governance.md) |
 | run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
-| Hermes 五柱升级提案 | Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
+| Hermes 五柱升级提案 | Accepted and Partially Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
+| Evidence-First 收口提案 | Accepted and In Progress | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
 
 ---
 
@@ -102,7 +104,7 @@
 | :--- | :--- | :--- |
 | FR-1 | 系统必须支持任务图级规划和执行 | [Phase 1](./phases/phase-1-execution-loop.md) |
 | FR-2 | 系统必须支持真实工具调用回执 | [Phase 1](./phases/phase-1-execution-loop.md) |
-| FR-3 | 系统必须支持 step 级审批和恢复 | [Phase 1](./phases/phase-1-execution-loop.md) |
+| FR-3 | 系统必须支持 step 级审批和恢复 | [Phase 3](./phases/phase-3-event-driven.md) |
 | FR-4 | 系统必须支持消息驱动协作 | [Phase 3](./phases/phase-3-event-driven.md) |
 | FR-5 | 系统必须支持语义记忆检索和经验沉淀 | [Phase 2](./phases/phase-2-memory-closure.md) |
 | FR-6 | 系统必须支持任务失败后的恢复执行 | [Phase 2](./phases/phase-2-memory-closure.md) |
@@ -145,7 +147,7 @@
 
 以下条件同时满足, 才允许对外按照简历口径讲完整能力:
 
-- `plan -> execute -> observe -> replan` 闭环已在代码和 benchmark 中成立
+- `intent -> retrieve planning memory -> orchestrator_plan -> critic_plan -> task_graph execution -> receipts approvals replan -> finalize -> persist and trace` 已在代码和 benchmark 中成立
 - 真实工具调用, 审批, 回执, 恢复都有 case 证明
 - 记忆检索已经真实参与规划和恢复
 - 评测结果中关键计数项全部来自真实事件
@@ -153,16 +155,24 @@
 
 ---
 
-## 11. Hermes 升级成功标准
+## 11. Hermes 升级状态与成功标准
 
-项目完成 Phase 5-8 后, 需要同时满足以下标准:
+当前代码对 Hermes 五柱的实际落地状态如下:
+
+- 技能自创闭环: 已接入主链并完成核心测试
+- 永久化记忆与上下文压缩: 已实现主链能力, 恢复与长期质量证据仍需持续补强
+- 内置调度系统: 已接入统一执行内核
+- 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层与统一路由. 代码库当前仍保留兼容性平台适配器实现, 但不作为对外交付承诺
+- 提示词优化与自我改进闭环: 三层 prompt 与报告工具已实现, 成本下降和闭环结论待新的单次对照验收验证
+
+对外完整宣称 Hermes Phase 5-8 已全部完成前, 仍需同时满足以下标准:
 
 - 系统具备从执行经验中自动创建和改进 Skill 的能力
 - 关键记忆跨会话永久保存, 不因 Redis 重启而丢失
 - 支持自然语言定义的定时风控任务
-- ~~支持至少 2 个企业通讯平台的告警推送和交互查询~~ (已回退 2026-06-27, 核心 GatewayAdapter 抽象层保留)
+- 正式能力口径只承诺 GatewayAdapter 抽象层和统一路由
 - LLM token 成本较当前下降 20% 以上
-- 系统整体表现随使用时间呈上升趋势 (自我改进闭环成立)
+- 自我改进结论可通过单次成组对照验收稳定复现
 - 所有新增能力都接入统一执行内核, 不形成旁路
 
 ---

@@ -1,12 +1,12 @@
 # RFC-001: Hermes Engineering 五柱升级提案
 
-**状态**：Draft
+**状态**：Accepted and Partially Implemented
 **日期**：2026-06-26
 **作者**：RiskMonitor-MultiAgent 项目组
 
 ## Motivation / 动机
 
-当前系统已完成 Phase 0-4 全部增强，形成了具备以下能力的 Multi-Agent 金融风控平台：
+当前系统已完成 Phase 0-4 全部增强, 并已在代码中落地 Phase 5-8 的部分或全部能力, 但 Hermes 相关验收口径仍需按真实证据持续收敛. 当前已具备以下基础能力:
 
 - 真实执行闭环（TaskGraph DAG 调度 + Command/Receipt）
 - 统一记忆架构（Private + Shared + Long-term Experience）
@@ -14,7 +14,7 @@
 - HITL 审批与恢复（审批状态机 + step 级恢复）
 - 全链路追踪与评测（run_trace.v2 + Replay CLI + 42 条基准用例）
 
-下一阶段目标是将系统从**"精密执行引擎"升级为"自我改进的智能风控平台"**。
+Hermes 的目标仍然是将系统从**"精密执行引擎"升级为"自我改进的智能风控平台"**, 但当前应按代码和证据如实记录阶段性状态, 不再把所有支柱统一表述为已完全完成。
 
 参考 Hermes Engineering (Nous Research) 的五柱架构思想，系统需要获得：
 1. 从经验中自动创建和改进可复用技能
@@ -24,6 +24,13 @@
 5. LLM 调用成本可控下降
 
 **架构不变量**：本升级始终保持多 Agent 架构（参见 [ADR-001](./ADR-001-multi-agent-architecture.md)），Hermes 能力增强每个 Agent，不替代多 Agent 协作。
+
+**当前代码状态摘要**：
+- 支柱一 技能自创闭环: 已实现并接入主链
+- 支柱二 永久化记忆与上下文压缩: 已实现主链能力
+- 支柱三 内置调度系统: 已实现并接入统一执行内核
+- 支柱四 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层和统一路由
+- 支柱五 提示词缓存分层: 核心模块已实现, 新验收标准待执行
 
 ## Proposal / 提案概述
 
@@ -208,7 +215,7 @@ Cron 任务如果定义过密或出现递归创建，可能消耗大量系统资
 
 **缓解**：抽象层隔离变化 + 只适配核心消息模式 + 按需扩展
 
-> 注: 2026-06-27 Slack 和 WeChat Work 适配器已从代码库移除, 核心 GatewayAdapter 抽象层保留.
+> 注: 当前代码库仍保留 `SlackAdapter` 和 `WeChatWorkAdapter` 兼容实现, 但本项目对外正式承诺已收敛为 `GatewayAdapter` 抽象层和统一路由能力. 具体平台适配器不再作为本轮验收目标.
 
 ## Alternatives / 替代方案
 
@@ -255,8 +262,8 @@ Cron 任务如果定义过密或出现递归创建，可能消耗大量系统资
 
 ### 2. 多平台优先级
 
-- ~~企业微信 vs Slack vs Telegram，优先适配哪个？~~ (已回退 2026-06-27, 具体平台适配器已移除)
-- 核心 GatewayAdapter 抽象层保留, 后续可按需实现新平台适配器
+- ~~企业微信 vs Slack vs Telegram，优先适配哪个？~~ (本轮不再作为正式承诺)
+- 核心 GatewayAdapter 抽象层保留, 后续如需恢复平台适配器, 走新一轮 RFC 或 phase 文档评审
 
 ### 3. 上下文压缩的质量损失
 

@@ -282,13 +282,95 @@ async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
     )
 
     assert isinstance(summary.get("hits"), list)
-    assert len(summary.get("hits") or []) >= 2
+    assert len(summary.get("hits") or []) >= 1
     summary_block = summary.get("summary") or {}
-    assert summary_block.get("hit_count") >= 2
+    assert summary_block.get("hit_count") >= 1
     assert isinstance(summary_block.get("texts"), list)
-    assert "plan" in summary_block.get("texts")[0]
+    assert "lesson" in summary_block.get("texts")[0] or "plan" in summary_block.get("texts")[0]
     assert summary_block.get("few_shot_example_count") >= 1
     assert summary_block.get("few_shot_examples")
+
+
+@pytest.mark.asyncio
+async def test_memory_store_retrieve_for_planning_gates_low_relevance_hits():
+    """低相关记忆不会直接进入规划摘要."""
+    from riskmonitor_multiagent.memory import MemoryStore
+
+    _store_data = {}
+    mock_redis = MagicMock()
+    mock_pipeline = MagicMock()
+
+    def mock_lpush(key, value):
+        if key not in _store_data:
+            _store_data[key] = []
+        _store_data[key].insert(0, value)
+        return mock_pipeline
+
+    def mock_ltrim(key, start, end):
+        if key in _store_data:
+            arr = _store_data[key]
+            _store_data[key] = arr[start:end + 1]
+        return mock_pipeline
+
+    def mock_expire(key, ttl):
+        return mock_pipeline
+
+    mock_pipeline.lpush = mock_lpush
+    mock_pipeline.ltrim = mock_ltrim
+    mock_pipeline.expire = mock_expire
+    mock_pipeline.execute = AsyncMock(return_value=[True, True, True])
+    mock_redis.pipeline = MagicMock(return_value=mock_pipeline)
+
+    async def mock_lrange(key, start, end):
+        arr = _store_data.get(key, [])
+        return arr[start:end + 1] if arr else []
+
+    mock_redis.lrange = mock_lrange
+    mock_redis.ping = AsyncMock(return_value=True)
+
+    store = MemoryStore()
+    store._redis = mock_redis
+
+    await store.append(
+        {
+            "agent_id": "orchestrator",
+            "scope": "shared",
+            "kind": "plan",
+            "session_id": "s_gate",
+            "content": {"text": "员工报销审批要先核对发票和预算"},
+        }
+    )
+    await store.append(
+        {
+            "agent_id": "critic",
+            "scope": "shared",
+            "kind": "semantic_case",
+            "memory_type": "semantic",
+            "session_id": "s_gate",
+            "content": {
+                "text": "交易台风险查询应先看持仓再看敞口",
+                "decision_pattern": "先查持仓 -> 再查敞口 -> 最后总结",
+                "applicable_conditions": ["query_positions", "交易台"],
+                "failure_boundary": ["不要跳过持仓证据"],
+                "evidence_refs": ["bootstrap:gate"],
+            },
+        }
+    )
+
+    summary = await store.retrieve_for_planning(
+        task={"task_id": "t_gate", "session_id": "s_gate", "payload": {"content": "查询交易台风险和持仓"}},
+        intent={"primary_intent_type": "query_positions"},
+        limit=3,
+    )
+
+    summary_block = summary.get("summary") or {}
+    assert summary_block.get("candidate_hit_count") >= 2
+    assert summary_block.get("used_hit_count") >= 1
+    assert summary_block.get("gated_out_hit_count") >= 1
+    hits = summary.get("hits") or []
+    assert hits
+    assert all(hit.get("used_for_planning") is True for hit in hits)
+    assert all("报销审批" not in str((hit.get("content") or {}).get("text", "")) for hit in hits)
 
 
 @pytest.mark.asyncio

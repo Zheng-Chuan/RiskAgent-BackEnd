@@ -49,6 +49,7 @@ from riskmonitor_multiagent.orchestration.workflow_resume import (
     apply_resume_context,
     apply_approval_decision_to_resume_request,
     merge_resume_memory_into_planning_memory,
+    validate_resume_request_completeness,
     should_replan,
     build_replan_reason,
     should_runtime_replan,
@@ -356,6 +357,114 @@ class ProactiveMultiAgentWorkflow:
             resume_request = apply_approval_decision_to_resume_request(
                 resume_request=resume_request,
             )
+            if resume_request:
+                normalized_resume_request = dict(resume_request)
+                normalized_resume_request["memory_state"] = (
+                    list(normalized_resume_request.get("memory_state"))
+                    if isinstance(normalized_resume_request.get("memory_state"), list)
+                    else []
+                )
+                normalized_resume_request["shared_memory_board"] = (
+                    list(normalized_resume_request.get("shared_memory_board"))
+                    if isinstance(normalized_resume_request.get("shared_memory_board"), list)
+                    else []
+                )
+                normalized_resume_request["private_memory_state"] = (
+                    dict(normalized_resume_request.get("private_memory_state"))
+                    if isinstance(normalized_resume_request.get("private_memory_state"), dict)
+                    else {}
+                )
+                normalized_resume_request["run_summary"] = (
+                    dict(normalized_resume_request.get("run_summary"))
+                    if isinstance(normalized_resume_request.get("run_summary"), dict)
+                    else {}
+                )
+                normalized_resume_request["approval_decision"] = (
+                    dict(normalized_resume_request.get("approval_decision"))
+                    if isinstance(normalized_resume_request.get("approval_decision"), dict)
+                    else {}
+                )
+                resume_request = normalized_resume_request
+            resume_validation = validate_resume_request_completeness(
+                resume_request=resume_request,
+            )
+            if resume_request and not resume_validation["is_complete"]:
+                logger.warning(
+                    "[ProactiveWorkflow] Resume request incomplete: missing=%s invalid=%s",
+                    resume_validation.get("missing_fields"),
+                    resume_validation.get("invalid_fields"),
+                )
+                return {
+                    "status": "failed",
+                    "run_id": run_id,
+                    "entry_type": run_context.get("entry_type"),
+                    "run_context": run_context,
+                    "task_id": task.get("task_id"),
+                    "task": task,
+                    "route_decision": route_decision or {},
+                    "intent": {},
+                    "task_graph": (
+                        dict(resume_request.get("task_graph"))
+                        if isinstance(resume_request.get("task_graph"), dict)
+                        else {}
+                    ),
+                    "task_graph_execution": {
+                        "status": "failed",
+                        "completed_steps": [],
+                        "skipped_steps": [],
+                        "failed_step_id": None,
+                        "blocked_step_id": None,
+                        "trace": [],
+                        "errors": ["resume_context_incomplete"],
+                        "resume_history": [
+                            {
+                                "resume_from_step_id": resume_request.get("resume_from_step_id"),
+                                "mode": "step_resume",
+                                "validation": resume_validation,
+                            }
+                        ],
+                        "resume_ready": False,
+                        "failure_classification": resume_validation.get("failure_classification"),
+                        "resume_validation": resume_validation,
+                    },
+                    "orchestrator_plan": {},
+                    "critic_plan": {},
+                    "critic_final": {},
+                    "replan": {},
+                    "receipts": [],
+                    "approval_trace": [],
+                    "engineer": {},
+                    "analyst": {},
+                    "final_output": {},
+                    "react_steps": [],
+                    "bdi_states": {},
+                    "llm_interactions": [],
+                    "latency_ms": (time.time() - start_time) * 1000,
+                    "errors": ["resume_context_incomplete"],
+                    "memory_hits": [],
+                    "planning_memory": {"resume_validation": resume_validation},
+                    "resume_memory_state": (
+                        list(resume_request.get("memory_state"))
+                        if isinstance(resume_request.get("memory_state"), list)
+                        else []
+                    ),
+                    "shared_memory_board": (
+                        list(resume_request.get("shared_memory_board"))
+                        if isinstance(resume_request.get("shared_memory_board"), list)
+                        else []
+                    ),
+                    "private_memory_state": (
+                        dict(resume_request.get("private_memory_state"))
+                        if isinstance(resume_request.get("private_memory_state"), dict)
+                        else {}
+                    ),
+                    "run_summary": {},
+                    "procedural_lesson": {},
+                    "long_term_experience": {},
+                    "rejected_experience": {},
+                    "memory_policy": {},
+                    "approval_memory": [],
+                }
             task = apply_resume_context(
                 task=task,
                 resume_request=resume_request,

@@ -17,6 +17,7 @@ from typing import Any
 from riskmonitor_multiagent.contracts.memory_entry import normalize_memory_entry
 from riskmonitor_multiagent.memory.memory_helpers import (
     _DEFAULT_PRIVATE_AGENT_IDS,
+    annotate_memory_hits_for_planning,
     build_planning_query,
     canonical_agent_id,
     dedupe_memory_hits,
@@ -280,8 +281,45 @@ class MemoryStore(MemoryWriteOperationsMixin):
             if reusable_snippet:
                 entry["reusable_snippet"] = reusable_snippet
 
-        hits = dedupe_memory_hits(recent_hits + semantic_hits + recent_semantic_cases, limit=limit)
+        candidate_hits = dedupe_memory_hits(
+            recent_hits + semantic_hits + recent_semantic_cases,
+            limit=max(limit * 2, 6),
+        )
+        annotated_hits = annotate_memory_hits_for_planning(
+            hits=candidate_hits,
+            content=content,
+            intent_type=intent_type,
+            session_id=session_id,
+        )
+        hits = [hit for hit in annotated_hits if hit.get("used_for_planning")][:limit]
+        if not hits and annotated_hits:
+            best_hit = annotated_hits[0]
+            if float(best_hit.get("relevance_score") or 0.0) > 0.0:
+                fallback = dict(best_hit)
+                fallback["used_for_planning"] = True
+                fallback["relevance_reasons"] = list(fallback.get("relevance_reasons") or []) + ["best_effort_fallback"]
+                hits = [fallback]
+
         summary = summarize_hits(hits)
+        summary["candidate_hit_count"] = len(candidate_hits)
+        summary["used_hit_count"] = len(hits)
+        summary["gated_out_hit_count"] = max(0, len(candidate_hits) - len(hits))
+        summary["relevance_gate"] = {
+            "enabled": True,
+            "candidate_hit_count": len(candidate_hits),
+            "used_hit_count": len(hits),
+            "gated_out_hit_count": max(0, len(candidate_hits) - len(hits)),
+            "top_candidates": [
+                {
+                    "entry_id": hit.get("entry_id"),
+                    "kind": hit.get("kind"),
+                    "relevance_score": hit.get("relevance_score"),
+                    "relevance_bucket": hit.get("relevance_bucket"),
+                    "used_for_planning": hit.get("used_for_planning"),
+                }
+                for hit in annotated_hits[:5]
+            ],
+        }
         summary["shared_board"] = summarize_shared_board(shared_board)
         summary["private_memory"] = summarize_private_memory(private_memory_state)
         summary["few_shot_examples"] = extract_few_shot_examples(hits)
@@ -294,6 +332,7 @@ class MemoryStore(MemoryWriteOperationsMixin):
         )
         return {
             "hits": hits,
+            "candidate_hits": annotated_hits,
             "summary": summary,
             "shared_board": shared_board,
             "private_memory_state": private_memory_state,
@@ -334,6 +373,7 @@ class MemoryStore(MemoryWriteOperationsMixin):
             "shared_memory_board": shared_memory_board,
             "private_memory_state": private_memory_state,
             "run_summary": await self.get_run_summary(run_id),
+            "approval_decision": {},
         }
 
     # ==================== 长期运行上下文 ====================

@@ -10,6 +10,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 from riskmonitor_multiagent.proactive_agents import ProactiveAgentResult
 from riskmonitor_multiagent.orchestration.proactive_workflow import ProactiveMultiAgentWorkflow
+from riskmonitor_multiagent.orchestration.workflow_resume import validate_resume_request_completeness
 
 
 def test_proactive_workflow_replans_when_critic_rejects():
@@ -531,6 +532,52 @@ def test_proactive_workflow_surfaces_tool_receipts_from_task_graph():
     assert "cmd-tool-2" in ((result.get("final_output") or {}).get("receipt_command_ids") or [])
     assert isinstance(result.get("critic_final"), dict)
     assert "cmd-tool-2" in (((result.get("critic_final") or {}).get("evidence") or {}).get("receipt_command_ids") or [])
+
+
+def test_validate_resume_request_completeness_flags_missing_fields():
+    result = validate_resume_request_completeness(
+        resume_request={
+            "run_id": "resume-check-1",
+            "task_graph": {},
+            "execution_state": {},
+        }
+    )
+
+    assert result["resume_requested"] is True
+    assert result["is_complete"] is False
+    assert set(result["missing_fields"]) == {"memory_state", "run_summary", "approval_decision"}
+    assert result["failure_classification"] == "resume_context_incomplete"
+
+
+def test_proactive_workflow_fails_fast_for_incomplete_resume_request():
+    workflow = ProactiveMultiAgentWorkflow()
+
+    async def _noop():
+        return None
+
+    workflow.start_agents = _noop
+
+    result = asyncio.run(
+        workflow.run(
+            {
+                "task_id": "resume-invalid-1",
+                "source": "human",
+                "memory_enabled": False,
+                "payload": {"content": "恢复执行"},
+                "resume": {
+                    "run_id": "resume-invalid-1",
+                },
+            }
+        )
+    )
+
+    execution = result.get("task_graph_execution") or {}
+    validation = (result.get("planning_memory") or {}).get("resume_validation") or {}
+    assert result.get("status") == "failed"
+    assert execution.get("failure_classification") == "resume_context_incomplete"
+    assert execution.get("resume_ready") is False
+    assert execution.get("resume_history")[0].get("resume_from_step_id") is None
+    assert "task_graph" in validation.get("missing_fields", [])
 
 
 def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():

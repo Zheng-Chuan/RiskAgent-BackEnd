@@ -2,7 +2,7 @@
 
 ## 状态
 
-已完成 ✅
+进行中. 核心模块和 one-shot comparative benchmark runner 已实现, 对照报告待跑
 
 ## 核心目标
 
@@ -20,7 +20,7 @@
 - 三层 prompt 分离实现
 - prompt 版本管理与缓存失效控制
 - token 成本追踪与优化报告
-- 自我改进闭环端到端验证
+- 单次成组对照验收
 
 ### Out of Scope（本期不做）
 - 模型微调
@@ -53,17 +53,18 @@
   - 验收证据: 成本报告样例. 分层前后对比. cache_hit_rate 指标.
   - 通过标准: 成本报告可生成. 分层优化后 token 总消耗下降可量化. token 成本下降 20%+ 可通过报告验证.
 
-### 自我改进闭环验证
+### 单次成组对照验收
 
 #### 目标
 
-验证 Phase 5-8 各能力形成的涌现属性: 系统越用越好.
+用一次可复现的成组 benchmark 对照, 验证三层 prompt 分离是否在不伤害质量的前提下降低 token 成本.
 
-- [x] Checkpoint: 自我改进闭环端到端验证
-  - 实现项: 连续运行系统 7 天, 观察 Skill 库积累, 记忆质量提升, 规划效率变化, token 成本变化的趋势. 实现 `TrendTracker` (位于 `src/riskmonitor_multiagent/prompts/trend_tracker.py`), 支持自动追踪多次运行的关键指标趋势 (Skill 库增长、规划质量、token 成本、任务完成率), 生成 7 天自我改进趋势报告.
-  - 验收方法: 7 天连续运行后生成趋势报告.
-  - 验收证据: Skill 库增长曲线. 规划质量趋势. token 成本趋势. 任务完成率趋势. TrendTracker 生成的趋势报告.
-  - 通过标准: Skill 库有有效积累. 系统整体表现随使用时间呈上升趋势. 7 天自我改进趋势可通过 TrendTracker 验证.
+- [ ] Checkpoint: one-shot comparative benchmark
+  - 实现项: 构造一组固定的风控 benchmark case, 同一代码版本 同一模型 同一环境下分别运行 `prompt_layering_off` 和 `prompt_layering_on` 两组实验. 输出统一对比报告. `TrendTracker` 仍保留为长期运营工具, 但不再作为本 Phase 的硬验收前置条件. 当前固定 case 集位于 `eval/benchmarks/prompt_layering/one_shot_cases.jsonl`, runner 位于 `eval/scripts/run_prompt_layering_benchmark.py`, `Makefile` 入口为 `make eval-prompt-benchmark`.
+  - Case 设计: 由项目内构造 `Simple` `Complex` `Recovery` `Approval` `Memory` `Safety` 六类 case, 总量控制在 `6-8` 个, 保证一次运行即可完成对照.
+  - 验收方法: 在同一 benchmark 上跑 `baseline` 和 `optimized` 两组实验, 生成一次汇总 `json` 和 `md` 报告.
+  - 验收证据: case 清单. 两组实验结果. `token_total` `cache_hit_rate` `prefix_cache_savings` `task_success_rate` `evidence_coverage` `approval_correctness` 对照表.
+  - 通过标准: `task_success_rate` 不低于 baseline. `evidence_coverage` 不低于 baseline 的 `95%`. `approval_correctness` 不低于 baseline. `token_total` 下降 `15%-20%`. `cache_hit_rate > 0`.
 
 ## 风险与缓解
 
@@ -72,23 +73,30 @@
 | Prompt 膨胀导致分层后仍超限 | 中 | 高 | 各层设置 token 上限 + 超限时触发压缩 |
 | 缓存失效频率过高导致收益不明显 | 中 | 中 | 时间戳精度控制为日级 + stable_tier 严格稳定 |
 | 自我改进闭环未形成正向循环 | 中 | 高 | Skill 质量门槛 + 低质量自动降权 + 人工审核兜底 |
-| 连续运行 7 天的基础设施稳定性 | 低 | 中 | 持久化兜底 + 自动恢复机制 |
+| 单次成组对照设计不合理导致结论失真 | 中 | 中 | 固定 case 集 + 同模型同环境对照 + 输出完整 trace |
 
 ## 成功标准 (Exit Criteria)
 
 - 实现三层 prompt 分离
 - 实现版本管理与缓存失效控制
 - Token 成本降低 20%+
-- 自我改进闭环端到端验证
-- 连续运行 7 天后 Skill 库有有效积累
-- 系统整体表现随使用时间呈上升趋势
+- 完成 one-shot comparative benchmark
+- 在单次成组对照中质量指标不退化
+- token 成本下降可通过报告验证
 
 ## 交付物清单
 
 - [x] 代码：三层 prompt 构建器 (含 tiktoken 可选精确计算), 版本管理器, 缓存失效控制, TokenTracker 扩展, CostReportGenerator, TrendTracker
 - [x] 测试：prompt 构建单测, 缓存失效测试, token 对比测试
 - [x] 文档：提示词分层策略说明, 成本优化报告模板
-- [x] 评测：分层前后 token 成本对比 (CostReportGenerator 验证), 7 天连续运行趋势报告 (TrendTracker 验证)
+- [ ] 评测：分层前后 token 成本对比和 one-shot comparative benchmark 汇总报告. runner 和固定 case 集已落地, 但正式对照报告尚未产出
+
+## 当前结论
+
+- 三层 prompt 构建器, TokenTracker 扩展, CostReportGenerator, TrendTracker 已在代码中实现
+- 固定 case 集和 one-shot benchmark runner 已落地, 可以通过 `make eval-prompt-benchmark` 触发
+- 但 `7 day` 连续运行不再作为本期硬验收方式
+- 对照报告尚未正式产出, 因此本 Phase 暂不能宣称验收通过
 
 ## 相关文档
 

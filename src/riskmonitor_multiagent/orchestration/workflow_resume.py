@@ -8,6 +8,55 @@ from __future__ import annotations
 
 from typing import Any
 
+_RESUME_REQUIRED_FIELDS: dict[str, type] = {
+    "task_graph": dict,
+    "execution_state": dict,
+    "memory_state": list,
+    "run_summary": dict,
+    "approval_decision": dict,
+}
+
+
+def validate_resume_request_completeness(
+    *,
+    resume_request: dict[str, Any],
+) -> dict[str, Any]:
+    """校验恢复请求的完整性并给出失败分类."""
+    if not resume_request:
+        return {
+            "resume_requested": False,
+            "is_complete": True,
+            "missing_fields": [],
+            "invalid_fields": [],
+            "failure_classification": None,
+        }
+
+    missing_fields: list[str] = []
+    invalid_fields: list[str] = []
+    for field_name, expected_type in _RESUME_REQUIRED_FIELDS.items():
+        if field_name not in resume_request:
+            missing_fields.append(field_name)
+            continue
+        value = resume_request.get(field_name)
+        if not isinstance(value, expected_type):
+            invalid_fields.append(field_name)
+
+    resume_from_step_id = resume_request.get("resume_from_step_id")
+    if resume_from_step_id is not None and not isinstance(resume_from_step_id, str):
+        invalid_fields.append("resume_from_step_id")
+
+    failure_classification = None
+    if missing_fields or invalid_fields:
+        failure_classification = "resume_context_incomplete"
+
+    return {
+        "resume_requested": True,
+        "is_complete": not missing_fields and not invalid_fields,
+        "missing_fields": missing_fields,
+        "invalid_fields": invalid_fields,
+        "failure_classification": failure_classification,
+    }
+
 
 def apply_resume_context(
     *,

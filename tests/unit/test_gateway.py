@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import importlib
 from unittest.mock import AsyncMock
 
 import pytest
@@ -318,3 +319,18 @@ def test_gateway_adapter_is_abstract() -> None:
     """GatewayAdapter 是抽象基类, 不能直接实例化."""
     with pytest.raises(TypeError):
         GatewayAdapter()  # type: ignore[abstract]
+
+
+def test_gateway_public_api_only_exposes_core_contracts() -> None:
+    """gateway 包公开 API 只保留核心抽象层."""
+    gateway_module = importlib.import_module("riskmonitor_multiagent.gateway")
+    assert gateway_module.__all__ == [
+        "GatewayAdapter",
+        "GatewayMessage",
+        "GatewayRouter",
+    ]
+    assert hasattr(gateway_module, "GatewayAdapter") is True
+    assert hasattr(gateway_module, "GatewayMessage") is True
+    assert hasattr(gateway_module, "GatewayRouter") is True
+    assert hasattr(gateway_module, "SlackAdapter") is False
+    assert hasattr(gateway_module, "WeChatWorkAdapter") is False

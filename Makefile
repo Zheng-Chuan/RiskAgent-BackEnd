@@ -1,4 +1,4 @@
-.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate check-llm
+.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm
 
 help:
 	@echo "RiskMonitor-MultiAgent Development Commands"
@@ -40,6 +40,7 @@ help:
 	@echo "make eval-run         - Run benchmark, usage: make eval-run RUN_TAG=run1 REPEATS=2"
 	@echo "make eval-compare     - Compare two runs, usage: make eval-compare BASE=run1 CAND=run2"
 	@echo "make eval-gate        - Apply quality gate, usage: make eval-gate RUN_TAG=run1"
+	@echo "make eval-prompt-benchmark - Run Phase 8 one-shot prompt layering benchmark"
 	@echo "make check-llm        - Verify Volcengine LLM connection (.env: LLM_API_KEY)"
 
 install:
@@ -81,6 +82,9 @@ eval-compare:
 
 eval-gate:
 	python -m scripts.eval.quality_gate --run "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --gate "$(if $(GATE),$(GATE),eval/gates/default.json)"
+
+eval-prompt-benchmark:
+	python eval/scripts/run_prompt_layering_benchmark.py $(ARGS)
 
 check-llm:
 	python scripts/check_llm_connection.py

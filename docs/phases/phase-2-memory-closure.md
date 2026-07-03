@@ -2,7 +2,7 @@
 
 ## 状态
 
-已完成 ✓
+未完成. 核心能力已实现, 但当前 A/B 验收未通过
 
 ## 核心目标
 
@@ -48,19 +48,23 @@
 
 #### 当前状态
 
-当前版本已经形成统一的 7.3 主链.
+当前版本已经形成统一的 7.3 主链, 但 Phase 2 不能按已完成对外表述.
 
 - `private task memory` 已落地到主链执行路径, 并形成稳定模板
 - `shared memory board` 已从流水式条目升级为显式 board 视图
 - `Critic Agent` 已按 `confidence policy` 沉淀高置信长期经验, 同时保留 rejected 记录
 - `planning execution resume` 三条链路都已显式消费记忆, `few-shot reuse` 也已返回可复用结构化片段
 - `role_drift_rate` `memory_cross_talk_rate` 已进入指标与 trace
-- 轻量 A/B 验收已经跑通, `memory_on` 在 memory benchmark 上能稳定命中历史经验并产生 few-shot reuse
-
-7.3 已全部收口完成.
-
 - A/B 脚本与三组 baseline 入口已经补齐
 - 最新轻量报告位于 `eval/results/memory_ab/20260515_195830_summary.json` 和 `eval/results/memory_ab/20260515_195830_summary.md`
+
+但当前真实报告显示:
+
+- `memory_on` 相比 `memory_off` 的 `task_success_rate` 从 `1.0000` 降到 `0.6667`
+- `memory_on` 相比 `memory_off` 的 `evidence_coverage` 从 `1.0000` 降到 `0.8000`
+- `resume_success_rate` 仍为 `0.0000`
+
+因此 7.3 当前的准确状态是 `核心能力已实现, 但价值验收和恢复验收未收口`.
 
 #### Checkpoint 详细内容
 
@@ -100,11 +104,12 @@
   - 验收证据: 角色漂移指标. cross talk 检测日志. 错误记忆被隔离或降权的记录.
   - 通过标准: 长任务中角色边界保持稳定, 错误来源的公共记忆不会静默污染所有 agent.
 
-- [x] Checkpoint 7.3.7 Unified Memory A/B 价值评测
+- [ ] Checkpoint 7.3.7 Unified Memory A/B 价值评测
   - 实现项: 新增 `memory_hit_rate` `memory_usefulness` `resume_success_rate` `few_shot_reuse_rate` `role_drift_rate` `memory_cross_talk_rate`. `memory_usefulness` 继续采用 memory_on 和 memory_off 对照.
   - 验收方法: 在同一 benchmark 上跑 `memory_on` `memory_off` `private_disabled` 三组实验.
   - 验收证据: `eval/results/memory_ab/20260515_195830_summary.json` `eval/results/memory_ab/20260515_195830_summary.md` 和对应三组结果文件. 其中 `memory_on` 对比 `memory_off` 的 `memory_hit_rate` 从 `0.0` 提升到 `1.0`, `memory_usefulness` 从 `0.0` 提升到 `0.6`, `few_shot_reuse_rate` 从 `0.0` 提升到 `1.0`.
-  - 通过标准: 已满足. 当前最小 memory benchmark 中 `memory_on` 相比 `memory_off` 的 `evidence_coverage` 提升 `20%`, 且 `few_shot_reuse_rate > 0`. `private_disabled` 在该共享经验复用 case 上与 `memory_on` 基本持平, 说明这个 case 主要验证 shared memory 与 semantic few-shot 价值, 不是私有记忆主导场景.
+  - 当前结果: `memory_hit_rate` `memory_usefulness` `few_shot_reuse_rate` 已有提升, 但 `task_success_rate` 和 `evidence_coverage` 未优于 `memory_off`, `resume_success_rate` 也未达到目标.
+  - 通过标准: 尚未满足. 只有在 `memory_on` 相比 `memory_off` 至少不退化, 且恢复成功率大于 `80%` 后, 本 Checkpoint 才能关闭.
 
 ## 风险与缓解
 
@@ -123,6 +128,15 @@
 - 增加 memory 质量评测
 - 有记忆版本优于无记忆 baseline
 - 中断后恢复成功率大于 80%
+
+## 当前结论
+
+- 三层记忆模型和 semantic retrieval 已实现
+- run resume 和 step resume 的代码链路已存在
+- memory 质量评测已建立
+- 但 `有记忆版本优于无记忆 baseline` 尚未被当前报告证明
+- `中断后恢复成功率大于 80%` 也尚未被当前报告证明
+- 因此本 Phase 暂不关闭, 直到报告指标与 Exit Criteria 一致
 
 ## 交付物清单
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from riskmonitor_multiagent.memory.semantic_indexer import _make_json_safe
@@ -37,6 +38,13 @@ _AGENT_PERSPECTIVES = {
     "orchestrator": "global_planning",
     "critic": "quality_gate",
     "intent": "intent_resolution",
+}
+
+_ASCII_TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
+_CJK_TOKEN_PATTERN = re.compile(r"[\u4e00-\u9fff]{2,}")
+_STOPWORDS = {
+    "and", "the", "for", "with", "from", "into", "then", "task", "risk", "query",
+    "分析", "查询", "处理", "任务", "然后", "需要", "进行", "当前", "相关", "一个",
 }
 
 
@@ -149,6 +157,108 @@ def build_planning_query(*, content: str, intent_type: str | None) -> str:
     return " ".join(part for part in parts if part)
 
 
+def _tokenize_relevance_text(value: Any) -> set[str]:
+    """提取轻量相关性 token."""
+    if not isinstance(value, str) or not value.strip():
+        return set()
+    normalized = value.strip().lower()
+    tokens = set(_ASCII_TOKEN_PATTERN.findall(normalized))
+    tokens.update(_CJK_TOKEN_PATTERN.findall(value))
+    return {token for token in tokens if token and token not in _STOPWORDS}
+
+
+def _collect_hit_relevance_tokens(hit: dict[str, Any]) -> set[str]:
+    """从记忆命中中提取相关性 token."""
+    tokens: set[str] = set()
+    for key in ("kind", "memory_type", "source", "agent_role", "agent_perspective"):
+        tokens.update(_tokenize_relevance_text(str(hit.get(key) or "")))
+
+    content = hit.get("content") if isinstance(hit.get("content"), dict) else {}
+    for key in ("text", "decision_pattern", "snapshot_text"):
+        tokens.update(_tokenize_relevance_text(content.get(key)))
+
+    for key in ("applicable_conditions", "failure_boundary", "tags", "evidence_refs"):
+        values = content.get(key)
+        if not isinstance(values, list):
+            values = hit.get(key)
+        if isinstance(values, list):
+            for item in values:
+                tokens.update(_tokenize_relevance_text(str(item)))
+
+    reusable_snippet = hit.get("reusable_snippet")
+    if isinstance(reusable_snippet, dict):
+        for value in reusable_snippet.values():
+            if isinstance(value, list):
+                for item in value:
+                    tokens.update(_tokenize_relevance_text(str(item)))
+            else:
+                tokens.update(_tokenize_relevance_text(str(value)))
+    return tokens
+
+
+def annotate_memory_hits_for_planning(
+    *,
+    hits: list[dict[str, Any]],
+    content: str,
+    intent_type: str | None,
+    session_id: str | None,
+) -> list[dict[str, Any]]:
+    """为规划阶段命中增加相关性评分与使用决策."""
+    query_tokens = _tokenize_relevance_text(content)
+    if isinstance(intent_type, str) and intent_type.strip():
+        query_tokens.update(_tokenize_relevance_text(intent_type))
+
+    annotated: list[dict[str, Any]] = []
+    for raw_hit in hits:
+        hit = dict(raw_hit)
+        hit_tokens = _collect_hit_relevance_tokens(hit)
+        overlap = sorted(query_tokens & hit_tokens)
+        score = 0.0
+        reasons: list[str] = []
+
+        if overlap:
+            score += min(0.55, 0.18 * len(overlap))
+            reasons.append(f"keyword_overlap:{','.join(overlap[:4])}")
+
+        if isinstance(intent_type, str) and intent_type.strip():
+            lowered_intent = intent_type.strip().lower()
+            if lowered_intent in {token.lower() for token in hit_tokens}:
+                score += 0.25
+                reasons.append(f"intent_match:{intent_type}")
+
+        if session_id and hit.get("session_id") == session_id:
+            score += 0.12
+            reasons.append("same_session")
+
+        if hit.get("kind") == "semantic_case" and isinstance(hit.get("reusable_snippet"), dict):
+            score += 0.08
+            reasons.append("reusable_snippet")
+
+        semantic_score = hit.get("semantic_score")
+        if isinstance(semantic_score, (int, float)) and semantic_score > 0:
+            score += min(0.2, float(semantic_score) * 0.2)
+            reasons.append("semantic_score")
+
+        score = round(min(1.0, score), 4)
+        threshold = 0.25 if hit.get("kind") == "semantic_case" else 0.3
+        hit["relevance_score"] = score
+        hit["relevance_reasons"] = reasons
+        hit["used_for_planning"] = score >= threshold
+        hit["relevance_bucket"] = (
+            "high" if score >= 0.6 else "medium" if score >= threshold else "low"
+        )
+        annotated.append(hit)
+
+    annotated.sort(
+        key=lambda item: (
+            float(item.get("relevance_score") or 0.0),
+            float(item.get("semantic_score") or 0.0),
+        ),
+        reverse=True,
+    )
+    return annotated
+
+
 def dedupe_memory_hits(hits: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:
     """对记忆命中去重."""
     seen: set[str] = set()
@@ -188,6 +298,9 @@ def summarize_hits(hits: list[dict[str, Any]]) -> dict[str, Any]:
                 "trace_ref": hit.get("trace_ref"),
                 "semantic_score": hit.get("semantic_score"),
                 "reusable_snippet": hit.get("reusable_snippet"),
+                "relevance_score": hit.get("relevance_score"),
+                "relevance_bucket": hit.get("relevance_bucket"),
+                "used_for_planning": hit.get("used_for_planning"),
             }
             for hit in hits
         ],

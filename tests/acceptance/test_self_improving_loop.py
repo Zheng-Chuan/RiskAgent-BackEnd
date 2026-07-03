@@ -28,6 +28,8 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
+from riskmonitor_multiagent.gateway import GatewayAdapter, GatewayMessage
+
 
 # ==================== Fixture 覆盖 ====================
 
@@ -112,6 +114,40 @@ class InMemoryPersistenceBackend:
 
     async def close(self) -> None:
         pass
+
+
+# ==================== Gateway 测试适配器 ====================
+
+
+class _FakeGatewayAdapter(GatewayAdapter):
+    """用于验收测试的 fake gateway 适配器."""
+
+    def __init__(self, platform: str, *, text_key: str, type_key: str) -> None:
+        self._platform = platform
+        self._text_key = text_key
+        self._type_key = type_key
+
+    @property
+    def platform_name(self) -> str:
+        return self._platform
+
+    async def receive_message(self, raw_input: dict[str, Any]) -> GatewayMessage:
+        return GatewayMessage(
+            platform=self.platform_name,
+            content=str(raw_input.get(self._text_key, "")),
+            user_id=str(raw_input.get("from_user")) if raw_input.get("from_user") else None,
+            channel_id=str(raw_input.get("chat_id")) if raw_input.get("chat_id") else None,
+            message_type=str(raw_input.get(self._type_key, "user_task")),
+        )
+
+    async def send_response(self, message: GatewayMessage, response: dict[str, Any]) -> bool:
+        return True
+
+    async def send_alert(self, alert: dict[str, Any], channel_id: str | None = None) -> bool:
+        return True
+
+    def platform_hints(self) -> dict[str, Any]:
+        return {"max_text_length": 4096}
 
 
 # ==================== 测试数据构造 ====================
@@ -969,82 +1005,84 @@ class TestSelfImprovingLoop:
     async def test_gateway_cross_platform_consistency(self):
         """测试 12: 多平台消息一致性.
 
-        - 企业微信消息 → GatewayMessage → 路由
-        - Slack 消息 → GatewayMessage → 路由
+        - 平台 A 消息 → GatewayMessage → 路由
+        - 平台 B 消息 → GatewayMessage → 路由
         - 不同平台的同一请求 → 相同 entry_type
         验证: 平台适配不影响执行内核
         """
-        from riskmonitor_multiagent.gateway import (
-            GatewayRouter,
-            SlackAdapter,
-            WeChatWorkAdapter,
-        )
+        from riskmonitor_multiagent.gateway import GatewayRouter
 
         router = GatewayRouter()
-        router.register_adapter(WeChatWorkAdapter())
-        router.register_adapter(SlackAdapter())
+        router.register_adapter(
+            _FakeGatewayAdapter(
+                "platform_a",
+                text_key="content",
+                type_key="message_type",
+            )
+        )
+        router.register_adapter(
+            _FakeGatewayAdapter(
+                "platform_b",
+                text_key="text",
+                type_key="event_type",
+            )
+        )
 
-        # 企业微信用户任务消息
-        wechat_result = await router.route_message(
+        # 平台 A 用户任务消息
+        platform_a_result = await router.route_message(
             raw_input={
-                "msg_type": "text",
                 "content": "请排查交易台 TRADER-001 的持仓风险",
                 "from_user": "user_001",
                 "chat_id": "chat_001",
+                "message_type": "user_task",
             },
-            platform="wechat_work",
+            platform="platform_a",
         )
-        assert wechat_result["entry_type"] == "user_task"
-        assert wechat_result["platform"] == "wechat_work"
-        assert wechat_result["message"].content == "请排查交易台 TRADER-001 的持仓风险"
+        assert platform_a_result["entry_type"] == "user_task"
+        assert platform_a_result["platform"] == "platform_a"
+        assert platform_a_result["message"].content == "请排查交易台 TRADER-001 的持仓风险"
 
-        # Slack 用户任务消息 (相同意图)
-        slack_result = await router.route_message(
+        # 平台 B 用户任务消息, 使用不同原始字段结构但表达相同意图
+        platform_b_result = await router.route_message(
             raw_input={
-                "type": "message",
-                "event": {
-                    "text": "请排查交易台 TRADER-001 的持仓风险",
-                    "user": "U001",
-                    "channel": "C001",
-                    "ts": "1719500000.000000",
-                },
+                "text": "请排查交易台 TRADER-001 的持仓风险",
+                "from_user": "user_002",
+                "chat_id": "chat_002",
+                "event_type": "user_task",
             },
-            platform="slack",
+            platform="platform_b",
         )
-        assert slack_result["entry_type"] == "user_task"
-        assert slack_result["platform"] == "slack"
-        assert slack_result["message"].content == "请排查交易台 TRADER-001 的持仓风险"
+        assert platform_b_result["entry_type"] == "user_task"
+        assert platform_b_result["platform"] == "platform_b"
+        assert platform_b_result["message"].content == "请排查交易台 TRADER-001 的持仓风险"
 
         # 验证: 不同平台的同一请求 → 相同 entry_type
-        assert wechat_result["entry_type"] == slack_result["entry_type"]
+        assert platform_a_result["entry_type"] == platform_b_result["entry_type"]
 
-        # 企业微信告警消息 → system_event
-        wechat_alert = await router.route_message(
+        # 平台 A 告警消息 → system_event
+        platform_a_alert = await router.route_message(
             raw_input={
-                "msg_type": "alert",
                 "content": "持仓超限告警",
                 "from_user": "system",
+                "message_type": "alert",
             },
-            platform="wechat_work",
+            platform="platform_a",
         )
-        assert wechat_alert["entry_type"] == "system_event"
+        assert platform_a_alert["entry_type"] == "system_event"
 
-        # Slack 告警消息 → system_event
-        slack_alert = await router.route_message(
+        # 平台 B 告警消息 → system_event
+        platform_b_alert = await router.route_message(
             raw_input={
-                "type": "alert",
-                "event": {
-                    "text": "持仓超限告警",
-                    "user": "system",
-                    "channel": "C001",
-                },
+                "text": "持仓超限告警",
+                "from_user": "system",
+                "event_type": "alert",
             },
-            platform="slack",
+            platform="platform_b",
         )
-        assert slack_alert["entry_type"] == "system_event"
+        assert platform_b_alert["entry_type"] == "system_event"
 
         # 验证: 告警类型也跨平台一致
-        assert wechat_alert["entry_type"] == slack_alert["entry_type"]
+        assert platform_a_alert["entry_type"] == platform_b_alert["entry_type"]
 
     # ==================== 测试 13 ====================
 
