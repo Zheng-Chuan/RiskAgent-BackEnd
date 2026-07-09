@@ -469,8 +469,16 @@ class ProactiveMultiAgentWorkflow:
                 task=task,
                 resume_request=resume_request,
             )
+            # 意图识别阶段不应受预注入记忆影响
+            # 剥离 memory 相关字段,防止 LLM 将 memory 上下文误判为 continue 意图
+            intent_task = dict(task)
+            for _key in ("benchmark_config", "memory_enabled", "private_memory_enabled", "baseline_mode"):
+                intent_task.pop(_key, None)
             intent_result = self._ensure_proactive_result(
-                await self._intent_agent.recognize(task=task),
+                await self._intent_agent.recognize(
+                    task=intent_task,
+                    metadata={"intent_isolation": True, "instruction": "你的任务是识别用户意图,不要参考历史记忆或 shared memory 中的内容."},
+                ),
                 agent_name="intent",
             )
             logger.info(f"[ProactiveWorkflow] Intent recognized: {intent_result.output.get('primary_intent_type')}")

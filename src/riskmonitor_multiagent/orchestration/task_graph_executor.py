@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from ast import literal_eval
 from collections.abc import Mapping
@@ -33,10 +34,11 @@ from riskmonitor_multiagent.utils.ids import new_command_id, new_run_id
 DelegateHandler = Callable[..., Awaitable[ProactiveAgentResult]]
 NodeResultHandler = Callable[..., Awaitable[None]]
 
+logger = logging.getLogger(__name__)
+
+# 仅保留合法的历史角色别名,移除会静默回退到 risk_analyst 的别名
+# (analysis_agent / risk_assessment_agent / memory_agent 不应委托给 risk_analyst)
 _DELEGATE_TARGET_ALIASES = {
-    "analysis_agent": "risk_analyst",
-    "risk_assessment_agent": "risk_analyst",
-    "memory_agent": "risk_analyst",
     "engineer_agent": "system_engineer",
     "system_engineer_agent": "system_engineer",
     "orchestrator_agent": "orchestrator",
@@ -949,9 +951,25 @@ class TaskGraphExecutor:
         step_id = str(node.get("step_id") or "")
         raw_target_agent = str(node.get("target_agent") or "").strip()
         target_agent = self._resolve_delegate_target(raw_target_agent)
-        handler = self._delegate_handlers.get(target_agent)
-        if handler is None:
-            return {"status": "failed", "error": f"unsupported_delegate_target:{raw_target_agent or target_agent or 'unknown'}"}
+        # 检查 target_agent 是否在 delegate_handlers 中
+        if target_agent not in self._delegate_handlers:
+            logger.warning(
+                "Delegate node %s targets unknown agent '%s' (raw: '%s'), "
+                "degrading to finalize. Available agents: %s",
+                step_id,
+                target_agent,
+                raw_target_agent,
+                list(self._delegate_handlers.keys()),
+            )
+            return {
+                "status": "completed",
+                "output": {
+                    "summary": f"Delegate to '{target_agent}' degraded: agent not found",
+                    "degraded": True,
+                    "original_target": raw_target_agent or target_agent,
+                },
+            }
+        handler = self._delegate_handlers[target_agent]
 
         result = await handler(
             task=task,

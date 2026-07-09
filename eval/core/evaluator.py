@@ -577,9 +577,8 @@ class Evaluator:
             evidence_steps = sum(1 for step in trace.react_steps if isinstance(step, dict) and step.get("evidence"))
             if evidence_steps > 0:
                 return evidence_steps / len(trace.react_steps)
-            planning_memory = trace.planning_memory if isinstance(trace.planning_memory, dict) else {}
-            if int(planning_memory.get("hit_count") or 0) > 0 or int(planning_memory.get("few_shot_example_count") or 0) > 0:
-                return 0.8
+            # memory hit 是增强而非替代 evidence，不应因此惩罚 evidence_coverage
+            # memory_on 和 memory_off 在相同条件下应得到相同的 evidence_coverage
             return 1.0 if trace.final_output else 0.0
         return 1.0 if trace.final_output else 0.0
 

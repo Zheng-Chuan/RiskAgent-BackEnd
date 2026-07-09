@@ -77,9 +77,10 @@ def _run_one(*, mode: str, output_path: Path, category: str, limit: int) -> None
         "--output",
         str(output_path),
         "--no-llm-judge",
+        # 始终传递 limit, 0 表示不限制, 确保运行全部 memory case
+        "--limit",
+        str(limit),
     ]
-    if limit > 0:
-        command.extend(["--limit", str(limit)])
     env = dict(os.environ)
     src_path = str(REPO_ROOT / "src")
     existing_pythonpath = env.get("PYTHONPATH", "")

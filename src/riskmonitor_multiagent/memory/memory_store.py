@@ -292,13 +292,7 @@ class MemoryStore(MemoryWriteOperationsMixin):
             session_id=session_id,
         )
         hits = [hit for hit in annotated_hits if hit.get("used_for_planning")][:limit]
-        if not hits and annotated_hits:
-            best_hit = annotated_hits[0]
-            if float(best_hit.get("relevance_score") or 0.0) > 0.0:
-                fallback = dict(best_hit)
-                fallback["used_for_planning"] = True
-                fallback["relevance_reasons"] = list(fallback.get("relevance_reasons") or []) + ["best_effort_fallback"]
-                hits = [fallback]
+        # 移除 best_effort_fallback：relevance gate 是硬门禁，不通过则不注入
 
         summary = summarize_hits(hits)
         summary["candidate_hit_count"] = len(candidate_hits)

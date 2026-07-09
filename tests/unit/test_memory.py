@@ -267,10 +267,10 @@ async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
             "memory_type": "semantic",
             "session_id": "s_plan",
             "content": {
-                "text": "历史 lesson 显示 延迟异常应先复用排查路径再输出建议",
-                "decision_pattern": "先引用 lesson -> 再核对延迟 -> 最后给建议",
+                "text": "历史 lesson 显示 交易台风险查询应先复用排查路径再输出建议",
+                "decision_pattern": "先引用 lesson -> 再核对交易台风险 -> 最后给建议",
                 "failure_boundary": ["不要伪造历史 lesson"],
-                "applicable_conditions": ["延迟异常"],
+                "applicable_conditions": ["query_positions", "交易台"],
                 "evidence_refs": ["bootstrap:memory"],
             },
         }

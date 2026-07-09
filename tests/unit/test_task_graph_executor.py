@@ -182,7 +182,7 @@ def test_task_graph_executor_records_parallel_timeline_for_delegate_branches():
     assert s2["started_at_ms"] <= s1["finished_at_ms"]
 
 
-def test_task_graph_executor_accepts_delegate_target_aliases():
+def test_task_graph_executor_degrades_unknown_delegate_targets():
     async def _fake_analyst(*, task, context=None):
         del task, context
         return ProactiveAgentResult(
@@ -225,11 +225,13 @@ def test_task_graph_executor_accepts_delegate_target_aliases():
     )
 
     assert result.get("status") == "completed"
-    summary = (result.get("final_output") or {}).get("summary", "")
-    assert "别名角色已正确路由到风险分析" in summary
+    # memory_agent 和 analysis_agent 不再静默回退到 risk_analyst, 而是降级为 finalize
     trace = ((result.get("task_graph_execution") or {}).get("trace") or [])
     delegate_steps = [item for item in trace if item.get("kind") == "delegate"]
-    assert [item.get("target_agent") for item in delegate_steps] == ["risk_analyst", "risk_analyst"]
+    assert [item.get("target_agent") for item in delegate_steps] == ["memory_agent", "analysis_agent"]
+    node_outputs = (result.get("task_graph_execution") or {}).get("node_outputs") or {}
+    for step_id in ("s1", "s2"):
+        assert node_outputs.get(step_id, {}).get("degraded") is True
 
 
 def test_task_graph_executor_runs_tool_call_via_tool_executor_and_emits_receipt():

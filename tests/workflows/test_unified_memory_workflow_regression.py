@@ -53,6 +53,7 @@ async def test_unified_memory_workflow_reuses_shared_plan_and_semantic_case() ->
             "kind": "plan",
             "session_id": "workflow-memory",
             "content": {"text": "历史上同类任务先查交易台持仓再看 breach 告警"},
+            "tags": ["query_positions", "交易台"],
         }
     )
     await store.append(
@@ -63,10 +64,10 @@ async def test_unified_memory_workflow_reuses_shared_plan_and_semantic_case() ->
             "memory_type": "semantic",
             "session_id": "workflow-memory",
             "content": {
-                "text": "历史 lesson 表明 延迟异常应先复用排查路径再输出建议",
-                "decision_pattern": "先引用 lesson -> 再核对延迟 -> 最后给建议",
+                "text": "历史 lesson 表明 交易台风险查询应先复用排查路径再输出建议",
+                "decision_pattern": "先引用 lesson -> 再核对交易台风险 -> 最后给建议",
                 "failure_boundary": ["不要伪造历史 lesson"],
-                "applicable_conditions": ["延迟异常"],
+                "applicable_conditions": ["query_positions", "交易台"],
                 "evidence_refs": ["bootstrap:workflow"],
             },
         }

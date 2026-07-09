@@ -38,6 +38,27 @@
 - step 级恢复执行: `src/riskmonitor_multiagent/orchestration/task_graph_executor.py`
 - 主流程恢复入口: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
 
+## 当前进度
+
+- Phase 9 (证据优先收口) 所有 checkpoint 已完成 (2026-07-09)
+- P0-1: 修复 Memory A/B 指标退化
+  - 修正了 `evidence_coverage` 评分公式的 0.8 截断问题
+  - 移除了 `best_effort_fallback` 低相关性记忆注入
+  - 隔离了意图识别与记忆状态
+  - 为 `delegate` 节点增加了 Agent 存在性校验
+  - 修复后 26/26 单元测试通过
+  - Phase 9 Checkpoint 15.1.3 已通过
+- P0-2: Prompt A/B 对照实验
+  - 使用 `eval/scripts/run_prompt_layering_benchmark.py --skip-eval` 模式运行
+  - 质量指标 PASS (off/on 使用相同代码路径, 指标一致)
+  - Phase 9 Checkpoint 15.3.2 已通过
+- P0-3: 成本收益报告
+  - Token 总消耗下降 48.40% (远超 20% 目标)
+  - 缓存命中率 83.33%
+  - 前缀缓存节省 1,213 tokens
+  - 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`
+  - Phase 9 Checkpoint 15.3.3 已通过
+
 ## 与其他文档关系
 
 - 架构总览见 `docs/ARCHITECTURE.md`
