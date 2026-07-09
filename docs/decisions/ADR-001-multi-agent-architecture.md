@@ -1,6 +1,6 @@
 # ADR-001: 多Agent架构作为系统的绝对约束
 
-**状态**：Decided
+**状态**：Decided, Implemented
 **日期**：2026-06-26
 **作者**：RiskMonitor-MultiAgent 项目组
 
@@ -142,3 +142,4 @@ RBAC 按角色分配工具权限。副作用工具只有特定角色可以触发
 ## Update Log
 
 - 2026-06-26: 创建本 ADR，确立多 Agent 架构不可退化约束
+- 2026-07-09: 多Agent架构已在 Phase 1-9 中完整实现，包括 BDI+ReAct+CoT 混合推理模式、6 个专业 Agent、TaskGraph DAG 调度。

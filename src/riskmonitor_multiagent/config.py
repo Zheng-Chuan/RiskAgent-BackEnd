@@ -89,7 +89,7 @@ def get_llm_api_key() -> str:
     """
     获取 LLM API Key.
     必须设置 LLM_API_KEY 环境变量.
-    当前项目默认使用火山引擎 Coding API 的 Key.
+    当前项目默认使用 OpenRouter 的 API Key.
 
     异常:
         ValueError: 如果未设置 LLM_API_KEY.
@@ -101,7 +101,7 @@ def get_llm_api_key() -> str:
 
 
 def get_llm_base_url() -> str:
-    """获取 LLM 主机 Base URL. 当前项目默认使用火山引擎 Coding API."""
+    """获取 LLM 主机 Base URL. 当前项目默认使用 OpenRouter."""
     value = (get_settings().llm_base_url or "").strip().rstrip("/")
     if not value:
         raise ValueError("LLM_BASE_URL is not set")
@@ -109,9 +109,9 @@ def get_llm_base_url() -> str:
 
 
 def get_llm_model() -> str:
-    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 ark-code-latest."""
+    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 deepseek/deepseek-v4-pro."""
     value = (get_settings().llm_model or "").strip()
-    return value or "ark-code-latest"
+    return value or "deepseek/deepseek-v4-pro"
 
 
 def get_llm_http_referer() -> str:

@@ -175,3 +175,4 @@ step 级时间线让运维人员不需要通读全部日志，直接在 trace �
 ## Update Log
 
 - 2026-06-26: 创建本 ADR，确立 run_trace.v2 全链路追踪设计
+- 2026-07-09: 对应 Phase 全部完成，checkpoint 全部通过。

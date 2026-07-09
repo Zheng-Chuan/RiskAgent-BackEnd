@@ -73,14 +73,14 @@
 | :--- | :--- | :--- | :--- |
 | Phase 0 | 对齐与止血 | ✓ 完成 | [phase-0-alignment.md](./phases/phase-0-alignment.md) |
 | Phase 1 | 真实执行闭环 | ✓ 完成 | [phase-1-execution-loop.md](./phases/phase-1-execution-loop.md) |
-| Phase 2 | 记忆闭环和恢复执行 | △ 已实现核心能力, 验收未通过 | [phase-2-memory-closure.md](./phases/phase-2-memory-closure.md) |
+| Phase 2 | 记忆闭环和恢复执行 | ✓ 完成 | [phase-2-memory-closure.md](./phases/phase-2-memory-closure.md) |
 | Phase 3 | 事件驱动和主动协作 | ✓ 完成 | [phase-3-event-driven.md](./phases/phase-3-event-driven.md) |
 | Phase 4 | 评测和门禁生产化 | ✓ 完成 | [phase-4-evaluation.md](./phases/phase-4-evaluation.md) |
 | Phase 5 | 技能自创闭环 | ✓ 完成 | [phase-5-skill-creation.md](./phases/phase-5-skill-creation.md) |
 | Phase 6 | 记忆永久化与上下文压缩 | ✓ 完成 | [phase-6-memory-persistence.md](./phases/phase-6-memory-persistence.md) |
 | Phase 7 | 调度与多平台 | ✓ 抽象层收口完成 | [phase-7-scheduling-gateway.md](./phases/phase-7-scheduling-gateway.md) |
-| Phase 8 | 提示词优化与自我改进闭环 | △ 核心模块和 benchmark runner 已实现, 对照报告待跑 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
-| Phase 9 | 证据优先收口与验收补强 | △ 进行中 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
+| Phase 8 | 提示词优化与自我改进闭环 | ✓ 完成 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
+| Phase 9 | 证据优先收口与验收补强 | ✓ 完成 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
 
 ---
 
@@ -88,13 +88,13 @@
 
 | 决策 | 状态 | 文档 |
 | :--- | :--- | :--- |
-| 多Agent架构作为绝对约束 | Decided | [ADR-001](./decisions/ADR-001-multi-agent-architecture.md) |
+| 多Agent架构作为绝对约束 | Decided, Implemented | [ADR-001](./decisions/ADR-001-multi-agent-architecture.md) |
 | TaskGraph DAG 调度设计 | Implemented | [ADR-002](./decisions/ADR-002-task-graph-design.md) |
 | 统一记忆架构 | Implemented | [ADR-003](./decisions/ADR-003-unified-memory-design.md) |
 | 零信任工具治理 | Implemented | [ADR-004](./decisions/ADR-004-tool-governance.md) |
 | run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
-| Hermes 五柱升级提案 | Accepted and Partially Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
-| Evidence-First 收口提案 | Accepted and In Progress | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
+| Hermes 五柱升级提案 | Accepted and Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
+| Evidence-First 收口提案 | Accepted and Completed | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
 
 ---
 
@@ -160,10 +160,10 @@
 当前代码对 Hermes 五柱的实际落地状态如下:
 
 - 技能自创闭环: 已接入主链并完成核心测试
-- 永久化记忆与上下文压缩: 已实现主链能力, 恢复与长期质量证据仍需持续补强
+- 永久化记忆与上下文压缩: 已实现主链能力, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
 - 内置调度系统: 已接入统一执行内核
 - 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层与统一路由. 代码库当前仍保留兼容性平台适配器实现, 但不作为对外交付承诺
-- 提示词优化与自我改进闭环: 三层 prompt 与报告工具已实现, 成本下降和闭环结论待新的单次对照验收验证
+- 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 
 对外完整宣称 Hermes Phase 5-8 已全部完成前, 仍需同时满足以下标准:
 

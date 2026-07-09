@@ -1,6 +1,6 @@
 # RFC-001: Hermes Engineering 五柱升级提案
 
-**状态**：Accepted and Partially Implemented
+**状态**：Accepted and Implemented
 **日期**：2026-06-26
 **作者**：RiskMonitor-MultiAgent 项目组
 
@@ -286,3 +286,4 @@ Cron 任务如果定义过密或出现递归创建，可能消耗大量系统资
 ## Update Log
 
 - 2026-06-26: 创建本 RFC，提出 Hermes 五柱升级提案
+- 2026-07-09: Phase 5-8 全部完成。Skill 自进化闭环（提议→注入→跟踪→修订→治理）已实现。三层 prompt 分离已实现，Token 总消耗下降 48.40%，缓存命中率 83.33%。

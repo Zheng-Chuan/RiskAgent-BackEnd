@@ -123,6 +123,7 @@ make up
 
 ## 当前进展
 
-- `Phase 2`: memory relevance gate 和 resume completeness contract 已落地并通过定点测试
+- `Phase 2`: memory relevance gate 和 resume completeness contract 已落地, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
 - `Phase 7`: Gateway public API 已收口到 `GatewayAdapter` `GatewayMessage` `GatewayRouter`
-- `Phase 8`: one-shot benchmark 的固定 case 集和 runner 已落地, 对照报告待跑
+- `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
+- `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成

@@ -300,7 +300,7 @@ def test_config_getters_cover_defaults_and_errors(monkeypatch: pytest.MonkeyPatc
     with pytest.raises(ValueError, match="LLM_API_KEY is not set"):
         config.get_llm_api_key()
     assert config.get_llm_base_url() == "https://api.example.com/v1"
-    assert config.get_llm_model() == "ark-code-latest"
+    assert config.get_llm_model() == "deepseek/deepseek-v4-pro"
     assert config.get_llm_http_referer() == "https://app.example.com"
     assert config.get_llm_app_title() == "RiskMonitor"
     assert config.get_llm_resolve_ip() == "1.1.1.1"

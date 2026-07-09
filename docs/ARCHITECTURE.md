@@ -126,6 +126,9 @@ README.md
 docs/PRD.md
 docs/ARCHITECTURE.md
 docs/STRATEGY.md
+docs/RESUME.md
+docs/MEMORY.md
+docs/INTERVIEW.md
 docs/decisions/
 docs/phases/
 ```

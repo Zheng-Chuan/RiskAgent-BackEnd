@@ -52,3 +52,17 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 - `docs/phases/phase-2-memory-closure.md`: 标注退化已修复, Checkpoint 7.3.7 标记 [x]
 - `docs/phases/phase-8-prompt-optimization.md`: 标注对照实验已完成, one-shot benchmark 标记 [x]
 - `docs/RESUME.md`: 添加当前进度部分
+
+## 2026-07-09: 文档体系一致性修正
+
+- 修正 PRD.md Phase 状态表（Phase 2/8/9 标记为完成）
+- 修正 README.md 当前进展（添加 Phase 9 完成记录）
+- 修正 .env.example LLM 配置（火山引擎 → OpenRouter + DeepSeek）
+- 修正 config.py / config_pydantic.py / llm_client.py 中的 LLM 注释和默认值
+- 修正 STRATEGY.md 模型引用
+- 修正 INTERVIEW.md 文件路径错误
+- 修正 ARCHITECTURE.md 文档保留范围（添加 RESUME.md / MEMORY.md / INTERVIEW.md）
+- 更新 ADR-001 状态为 Implemented
+- 更新 RFC-001 状态为 Implemented
+- 更新 RFC-002 状态为 Completed
+- 更新所有 ADR/RFC 的 Update Log

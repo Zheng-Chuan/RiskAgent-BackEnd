@@ -1,7 +1,7 @@
 """LLM 客户端.
 
 说明:
-- 统一封装 Chat Completions 调用,当前项目默认对接火山引擎 Coding API
+- 统一封装 Chat Completions 调用,当前项目默认对接 OpenRouter
 - 仅负责 HTTP 调用与错误封装, 不包含业务逻辑
 - 支持固定 IP 解析(绕过 DNS 故障节点)
 """

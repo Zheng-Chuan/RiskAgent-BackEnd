@@ -74,7 +74,7 @@ class TestTokenTrackingUnit:
 
     def test_prometheus_metrics_include_token_counters(self):
         """Prometheus 指标包含 token 计数"""
-        record_token_usage(model="ark-code-latest", prompt_tokens=50, completion_tokens=100, total_tokens=150)
+        record_token_usage(model="deepseek/deepseek-v4-pro", prompt_tokens=50, completion_tokens=100, total_tokens=150)
         metrics_text = render_prometheus_metrics()
         assert "rm_llm_tokens_total" in metrics_text
         assert "rm_llm_calls_total" in metrics_text
@@ -146,7 +146,7 @@ class TestTokenTrackingUnit:
 
 
 class TestRealLLMTokenTracking:
-    """真实火山引擎 LLM 调用的 token 追踪验证"""
+    """真实 OpenRouter LLM 调用的 token 追踪验证"""
 
     @pytest.mark.asyncio
     async def test_real_llm_call_records_tokens(self):
@@ -199,7 +199,7 @@ class TestRealLLMTokenTracking:
         )
 
         summary = get_token_tracker().summary()
-        # ark-code-latest 应该出现在 by_model 中
+        # deepseek/deepseek-v4-pro 应该出现在 by_model 中
         assert len(summary["by_model"]) >= 1
 
     @pytest.mark.asyncio
