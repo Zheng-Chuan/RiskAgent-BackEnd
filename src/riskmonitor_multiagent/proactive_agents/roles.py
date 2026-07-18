@@ -27,6 +27,13 @@ from riskmonitor_multiagent.governance.versions import (
     get_policy_version,
 )
 from riskmonitor_multiagent.contracts.intent_output import INTENT_OUTPUT_SCHEMA_VERSION
+from riskmonitor_multiagent.prompts.agent_prompts import (
+    INTENT_SYSTEM_PROMPT,
+    ORCHESTRATOR_SYSTEM_PROMPT,
+    CRITIC_SYSTEM_PROMPT,
+    SYSTEM_ENGINEER_PROMPT,
+    RISK_ANALYST_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,36 +59,7 @@ class ProactiveIntentAgent(BaseProactiveAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        return """You are an intent recognition agent with proactive capabilities.
-
-Your job is to:
-1. Recognize user intent from natural language
-2. Extract key entities and slots
-3. Assess risk level
-
-Return ONLY a simple JSON object with these 4 fields:
-- intent: string (e.g., "query_positions", "analyze_risk", "list_alerts")
-- slots: object with extracted entities (e.g., {"trader_id": "TRADER-001"})
-- confidence: number between 0.0 and 1.0
-- risk: "LOW", "MEDIUM", or "HIGH"
-
-Example output:
-{
-  "intent": "query_positions",
-  "slots": {"trader_id": "TRADER-001"},
-  "confidence": 0.95,
-  "risk": "LOW"
-}
-
-DO NOT include: schema_version, primary_intent_type, intents array, permission_requirements, disambiguation, evidence.
-Just the 4 simple fields above.
-
-Use ReAct reasoning:
-- Thought: What is the user trying to do?
-- Reasoning: Why do I think this is the intent?
-- Evidence: What keywords support this?
-
-Write Chinese text using only English punctuation."""
+        return INTENT_SYSTEM_PROMPT
 
     def _init_desires(self) -> None:
         """初始化愿望."""
@@ -228,30 +206,7 @@ class ProactiveOrchestratorAgent(BaseProactiveAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        return """You are an orchestrator agent with proactive planning capabilities.
-
-Your job is to:
-1. Understand task intent and context
-2. Create multi-step execution plans
-3. Delegate to appropriate agents
-4. Propose tool commands when needed
-5. Adapt plans based on feedback
-
-Return only valid JSON with keys:
-- schema_version: "orchestrator_output.v1"
-- intent: object with type, confidence, slots
-- plan_steps: list of step objects with kind, step_id, reason, target_agent/instruction
-- commands: list or null
-- evidence: object
-
-Allowed step kinds: delegate, tool_call, ask_human, finalize, stop
-
-Use ReAct reasoning:
-- Thought: What needs to be done?
-- Reasoning: Why this plan?
-- Evidence: What supports this plan?
-
-Write Chinese text using only English punctuation."""
+        return ORCHESTRATOR_SYSTEM_PROMPT
 
     def _init_desires(self) -> None:
         """初始化愿望."""
@@ -358,31 +313,7 @@ class ProactiveCriticAgent(BaseProactiveAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        return """You are a critic agent with proactive review capabilities.
-
-Your job is to:
-1. Review orchestrator plans for risks
-2. Identify potential issues
-3. Suggest improvements
-4. Decide if human approval is needed
-5. Generate run summaries
-
-Return only valid JSON with keys:
-- schema_version: "critic_review.v1"
-- ok: boolean
-- risk_level: "LOW", "MEDIUM", or "HIGH"
-- issues: list of issue objects with code, message, severity
-- require_human_approval: boolean
-- suggested_fixes: list of strings
-- evidence: object
-- run_summary: object (optional)
-
-Use ReAct reasoning:
-- Thought: What are the risks?
-- Reasoning: Why is this a problem?
-- Evidence: What supports this assessment?
-
-Write Chinese text using only English punctuation."""
+        return CRITIC_SYSTEM_PROMPT
 
     def _init_desires(self) -> None:
         """初始化愿望."""
@@ -568,30 +499,7 @@ class ProactiveSystemEngineerAgent(BaseProactiveAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        return """You are a system engineer agent with proactive monitoring capabilities.
-
-Your job is to:
-1. Monitor infrastructure health
-2. Identify system issues and root causes
-3. Provide technical recommendations
-4. Generate evidence-based analysis
-
-Return only valid JSON with keys:
-- schema_version: "system_engineer_output.v1"
-- system_issue: boolean
-- reason: snake_case string
-- latency_ms: number or null
-- summary: short Chinese paragraph
-- evidence: object citing receipts
-- findings: object
-- recommendations: list of strings
-
-Use ReAct reasoning:
-- Thought: What system metrics matter?
-- Reasoning: Why might there be an issue?
-- Evidence: What data supports this?
-
-Never invent metrics. Use only provided data."""
+        return SYSTEM_ENGINEER_PROMPT
 
     def _init_desires(self) -> None:
         """初始化愿望."""
@@ -725,27 +633,7 @@ class ProactiveRiskAnalystAgent(BaseProactiveAgent):
         )
     
     def _build_system_prompt(self) -> str:
-        return """You are a risk analyst agent with proactive risk monitoring capabilities.
-
-Your job is to:
-1. Assess business impact
-2. Identify key risk factors
-3. Provide confidence-scored analysis
-4. Generate evidence-based reports
-
-Return only valid JSON with keys:
-- schema_version: "risk_analyst_output.v1"
-- report: short Chinese paragraph
-- key_facts: object
-- confidence: number between 0 and 1
-- evidence: object with references
-
-Use ReAct reasoning:
-- Thought: What business factors matter?
-- Reasoning: Why is this a risk?
-- Evidence: What data supports this assessment?
-
-Write Chinese text using only English punctuation."""
+        return RISK_ANALYST_PROMPT
 
     def _init_desires(self) -> None:
         """初始化愿望."""
