@@ -72,7 +72,7 @@
 
 - 编排入口: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
 - 主工作流: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
-- 任务图执行: `src/riskmonitor_multiagent/orchestration/task_graph_executor.py`
+- 任务图执行: `src/riskmonitor_multiagent/orchestration/task_graph_executor.py` + `node_executors.py`
 - 工具治理: `src/riskmonitor_multiagent/orchestration/tool_executor.py`
 - 统一记忆: `src/riskmonitor_multiagent/memory/memory_store.py`
 - 统一 trace: `src/riskmonitor_multiagent/observability/run_trace.py`
@@ -115,11 +115,10 @@ make up
 
 ## 评测入口
 
-- 统一评测 CLI: `python -m eval.cli run --category all --output eval/results/<run>.json`
+- 统一评测 CLI: `python -m eval.cli run --category all --output <run>.json`
 - Phase 2 memory A/B: `python eval/scripts/run_memory_ab.py --category memory`
 - Phase 8 one-shot benchmark: `make eval-prompt-benchmark`
 - Phase 8 固定 case 集: `eval/benchmarks/prompt_layering/one_shot_cases.jsonl`
-- Phase 8 报告输出目录: `eval/results/prompt_layering/`
 
 ## 当前进展
 
@@ -127,4 +126,4 @@ make up
 - `Phase 7`: Gateway public API 已收口到 `GatewayAdapter` `GatewayMessage` `GatewayRouter`
 - `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
-- **Phase 10**: 7*24 主动感知与自主运维 — 规划中（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + 自主处置）
+- **Phase 10**: 7*24 主动感知与自主运维 — 已完成（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + 自主处置）

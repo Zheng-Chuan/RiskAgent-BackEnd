@@ -74,3 +74,36 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 - 更新 PRD.md 添加 Phase 10
 - 更新 README.md 添加 Phase 10
 - 更新 ARCHITECTURE.md 文档保留范围
+
+## 2026-07-18: 项目结构优化重构
+
+### P1: 提取 roles.py 内联系统提示词
+- 创建 `prompts/agent_prompts/` 目录，5 个独立 prompt 文件
+- roles.py 从 864 行降至 ~500 行
+
+### P2: 拆分 proactive_workflow.py 巨型方法
+- `_run_internal` 531 行拆分为 8 个独立步骤方法
+- `_run_internal` 降为 ~50 行纯编排方法
+
+### P3: 拆分 task_graph_executor.py
+- 新建 `orchestration/node_executors.py`（NodeExecutor 类，322 行）
+- 提取节点执行、7种节点类型分发、RBAC审批、重试逻辑
+- task_graph_executor.py 从 1304 行降至 650 行（DAG调度+状态管理）
+
+### P4: 拆分 proactive_agents/base.py
+- 新建 `proactive_agents/base_models.py`（82 行，BDI 数据模型）
+- 提取 Belief/Desire/Intention/ReActStep/ProactiveAgentResult
+- base.py 从 1072 行降至 1016 行
+
+### P5: 精简 contracts/__init__.py 导出
+- 改为 PEP 562 懒加载，减少启动时导入开销
+
+### P6: 合并配置层重复默认值
+- config.py 完全委托到 config_pydantic.py Settings
+
+### 文档清理
+- 删除 eval/reports/（9 个带时间戳的评测快照）
+- 删除 eval/results/（3 个 A/B 实验结果和成本报告，结论已沉淀到 CHANGELOG）
+
+### 验证
+- 679 单元测试全部收集，零回归

@@ -111,7 +111,7 @@
     | category 包括 task message version_snapshot plan step command receipt approval memory final
     | RunTraceStore 内存缓存 + 持久化到 results/run_traces
     | 运行态存储保存 run context 和 resume state
-    | eval/results 消费 trace 做 replay evaluator gate benchmark
+    | eval/ 目录消费 trace 做 replay evaluator gate benchmark
     | 返回统一结果
     v
 [输出]
@@ -123,6 +123,7 @@
 # 文档保留范围
 ```text
 README.md
+CHANGELOG.md
 docs/PRD.md
 docs/ARCHITECTURE.md
 docs/STRATEGY.md
@@ -131,6 +132,26 @@ docs/MEMORY.md
 docs/INTERVIEW.md
 docs/decisions/
 docs/phases/
-- docs/phases/phase-10-active-monitoring.md
-- docs/decisions/RFC-003-active-monitoring.md
+```
+
+# 模块结构（重构后）
+
+```text
+src/riskmonitor_multiagent/
+├── orchestration/
+│   ├── task_graph_executor.py   # DAG调度 + 状态管理 (~650行)
+│   ├── node_executors.py        # 节点执行 + 7种节点分发 + RBAC (~322行)
+│   └── ...
+├── proactive_agents/
+│   ├── base.py                  # BDI Agent 基类 (~1016行)
+│   ├── base_models.py           # BDI 数据模型 (Belief/Desire/Intention)
+│   └── ...
+├── prompts/
+│   ├── roles.py                 # 角色定义 (系统提示词引用)
+│   ├── agent_prompts/           # 独立 Agent 提示词文件
+│   └── ...
+├── contracts/
+│   └── __init__.py              # PEP 562 懒加载导出
+├── config.py                    # 委托到 config_pydantic.py
+└── config_pydantic.py           # 统一配置默认值
 ```
