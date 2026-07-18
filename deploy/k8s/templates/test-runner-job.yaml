@@ -1,0 +1,59 @@
+{{/* Test Runner Job (可选) — 通过 --set testRunner.enabled=true 激活 */}}
+{{- if .Values.testRunner.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-test-runner
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test-runner
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "riskmonitor.labels" . | nindent 8 }}
+        app.kubernetes.io/component: test-runner
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command: ['sh', '-c', 'until mysqladmin ping -h mysql -u root -p$MYSQL_ROOT_PASSWORD --silent 2>/dev/null; do echo waiting for mysql; sleep 2; done']
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+        - name: wait-for-redis
+          image: redis:7-alpine
+          command: ['sh', '-c', 'until redis-cli -h redis ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done']
+        - name: wait-for-chroma
+          image: curlimages/curl:8.7.1
+          command: ['sh', '-c', 'until curl -sf http://chroma:8000/api/v1/heartbeat >/dev/null 2>&1; do echo waiting for chroma; sleep 2; done']
+      containers:
+        - name: test-runner
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "Running unit tests..."
+              PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-app-config
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+{{- end }}

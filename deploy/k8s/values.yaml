@@ -118,3 +118,8 @@ grafana:
       memory: "512Mi"
   persistence:
     size: "2Gi"
+
+# Test Runner 配置 (可选 — 默认禁用)
+# 激活: helm install ... --set testRunner.enabled=true
+testRunner:
+  enabled: false
