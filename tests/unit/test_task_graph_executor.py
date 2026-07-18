@@ -292,7 +292,7 @@ def test_task_graph_executor_runs_tool_call_via_tool_executor_and_emits_receipt(
     }
 
     with patch(
-        "riskmonitor_multiagent.orchestration.task_graph_executor.execute_agent_command",
+        "riskmonitor_multiagent.orchestration.node_executors.execute_agent_command",
         return_value=fake_receipt,
     ):
         result = asyncio.run(
@@ -363,7 +363,7 @@ def test_task_graph_executor_preserves_blocked_status_for_approval():
     }
 
     with patch(
-        "riskmonitor_multiagent.orchestration.task_graph_executor.execute_agent_command",
+        "riskmonitor_multiagent.orchestration.node_executors.execute_agent_command",
         return_value=blocked_receipt,
     ):
         result = asyncio.run(

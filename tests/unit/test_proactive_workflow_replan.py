@@ -512,7 +512,7 @@ def test_proactive_workflow_surfaces_tool_receipts_from_task_graph():
     workflow._critic_agent.review = _fake_critic
 
     with patch(
-        "riskmonitor_multiagent.orchestration.task_graph_executor.execute_agent_command",
+        "riskmonitor_multiagent.orchestration.node_executors.execute_agent_command",
         return_value=fake_receipt,
     ):
         result = asyncio.run(
