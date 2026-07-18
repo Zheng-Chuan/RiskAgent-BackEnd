@@ -90,8 +90,25 @@ Write Chinese text using only English punctuation."""
         self.add_desire("提供清晰的意图解释", priority=6)
 
     async def _perceive_environment(self) -> None:
-        """感知环境 - 监控用户输入模式."""
-        pass
+        """感知环境 - 监控业务指标异常."""
+        try:
+            from riskmonitor_multiagent.perception.data_sources import PrometheusDataSource
+            filtered = self._collect_and_filter([PrometheusDataSource()])
+            if not filtered:
+                return
+            for sig in filtered:
+                self.add_belief(
+                    content={
+                        "source": sig.source,
+                        "metric": sig.metric,
+                        "value": sig.value,
+                        "severity": sig.severity.value,
+                    },
+                    source="intent_perception",
+                    confidence=0.7,
+                )
+        except Exception as e:
+            logger.warning(f"[intent] 意图感知失败: {e}")
 
     async def recognize(
         self,
@@ -583,44 +600,49 @@ Never invent metrics. Use only provided data."""
         self.add_desire("提供可执行的修复建议", priority=8)
 
     async def _perceive_environment(self) -> None:
-        """主动感知环境 - 监控系统指标."""
-        # 从内存指标中获取系统状态
-        from riskmonitor_multiagent.observability.metrics import render_prometheus_metrics
-        
-        # 解析 Prometheus 格式的指标
-        metrics_text = render_prometheus_metrics()
-        
-        # 检查错误率指标
-        error_count = 0
-        total_count = 0
-        for line in metrics_text.split("\n"):
-            if "proactive_agent_runs_error" in line or "agent_runs_error" in line:
-                try:
-                    value = int(line.split()[-1])
-                    error_count += value
-                except (ValueError, IndexError):
-                    pass
-            if "proactive_agent_runs_total" in line or "agent_runs_total" in line:
-                try:
-                    value = int(line.split()[-1])
-                    total_count += value
-                except (ValueError, IndexError):
-                    pass
-        
-        # 如果错误率超过阈值,添加信念
-        if total_count > 0:
-            error_rate = error_count / total_count
-            if error_rate > 0.1:  # 错误率超过 10%
+        """主动感知环境 - 通过 perception 数据源采集基础设施信号."""
+        try:
+            from riskmonitor_multiagent.perception.data_sources import (
+                DockerDataSource,
+                RedisDataSource,
+                MySQLDataSource,
+                PrometheusDataSource,
+            )
+
+            filtered = self._collect_and_filter([
+                DockerDataSource(),
+                RedisDataSource(),
+                MySQLDataSource(),
+                PrometheusDataSource(),
+            ])
+
+            if not filtered:
+                return
+
+            # 升级检查
+            event = self._escalation_manager.escalate(filtered)
+            if event:
                 self.add_belief(
                     content={
-                        "metric": "error_rate",
-                        "value": error_rate,
-                        "errors": error_count,
-                        "total": total_count,
+                        "event_id": event.event_id,
+                        "severity": event.severity,
+                        "source": event.source,
+                        "description": event.description,
+                        "signal_count": len(filtered),
                     },
-                    source="system_metrics",
-                    confidence=0.95,
+                    source="perception_escalation",
+                    confidence=0.9,
                 )
+
+                # critical 事件触发处置
+                if event.severity == "critical":
+                    try:
+                        result = self._remediation_manager.remediate(event)
+                        logger.info(f"[system_engineer] 处置完成: {result.action} - {result.description}")
+                    except Exception as e:
+                        logger.error(f"[system_engineer] 处置失败: {e}")
+        except Exception as e:
+            logger.warning(f"[system_engineer] 感知环境失败: {e}")
 
     async def analyze_task(
         self,
@@ -732,8 +754,50 @@ Write Chinese text using only English punctuation."""
         self.add_desire("提供高置信度分析", priority=8)
 
     async def _perceive_environment(self) -> None:
-        """主动感知环境 - 监控风险指标."""
-        pass
+        """主动感知环境 - 通过 MySQL 和 Prometheus 监控风险指标."""
+        try:
+            from riskmonitor_multiagent.perception.data_sources import (
+                MySQLDataSource,
+                PrometheusDataSource,
+            )
+
+            filtered = self._collect_and_filter([
+                MySQLDataSource(),
+                PrometheusDataSource(),
+            ])
+
+            if not filtered:
+                return
+
+            # 记录风险信号
+            for sig in filtered:
+                self.add_belief(
+                    content={
+                        "source": sig.source,
+                        "metric": sig.metric,
+                        "value": sig.value,
+                        "severity": sig.severity.value,
+                        "message": sig.message,
+                    },
+                    source="risk_perception",
+                    confidence=0.8,
+                )
+
+            # 升级检查
+            event = self._escalation_manager.escalate(filtered)
+            if event:
+                self.add_belief(
+                    content={
+                        "event_id": event.event_id,
+                        "severity": event.severity,
+                        "source": event.source,
+                        "description": event.description,
+                    },
+                    source="risk_escalation",
+                    confidence=0.9,
+                )
+        except Exception as e:
+            logger.warning(f"[risk_analyst] 风险感知失败: {e}")
 
     async def analyze_task(
         self,

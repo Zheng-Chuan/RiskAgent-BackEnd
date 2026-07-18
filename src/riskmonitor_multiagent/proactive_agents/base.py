@@ -21,6 +21,35 @@ from riskmonitor_multiagent.agents.base import AgentResult, BaseAgent
 from riskmonitor_multiagent.contracts.event import EventType, new_event
 from riskmonitor_multiagent.observability.metrics import inc_counter, observe_ms
 
+# 感知模块懒加载 (避免循环导入, 仅在首次使用时初始化)
+_perception_filter_engine = None
+_perception_escalation_manager = None
+_perception_remediation_manager = None
+
+
+def _get_filter_engine():
+    global _perception_filter_engine
+    if _perception_filter_engine is None:
+        from riskmonitor_multiagent.perception import PerceptionFilterEngine, get_default_rules
+        _perception_filter_engine = PerceptionFilterEngine(get_default_rules())
+    return _perception_filter_engine
+
+
+def _get_escalation_manager():
+    global _perception_escalation_manager
+    if _perception_escalation_manager is None:
+        from riskmonitor_multiagent.perception import EscalationManager
+        _perception_escalation_manager = EscalationManager()
+    return _perception_escalation_manager
+
+
+def _get_remediation_manager():
+    global _perception_remediation_manager
+    if _perception_remediation_manager is None:
+        from riskmonitor_multiagent.perception import RemediationManager
+        _perception_remediation_manager = RemediationManager()
+    return _perception_remediation_manager
+
 # 向前兼容: TYPE_CHECKING 下导入 TieredPromptBuilder, 避免循环导入
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -398,6 +427,39 @@ class BaseProactiveAgent:
 
         logger.info(f"[{self._name}] Monitor loop exited")
     
+    @property
+    def _filter_engine(self):
+        """感知过滤引擎 (懒加载)."""
+        return _get_filter_engine()
+
+    @property
+    def _escalation_manager(self):
+        """升级管理器 (懒加载)."""
+        return _get_escalation_manager()
+
+    @property
+    def _remediation_manager(self):
+        """处置管理器 (懒加载)."""
+        return _get_remediation_manager()
+
+    def _collect_and_filter(self, data_sources: list) -> list:
+        """采集并过滤信号的共享辅助方法.
+
+        Args:
+            data_sources: 数据源实例列表, 每个 ds 有 collect() -> list[PerceptionSignal]
+
+        Returns:
+            过滤后的信号列表 (仅包含需升级的 WARNING/CRITICAL 信号)
+        """
+        all_signals = []
+        for ds in data_sources:
+            try:
+                signals = ds.collect()
+                all_signals.extend(signals)
+            except Exception as e:
+                logger.warning(f"[{self._name}] 数据源采集失败 {ds.__class__.__name__}: {e}")
+        return self._filter_engine.filter_batch(all_signals)
+
     async def _perceive_environment(self) -> None:
         """感知环境 - 更新信念(子类可重写)."""
         pass
