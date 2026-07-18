@@ -8,6 +8,8 @@
 from riskmonitor_multiagent.perception.signals import PerceptionSignal, SignalSeverity
 from riskmonitor_multiagent.perception.rules import FilterRule, PerceptionFilterEngine
 from riskmonitor_multiagent.perception.default_rules import get_default_rules
+from riskmonitor_multiagent.perception.escalation import EscalationManager, SystemEvent
+from riskmonitor_multiagent.perception.budget import PerceptionBudgetManager
 
 __all__ = [
     "PerceptionSignal",
@@ -15,4 +17,7 @@ __all__ = [
     "FilterRule",
     "PerceptionFilterEngine",
     "get_default_rules",
+    "EscalationManager",
+    "SystemEvent",
+    "PerceptionBudgetManager",
 ]
