@@ -1,0 +1,122 @@
+{{/* Grafana - 可视化面板 (Kubernetes 版) */}}
+{{- $v := .Values | toYaml | fromYaml -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-datasource
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-grafana-data
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ dig "grafana" "persistence" "size" "2Gi" $v }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-grafana
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  replicas: {{ dig "grafana" "replicas" 1 $v }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: riskmonitor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: grafana
+  template:
+    metadata:
+      labels:
+        {{- include "riskmonitor.labels" . | nindent 8 }}
+        app.kubernetes.io/component: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: {{ .Values.grafana.image | default "grafana/grafana:10.2.0" }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: GF_SECURITY_ADMIN_USER
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: GF_SECURITY_ADMIN_PASSWORD
+            - name: GF_INSTALL_PLUGINS
+              value: grafana-clock-panel,grafana-simple-json-datasource
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: grafana-datasource
+              mountPath: /etc/grafana/provisioning/datasources/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+          resources:
+            {{- $grafResources := dig "grafana" "resources" (dict "requests" (dict "cpu" "50m" "memory" "128Mi") "limits" (dict "cpu" "250m" "memory" "512Mi")) $v }}
+            {{- toYaml $grafResources | nindent 12 }}
+      volumes:
+        - name: grafana-datasource
+          configMap:
+            name: {{ .Release.Name }}-grafana-datasource
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-grafana-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: riskmonitor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: grafana

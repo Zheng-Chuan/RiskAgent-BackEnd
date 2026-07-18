@@ -1,0 +1,8 @@
+apiVersion: v2
+name: riskmonitor
+description: RiskMonitor MultiAgent - Proactive Multi-Agent System for Financial Risk Control
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: RiskMonitor Team

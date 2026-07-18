@@ -132,6 +132,7 @@ docs/MEMORY.md
 docs/INTERVIEW.md
 docs/decisions/
 docs/phases/
+deploy/k8s/
 ```
 
 # 模块结构（重构后）
@@ -155,3 +156,30 @@ src/riskmonitor_multiagent/
 ├── config.py                    # 委托到 config_pydantic.py
 └── config_pydantic.py           # 统一配置默认值
 ```
+
+# K8s 部署架构
+
+## 部署方式
+- 生产环境: Helm Chart (`deploy/k8s/`)
+- 本地开发: docker-compose.yml（完整保留）
+
+## 服务映射
+
+| Docker Compose 服务 | K8s 工作负载 | Service 名 | 端口 |
+|---|---|---|---|
+| mysql | StatefulSet | mysql | 3306 |
+| redis | StatefulSet | redis | 6379 |
+| chroma | StatefulSet | chroma | 8000 |
+| mcp-server | Deployment | mcp-server | 8000 |
+| prometheus | Deployment | prometheus | 9090 |
+| grafana | Deployment | grafana | 3000 |
+
+## 配置注入
+- 非敏感配置: ConfigMap（MYSQL_HOST/PORT、REDIS_URL、CHROMA_HOST 等）
+- 敏感配置: Secret（MYSQL_PASSWORD、LLM_API_KEY 等）
+- 应用通过 config_pydantic.py Settings 类自动读取环境变量，优先级: env > .env > default
+
+## 健康检查映射
+- livenessProbe: HTTP GET /health（无认证）
+- readinessProbe: HTTP GET /health（/ready 有认证，探针改用 /health）
+- 优雅退出: SIGTERM handler → mark_shutting_down，terminationGracePeriodSeconds=30

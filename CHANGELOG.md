@@ -107,3 +107,19 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 
 ### 验证
 - 679 单元测试全部收集，零回归
+
+## 2026-07-18: K8s 全量迁移
+
+### 概述
+将 docker-compose.yml 中的 8 个服务迁移为 Helm Chart 部署到 K8s。核心策略：零代码变更 — 应用已具备 K8s 所需全部能力（环境变量配置、/health 和 /ready 端点、SIGTERM 优雅退出）。
+
+### 决策
+- 使用 Helm Chart（非 Kustomize），8 服务 + 5 卷 + 多环境
+- 有状态服务（MySQL/Redis/ChromaDB）用 StatefulSet，无状态服务用 Deployment
+- MCP Server 首期 replicas=1（proactive 后台线程需 leader election 后才可多副本）
+- docker-compose.yml 完整保留作为本地开发环境
+- ChromaDB pin 版本 0.5.0（避免 latest 漂移）
+
+### 文件
+- RFC-004: docs/decisions/RFC-004-k8s-migration.md
+- Helm Chart: deploy/k8s/

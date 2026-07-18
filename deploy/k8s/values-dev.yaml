@@ -1,0 +1,39 @@
+# 开发环境覆盖配置
+image:
+  tag: dev
+
+mcp:
+  replicas: "1"
+
+mysql:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  persistence:
+    size: "5Gi"
+
+redis:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  persistence:
+    size: "2Gi"
+
+chroma:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    size: "2Gi"

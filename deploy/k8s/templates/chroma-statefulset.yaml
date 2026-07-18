@@ -1,0 +1,90 @@
+{{- $chroma := .Values.chroma | default dict -}}
+{{- $chromaRes := $chroma.resources -}}
+{{- $chromaPers := $chroma.persistence | default dict -}}
+---
+# ChromaDB StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chroma
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  serviceName: chroma
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chroma
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chroma
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: chroma
+          # 固定版本，避免使用 latest
+          image: chromadb/chroma:0.5.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: chroma
+              containerPort: 8000
+              protocol: TCP
+          # startupProbe 容忍慢启动，避免被 livenessProbe 误杀
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            failureThreshold: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: data
+              mountPath: /chroma/chroma
+          resources:
+{{- if $chromaRes }}
+{{ toYaml $chromaRes | nindent 12 }}
+{{- else }}
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+{{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ $chromaPers.size | default "5Gi" }}
+{{- with $chromaPers.storageClassName }}
+        storageClassName: {{ . }}
+{{- end }}
+---
+# ChromaDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chroma
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: chroma
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: chroma
+    app.kubernetes.io/instance: {{ .Release.Name }}

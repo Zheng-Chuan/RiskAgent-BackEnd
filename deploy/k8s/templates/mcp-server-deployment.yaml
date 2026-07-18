@@ -1,0 +1,99 @@
+{{/*
+MCP Server Deployment + Service
+initContainers 替代 docker-compose 的 depends_on，等待 mysql/redis/chroma 就绪后再启动主容器。
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mcp-server
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+    component: mcp-server
+spec:
+  replicas: {{ .Values.mcp.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: riskmonitor
+      component: mcp-server
+  template:
+    metadata:
+      labels:
+{{- include "riskmonitor.labels" . | nindent 8 }}
+        component: mcp-server
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        # 1. 等待 MySQL 就绪（替代 depends_on: mysql: condition: service_healthy）
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - 'until mysqladmin ping -h mysql -u root -p$MYSQL_ROOT_PASSWORD --silent 2>/dev/null; do echo waiting for mysql; sleep 2; done'
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+        # 2. 等待 Redis 就绪（替代 depends_on: redis: condition: service_healthy）
+        - name: wait-for-redis
+          image: redis:7-alpine
+          command:
+            - sh
+            - -c
+            - 'until redis-cli -h redis ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done'
+        # 3. 等待 Chroma 就绪（替代 depends_on: chroma: condition: service_healthy）
+        - name: wait-for-chroma
+          image: curlimages/curl:8.7.1
+          command:
+            - sh
+            - -c
+            - 'until curl -sf http://chroma:8000/api/v1/heartbeat >/dev/null 2>&1; do echo waiting for chroma; sleep 2; done'
+      containers:
+        - name: mcp-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-app-config
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+          # 健康探针使用 /health（无认证）；不使用 /ready（该端点有认证，探针无法通过）
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 1.5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+    component: mcp-server
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: riskmonitor
+    component: mcp-server

@@ -1,0 +1,120 @@
+# Helm Chart 默认配置
+# 对应 .env.example 的所有配置项
+
+# 镜像配置
+image:
+  repository: riskmonitor/multiagent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# MySQL 配置
+mysql:
+  host: mysql
+  port: "3306"
+  database: riskmonitor
+  user: admin
+  password: change_me
+  rootPassword: root
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  persistence:
+    size: "10Gi"
+
+# Redis 配置
+redis:
+  host: redis
+  port: "6379"
+  db: "0"
+  password: ""
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    size: "5Gi"
+
+# ChromaDB 配置
+chroma:
+  host: chroma
+  port: "8000"
+  collection: riskmonitor-alerts
+  memoryCollection: riskmonitor-memory
+  image: chromadb/chroma:0.5.0
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+  persistence:
+    size: "5Gi"
+
+# MCP Server 配置
+mcp:
+  replicas: "1"
+  transport: streamable-http
+  host: "0.0.0.0"
+  port: "8000"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1500m"
+      memory: "1536Mi"
+
+# 应用配置
+app:
+  env: production
+  logLevel: INFO
+
+# 记忆配置
+memory:
+  semanticEnabled: "true"
+  ttl: "86400"
+  maxLen: "2000"
+
+# LLM 配置
+llm:
+  apiKey: ""
+  baseUrl: https://openrouter.ai/api/v1
+  model: deepseek/deepseek-v4-pro
+  httpReferer: ""
+  appTitle: ""
+
+# Prometheus 配置
+prometheus:
+  image: prom/prometheus:v2.48.0
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  persistence:
+    size: "5Gi"
+
+# Grafana 配置
+grafana:
+  image: grafana/grafana:10.2.0
+  adminUser: admin
+  adminPassword: admin
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "512Mi"
+  persistence:
+    size: "2Gi"

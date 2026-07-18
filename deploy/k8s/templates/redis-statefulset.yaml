@@ -1,0 +1,92 @@
+{{- $redis := .Values.redis | default dict -}}
+{{- $redisRes := $redis.resources -}}
+{{- $redisPers := $redis.persistence | default dict -}}
+---
+# Redis StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          # 开启 AOF 持久化并配置快照策略
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --save
+            - 60 1000
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+{{- if $redisRes }}
+{{ toYaml $redisRes | nindent 12 }}
+{{- else }}
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+{{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ $redisPers.size | default "5Gi" }}
+{{- with $redisPers.storageClassName }}
+        storageClassName: {{ . }}
+{{- end }}
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: {{ .Release.Name }}

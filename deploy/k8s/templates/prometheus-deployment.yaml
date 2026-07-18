@@ -1,0 +1,123 @@
+{{/* Prometheus - 监控和告警 (Kubernetes 版) */}}
+{{- $v := .Values | toYaml | fromYaml -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-prometheus-config
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'riskmonitor-app'
+        static_configs:
+          - targets: ['mcp-server:8000']
+        metrics_path: /metrics
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-prometheus-data
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ dig "prometheus" "persistence" "size" "5Gi" $v }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  replicas: {{ dig "prometheus" "replicas" 1 $v }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: riskmonitor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "riskmonitor.labels" . | nindent 8 }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.prometheus.image | default "prom/prometheus:v2.48.0" }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=7d
+            - --storage.tsdb.retention.size=2GB
+            - --web.console.libraries=/etc/prometheus/console_libraries
+            - --web.console.templates=/etc/prometheus/consoles
+            - --web.enable-lifecycle
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
+            - name: prometheus-data
+              mountPath: /prometheus
+          resources:
+            {{- $promResources := dig "prometheus" "resources" (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "1Gi")) $v }}
+            {{- toYaml $promResources | nindent 12 }}
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: {{ .Release.Name }}-prometheus-config
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-prometheus-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+    {{- include "riskmonitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: riskmonitor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: prometheus

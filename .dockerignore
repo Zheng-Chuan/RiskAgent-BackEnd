@@ -18,7 +18,10 @@ env/
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
+tests/
+eval/
 
 # Git
 .git/
@@ -29,9 +32,18 @@ docs/
 *.md
 !README.md
 
+# Environment files (secrets injected via K8s Secret)
+.env
+.env.*
+
 # Docker
+Dockerfile
 docker-compose.yml
+.dockerignore
+
+# Qoder cache
+.qoder/
 
 # Other
-.env
 .DS_Store
+Thumbs.db

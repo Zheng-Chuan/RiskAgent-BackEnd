@@ -158,3 +158,19 @@ phpmyadmin:
 	@echo "phpMyAdmin available at http://localhost:8080"
 	@echo "Server: mysql"
 	@echo "Username: admin"
+
+## K8s 部署
+.PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status
+
+k8s-deploy: ## Deploy to Kubernetes via Helm (prod)
+	helm upgrade --install riskmonitor deploy/k8s/ -f deploy/k8s/values-prod.yaml --create-namespace -n riskmonitor
+
+k8s-deploy-dev: ## Deploy to Kubernetes via Helm (dev)
+	helm upgrade --install riskmonitor deploy/k8s/ -f deploy/k8s/values-dev.yaml --create-namespace -n riskmonitor
+
+k8s-uninstall: ## Uninstall Helm release
+	helm uninstall riskmonitor -n riskmonitor
+
+k8s-status: ## Show K8s deployment status
+	helm status riskmonitor -n riskmonitor
+	kubectl get pods,svc -n riskmonitor

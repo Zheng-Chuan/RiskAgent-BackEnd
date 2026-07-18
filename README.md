@@ -102,6 +102,25 @@ PYTHONPATH=src python -m pytest tests/ -v
 make up
 ```
 
+## K8s 部署
+
+```bash
+# 创建 Secret（首次部署）
+kubectl create secret generic riskmonitor-secrets \
+  --from-literal=MYSQL_ROOT_PASSWORD=root \
+  --from-literal=MYSQL_PASSWORD=change_me \
+  --from-literal=MYSQL_USER=admin \
+  --from-literal=LLM_API_KEY=your-api-key
+
+# 部署
+make k8s-deploy
+
+# 卸载
+make k8s-uninstall
+```
+
+详见 [deploy/k8s/README.md](deploy/k8s/README.md)
+
 ## 测试入口
 
 - `tests/unit`: 纯逻辑和 contract 测试

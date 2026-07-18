@@ -1,0 +1,30 @@
+# 生产环境覆盖配置
+image:
+  tag: latest
+  pullPolicy: Always
+
+mcp:
+  replicas: "1"  # 首期单副本，proactive 线程需 leader election 后才可多副本
+
+mysql:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  persistence:
+    size: "20Gi"
+
+redis:
+  persistence:
+    size: "10Gi"
+
+chroma:
+  persistence:
+    size: "10Gi"
+
+prometheus:
+  persistence:
+    size: "10Gi"

@@ -1,0 +1,153 @@
+{{- $mysql := .Values.mysql | default dict -}}
+{{- $mysqlSecret := $mysql.secretName | default (printf "%s-secrets" .Release.Name) -}}
+{{- $mysqlRes := $mysql.resources -}}
+{{- $mysqlPers := $mysql.persistence | default dict -}}
+---
+# MySQL initdb ConfigMap
+# 将项目根目录下的 SQL 文件打包挂载到 /docker-entrypoint-initdb.d
+# 数字前缀保证 MySQL 初始化执行顺序
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+data:
+  01_init_db.sql: |-
+{{ .Files.Get "sql/01_init_db.sql" | indent 4 }}
+  02_alerts.sql: |-
+{{ .Files.Get "sql/02_alerts.sql" | indent 4 }}
+  03_audit_events.sql: |-
+{{ .Files.Get "sql/03_audit_events.sql" | indent 4 }}
+  04_memory_store.sql: |-
+{{ .Files.Get "sql/04_memory_store.sql" | indent 4 }}
+---
+# MySQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mysql
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mysql
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          # binlog 配置通过启动参数保留
+          args:
+            - --default-authentication-plugin=mysql_native_password
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --server-id=223344
+            - --log-bin=mysql-bin
+            - --binlog_format=ROW
+            - --binlog_row_image=FULL
+            - --expire_logs_days=7
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: MYSQL_PASSWORD
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h localhost -u root -p$(MYSQL_ROOT_PASSWORD)
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h localhost -u root -p$(MYSQL_ROOT_PASSWORD)
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+{{- if $mysqlRes }}
+{{ toYaml $mysqlRes | nindent 12 }}
+{{- else }}
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+{{- end }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: mysql-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ $mysqlPers.size | default "10Gi" }}
+{{- with $mysqlPers.storageClassName }}
+        storageClassName: {{ . }}
+{{- end }}
+---
+# MySQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  labels:
+{{- include "riskmonitor.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: mysql
+    app.kubernetes.io/instance: {{ .Release.Name }}
