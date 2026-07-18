@@ -66,3 +66,11 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 - 更新 RFC-001 状态为 Implemented
 - 更新 RFC-002 状态为 Completed
 - 更新所有 ADR/RFC 的 Update Log
+
+## 2026-07-18: Phase 10 主动监控文档体系创建
+
+- 创建 docs/phases/phase-10-active-monitoring.md（7*24 主动感知与自主运维，11 个 checkpoint）
+- 创建 docs/decisions/RFC-003-active-monitoring.md（主动监控架构决策）
+- 更新 PRD.md 添加 Phase 10
+- 更新 README.md 添加 Phase 10
+- 更新 ARCHITECTURE.md 文档保留范围

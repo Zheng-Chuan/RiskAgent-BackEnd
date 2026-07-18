@@ -81,6 +81,7 @@
 | Phase 7 | 调度与多平台 | ✓ 抽象层收口完成 | [phase-7-scheduling-gateway.md](./phases/phase-7-scheduling-gateway.md) |
 | Phase 8 | 提示词优化与自我改进闭环 | ✓ 完成 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
 | Phase 9 | 证据优先收口与验收补强 | ✓ 完成 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
+| Phase 10 | 7*24 主动感知与自主运维 | △ 规划中 |
 
 ---
 

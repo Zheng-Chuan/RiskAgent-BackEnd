@@ -127,3 +127,4 @@ make up
 - `Phase 7`: Gateway public API 已收口到 `GatewayAdapter` `GatewayMessage` `GatewayRouter`
 - `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
+- **Phase 10**: 7*24 主动感知与自主运维 — 规划中（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + 自主处置）

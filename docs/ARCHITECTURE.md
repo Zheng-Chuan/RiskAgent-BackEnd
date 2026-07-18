@@ -131,4 +131,6 @@ docs/MEMORY.md
 docs/INTERVIEW.md
 docs/decisions/
 docs/phases/
+- docs/phases/phase-10-active-monitoring.md
+- docs/decisions/RFC-003-active-monitoring.md
 ```
