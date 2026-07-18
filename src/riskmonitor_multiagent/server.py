@@ -25,6 +25,17 @@ from riskmonitor_multiagent.services.auth_service import is_authorized
 from riskmonitor_multiagent.resources.mcp_resources import register_resources
 from riskmonitor_multiagent.prompts.mcp_prompts import register_prompts
 from riskmonitor_multiagent.tools import mcp_tools as tools
+from riskmonitor_multiagent.proactive_agents import (
+    ProactiveIntentAgent,
+    ProactiveOrchestratorAgent,
+    ProactiveCriticAgent,
+    ProactiveSystemEngineerAgent,
+    ProactiveRiskAnalystAgent,
+)
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 query_all_positions = tools.query_all_positions
 query_positions_by_trader = tools.query_positions_by_trader
@@ -46,6 +57,41 @@ mcp = FastMCP(_server_name or "RiskMonitor MultiAgent")
 tools.register_tools(mcp)
 register_resources(mcp)
 register_prompts(mcp)
+
+# P0: 常驻感知守护进程
+_proactive_agents: list = []
+
+async def start_proactive_monitors() -> None:
+    """启动常驻感知守护进程 (P0 - Checkpoint 16.1.1)."""
+    global _proactive_agents
+    if _proactive_agents:
+        logger.warning("Proactive monitors already started")
+        return
+    agent_classes = [
+        ProactiveIntentAgent,
+        ProactiveOrchestratorAgent,
+        ProactiveCriticAgent,
+        ProactiveSystemEngineerAgent,
+        ProactiveRiskAnalystAgent,
+    ]
+    for cls in agent_classes:
+        agent = cls()
+        await agent.start_background_monitor()
+        _proactive_agents.append(agent)
+    logger.info(f"Started {len(_proactive_agents)} proactive background monitors")
+
+async def stop_proactive_monitors() -> None:
+    """停止常驻感知守护进程."""
+    global _proactive_agents
+    for agent in _proactive_agents:
+        await agent.stop_background_monitor()
+    _proactive_agents.clear()
+    logger.info("All proactive background monitors stopped")
+
+
+def get_proactive_monitors() -> list:
+    """获取当前运行的 proactive agents 列表（用于测试和监控）."""
+    return _proactive_agents
 
 
 @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)

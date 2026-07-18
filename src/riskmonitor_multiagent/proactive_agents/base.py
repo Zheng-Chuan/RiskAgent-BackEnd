@@ -367,24 +367,35 @@ class BaseProactiveAgent:
         logger.info(f"[{self._name}] Background monitor stopped")
     
     async def _monitor_loop(self) -> None:
-        """后台监控循环 - 主动感知环境."""
+        """后台监控循环 - 主动感知环境 (P0 - Checkpoint 16.1.2 异常自愈增强)."""
         logger.info(f"[{self._name}] Monitor loop started")
-        
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+
         while self._is_running:
             try:
                 await self._perceive_environment()
-                
                 await self._deliberate()
-                
                 await self._act()
-                
+                consecutive_errors = 0  # 成功则重置计数器
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.exception(f"[{self._name}] Monitor loop error: {e}")
-            
+                consecutive_errors += 1
+                logger.exception(
+                    f"[{self._name}] Monitor loop error ({consecutive_errors}/{max_consecutive_errors}): {e}"
+                )
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(
+                        f"[{self._name}] Too many consecutive errors, backing off 60s"
+                    )
+                    await asyncio.sleep(60)
+                    consecutive_errors = 0  # 重置以继续尝试
+                    continue
+                logger.info(f"[{self._name}] Monitor loop recovered, continuing...")
+
             await asyncio.sleep(self._monitor_interval)
-        
+
         logger.info(f"[{self._name}] Monitor loop exited")
     
     async def _perceive_environment(self) -> None:

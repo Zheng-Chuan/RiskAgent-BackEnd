@@ -10,8 +10,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 import sys
+import threading
 
 # 确保 src 在 Python 路径中
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
@@ -26,6 +29,24 @@ query_positions_by_desk = _server.query_positions_by_desk
 calculate_total_delta = _server.calculate_total_delta
 monitor_desk_exposure = _server.monitor_desk_exposure
 get_service_metrics = _server.get_service_metrics
+start_proactive_monitors = _server.start_proactive_monitors
+stop_proactive_monitors = _server.stop_proactive_monitors
+
+logger = logging.getLogger(__name__)
+
+
+def _run_proactive_monitors_in_thread() -> None:
+    """在后台线程中启动并运行常驻感知守护进程 (P0)."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(start_proactive_monitors())
+        logger.info("Proactive monitors started in background thread")
+        loop.run_forever()  # 保持事件循环运行，monitors 持续工作
+    except Exception as e:
+        logger.exception(f"Proactive monitor thread error: {e}")
+    finally:
+        loop.close()
 
 
 def main() -> None:
@@ -50,6 +71,15 @@ def main() -> None:
     mount_path = os.getenv("MCP_MOUNT_PATH")
     if mount_path is not None:
         mount_path = mount_path.strip() or None
+
+    # P0: 在后台线程中启动常驻感知守护进程
+    monitor_thread = threading.Thread(
+        target=_run_proactive_monitors_in_thread,
+        daemon=True,
+        name="proactive-monitor",
+    )
+    monitor_thread.start()
+    logger.info("Proactive monitor thread started")
 
     if transport == "sse":
         mcp.run(transport="sse", mount_path=mount_path)
