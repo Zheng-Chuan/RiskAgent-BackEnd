@@ -340,6 +340,7 @@ class ProactiveMultiAgentWorkflow:
         logger.info(f"[ProactiveWorkflow] Starting for task: {task.get('task_id') or run_id}")
         
         try:
+            # ===== Step 1: Setup & Resume Handling =====
             await self.start_agents()
             memory_store = get_memory_store()
             memory_enabled = task.get("memory_enabled", True) is not False
@@ -469,6 +470,7 @@ class ProactiveMultiAgentWorkflow:
                 task=task,
                 resume_request=resume_request,
             )
+            # ===== Step 2: Intent Recognition & Memory Retrieval =====
             # 意图识别阶段不应受预注入记忆影响
             # 剥离 memory 相关字段,防止 LLM 将 memory 上下文误判为 continue 意图
             intent_task = dict(task)
@@ -503,6 +505,7 @@ class ProactiveMultiAgentWorkflow:
                 )
             is_resume = bool(resume_request)
 
+            # ===== Step 3: Planning (Orchestrator + Critic + Replan) =====
             replan_details: dict[str, Any] | None = None
             execution_state = resume_request.get("execution_state") if is_resume else None
             resume_from_step_id = (
@@ -600,6 +603,7 @@ class ProactiveMultiAgentWorkflow:
                         len(active_task_graph.get("nodes", [])) if isinstance(active_task_graph, dict) else 0,
                     )
             
+            # ===== Step 4: TaskGraph Execution =====
             completed_step_records: list[dict[str, Any]] = []
             current_segment_id: str | None = None
 
@@ -686,6 +690,7 @@ class ProactiveMultiAgentWorkflow:
                 execution_result.get("status"),
             )
 
+            # ===== Step 5: Results Aggregation & Final Review =====
             delegate_results = execution_result.get("delegate_results", {})
             engineer_result = delegate_results.get("system_engineer") or delegate_results.get("engineer") or ProactiveAgentResult(
                 ok=True,
@@ -710,6 +715,7 @@ class ProactiveMultiAgentWorkflow:
                 critic_final_result,
                 output=critic_final_output,
             )
+            # ===== Step 6: Memory Persistence & Skill Lifecycle =====
             persisted_memory = {
                 "run_summary": {},
                 "summary_entry": None,
@@ -785,6 +791,7 @@ class ProactiveMultiAgentWorkflow:
                 logger.warning("Skill proposal failed: %s", exc)
                 skill_proposal = {"action": "skipped", "reason": f"error: {exc}"}
             
+            # ===== Step 7: Result Building & Context Save =====
             result = build_workflow_result(
                 run_id=run_id,
                 task=task,
