@@ -62,19 +62,26 @@ spec:
                 name: {{ .Release.Name }}-app-config
             - secretRef:
                 name: {{ .Release.Name }}-secrets
+          # 启动探针：给服务器足够的初始化时间（最多 5 分钟）
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 30
           # 健康探针使用 /health（无认证）；不使用 /ready（该端点有认证，探针无法通过）
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            periodSeconds: 10
-            failureThreshold: 3
+            periodSeconds: 15
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
-            periodSeconds: 5
-            failureThreshold: 2
+            periodSeconds: 10
+            failureThreshold: 3
           resources:
             requests:
               cpu: 500m

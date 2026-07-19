@@ -13,6 +13,7 @@ from typing import Any
 import redis.asyncio as redis
 
 from riskmonitor_multiagent.memory.semantic_indexer import _make_json_safe
+from riskmonitor_multiagent.utils.json import _safe_json_dumps
 
 
 class RedisBackend:
@@ -81,7 +82,7 @@ class RedisBackend:
         }
 
         await r.hset(key, mapping={
-            "payload": json.dumps(payload, ensure_ascii=False),
+            "payload": _safe_json_dumps(payload, ensure_ascii=False),
         })
 
         # 创建事件索引

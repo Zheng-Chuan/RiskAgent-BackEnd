@@ -53,7 +53,15 @@ load_dotenv(dotenv_path=_repo_root / ".env")
 configure_logging()
 
 _server_name = os.getenv("MCP_SERVER_NAME", "RiskMonitor MultiAgent").strip()
-mcp = FastMCP(_server_name or "RiskMonitor MultiAgent")
+# 显式传入 host，确保 K8s 探针可通过 Pod IP 访问
+# FastMCP.__init__ 默认 host="127.0.0.1"，会覆盖 FASTMCP_HOST 环境变量
+_server_host = os.getenv("FASTMCP_HOST", "0.0.0.0").strip() or "0.0.0.0"
+_server_port = int(os.getenv("FASTMCP_PORT", "8000").strip() or "8000")
+mcp = FastMCP(
+    _server_name or "RiskMonitor MultiAgent",
+    host=_server_host,
+    port=_server_port,
+)
 tools.register_tools(mcp)
 register_resources(mcp)
 register_prompts(mcp)

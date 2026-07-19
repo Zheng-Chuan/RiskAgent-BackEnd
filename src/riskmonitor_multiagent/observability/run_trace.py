@@ -20,6 +20,7 @@ from riskmonitor_multiagent.governance.versions import (
     get_policy_version,
 )
 from riskmonitor_multiagent.orchestration.tool_registry import TOOL_REGISTRY_VERSION
+from riskmonitor_multiagent.utils.json import _safe_json_dumps
 from riskmonitor_multiagent.utils.time import now_ms
 
 
@@ -90,7 +91,7 @@ class RunTraceStore:
         path = self.get_snapshot_path(snapshot.run_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps(snapshot.to_dict(), ensure_ascii=False, indent=2, sort_keys=True),
+            _safe_json_dumps(snapshot.to_dict(), ensure_ascii=False, indent=2, sort_keys=True),
             encoding="utf-8",
         )
 
