@@ -1,0 +1,315 @@
+{
+  "entries": [
+    {
+      "category": "message",
+      "payload": {
+        "causation_id": null,
+        "correlation_id": null,
+        "event_id": "evt_bc8da3a77a16",
+        "event_type": "risk_breach_detected",
+        "payload": {
+          "content": "主动告警:perception_escalation 信号异常 (severity=critical)",
+          "session_id": "proactive_system_engineer",
+          "target_agent": "orchestrator",
+          "task": {
+            "payload": {
+              "content": "主动告警:perception_escalation 信号异常 (severity=critical)",
+              "proactive_intention_id": "intention_6f6b704b",
+              "tool_name": "submit_alerts",
+              "tool_params": {
+                "alert_type": "system_error",
+                "message": "mysql_threads_connected_critical: threads_connected=150 threshold=100",
+                "metric_name": null,
+                "metric_value": null,
+                "priority": "high",
+                "severity": "critical",
+                "source": "perception_escalation"
+              }
+            },
+            "session_id": "proactive_system_engineer",
+            "source": "system_event",
+            "task_id": "proactive_intention_6f6b704b"
+          },
+          "task_id": "proactive_intention_6f6b704b",
+          "trigger_evidence": {
+            "source_agent": "system_engineer",
+            "tool_name": "submit_alerts",
+            "tool_params": {
+              "alert_type": "system_error",
+              "message": "mysql_threads_connected_critical: threads_connected=150 threshold=100",
+              "metric_name": null,
+              "metric_value": null,
+              "priority": "high",
+              "severity": "critical",
+              "source": "perception_escalation"
+            }
+          },
+          "trigger_reason": "主动告警:perception_escalation 信号异常 (severity=critical)"
+        },
+        "priority": "high",
+        "requires_ack": false,
+        "schema_version": "event.v1",
+        "source_agent": "system_engineer",
+        "target_agent": "orchestrator",
+        "timestamp_ms": 1784450456196
+      },
+      "status": "recorded",
+      "summary": {
+        "event_id": "evt_bc8da3a77a16",
+        "event_type": "risk_breach_detected",
+        "source_agent": "system_engineer"
+      },
+      "timestamp_ms": 1784450456196,
+      "trace_type": "source_event"
+    },
+    {
+      "category": "message",
+      "payload": {
+        "decision_source": "moderator",
+        "rule_name": "risk_breach_detected",
+        "selected_agent": "system_engineer",
+        "timestamp_ms": 1784450456196
+      },
+      "status": "recorded",
+      "summary": {
+        "decision_source": "moderator",
+        "rule_name": "risk_breach_detected",
+        "selected_agent": "system_engineer"
+      },
+      "timestamp_ms": 1784450456196,
+      "trace_type": "moderator_decision"
+    },
+    {
+      "category": "step",
+      "payload": {
+        "finished_at_ms": 1784450456296,
+        "kind": "delegate",
+        "predecessors": [],
+        "related_memory_ids": [],
+        "related_receipt_command_ids": [
+          "cmd_db_pool_alert"
+        ],
+        "started_at_ms": 1784450456196,
+        "status": "completed",
+        "step_id": "s1",
+        "successors": [
+          "s2"
+        ]
+      },
+      "status": "completed",
+      "summary": {
+        "failure_classification": null,
+        "kind": "delegate",
+        "status": "completed",
+        "step_id": "s1"
+      },
+      "timestamp_ms": 1784450456196,
+      "trace_type": "task_graph_step"
+    },
+    {
+      "category": "task",
+      "payload": {
+        "entry_type": "system_event",
+        "task_graph_schema_version": "task_graph.v1",
+        "task_id": "proactive_intention_6f6b704b",
+        "trigger_event_id": "evt_bc8da3a77a16",
+        "trigger_reason": "db_pool_exhausted"
+      },
+      "status": "recorded",
+      "summary": {
+        "entry_type": "system_event",
+        "task_id": "proactive_intention_6f6b704b",
+        "trigger_event_id": "evt_bc8da3a77a16"
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "task"
+    },
+    {
+      "category": "version_snapshot",
+      "payload": {
+        "benchmark_config": {},
+        "model": "deepseek/deepseek-v4-pro",
+        "policy_version": "policy.v1",
+        "prompt_versions": {
+          "critic": "critic_prompt.v1",
+          "intent": "intent_prompt.v1",
+          "manager": "manager_prompt.v1",
+          "orchestrator": "orchestrator_prompt.v1",
+          "risk_analyst": "risk_analyst_prompt.v1",
+          "system_engineer": "system_engineer_prompt.v1"
+        },
+        "toolset_version": "tool_registry.v1"
+      },
+      "status": "recorded",
+      "summary": {
+        "model": "deepseek/deepseek-v4-pro",
+        "policy_version": "policy.v1",
+        "toolset_version": "tool_registry.v1"
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "version_snapshot"
+    },
+    {
+      "category": "plan",
+      "payload": {
+        "primary_intent_type": "remediate"
+      },
+      "status": "recorded",
+      "summary": {
+        "primary_intent_type": "remediate"
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "intent"
+    },
+    {
+      "category": "plan",
+      "payload": {
+        "plan_steps": [
+          {
+            "expected_outcome": "root_cause_identified",
+            "instruction": "诊断 MySQL 连接池耗尽根因",
+            "kind": "delegate",
+            "step_id": "s1",
+            "target_agent": "system_engineer"
+          },
+          {
+            "expected_outcome": "business_impact_assessed",
+            "instruction": "评估连接池耗尽对业务的影响",
+            "kind": "delegate",
+            "step_id": "s2",
+            "target_agent": "risk_analyst"
+          }
+        ]
+      },
+      "status": "recorded",
+      "summary": {
+        "nodes": 2,
+        "plan_steps": 2
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "orchestrator_plan"
+    },
+    {
+      "category": "plan",
+      "payload": {
+        "issues": [],
+        "ok": true
+      },
+      "status": "recorded",
+      "summary": {
+        "issues": 0,
+        "ok": true
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "critic_plan"
+    },
+    {
+      "category": "command",
+      "payload": {
+        "command_id": "cmd_db_pool_alert",
+        "expected_output_schema": null,
+        "inputs": null,
+        "step_id": "s1",
+        "target_agent": null,
+        "tool_name": "submit_alerts"
+      },
+      "status": "completed",
+      "summary": {
+        "command_id": "cmd_db_pool_alert",
+        "step_id": "s1",
+        "target_agent": null,
+        "tool_name": "submit_alerts"
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "command"
+    },
+    {
+      "category": "receipt",
+      "payload": {
+        "approval_state": "approved",
+        "command_id": "cmd_db_pool_alert",
+        "status": "completed",
+        "step_id": "s1",
+        "tool_name": "submit_alerts"
+      },
+      "status": "completed",
+      "summary": {
+        "approval_state": "approved",
+        "command_id": "cmd_db_pool_alert",
+        "tool_name": "submit_alerts"
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "receipt"
+    },
+    {
+      "category": "final",
+      "payload": {
+        "errors": [],
+        "final_output": {
+          "receipt_command_ids": [
+            "cmd_db_pool_alert"
+          ],
+          "remediation": "expanded_connection_pool",
+          "root_cause": "pool_exhaustion"
+        },
+        "task_graph_execution": {
+          "status": "completed",
+          "trace": [
+            {
+              "finished_at_ms": 1784450456296,
+              "kind": "delegate",
+              "started_at_ms": 1784450456196,
+              "status": "completed",
+              "step_id": "s1"
+            }
+          ]
+        }
+      },
+      "status": "completed",
+      "summary": {
+        "latency_ms": 1500.0,
+        "status": "completed",
+        "tokens_total": 0
+      },
+      "timestamp_ms": 1784450456198,
+      "trace_type": "run_finished"
+    }
+  ],
+  "entry_type": "system_event",
+  "failure_summary": {},
+  "run_id": "scenario_db_pool_exhausted_run",
+  "schema_version": "run_trace.v2",
+  "status": "completed",
+  "summary": {
+    "approval_count": 0,
+    "entry_count": 11,
+    "event_count": 0,
+    "memory_entry_count": 0,
+    "receipt_count": 1,
+    "trace_counts": {
+      "command": 1,
+      "final": 1,
+      "message": 2,
+      "plan": 3,
+      "receipt": 1,
+      "step": 1,
+      "task": 1,
+      "version_snapshot": 1
+    }
+  },
+  "task_id": "proactive_intention_6f6b704b",
+  "version_snapshot": {
+    "benchmark_config": {},
+    "model": "deepseek/deepseek-v4-pro",
+    "policy_version": "policy.v1",
+    "prompt_versions": {
+      "critic": "critic_prompt.v1",
+      "intent": "intent_prompt.v1",
+      "manager": "manager_prompt.v1",
+      "orchestrator": "orchestrator_prompt.v1",
+      "risk_analyst": "risk_analyst_prompt.v1",
+      "system_engineer": "system_engineer_prompt.v1"
+    },
+    "toolset_version": "tool_registry.v1"
+  }
+}
