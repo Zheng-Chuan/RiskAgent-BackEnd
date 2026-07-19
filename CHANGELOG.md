@@ -4,6 +4,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-07-19: 7×24 主动监控链路修复
+
+### 修复
+- _deliberate source 硬编码不匹配（base.py）→ 改为 frozenset 集合匹配，修复感知→行动链路断裂
+- SystemEngineer 直接调用 remediate() 绕过五道关卡 → 移除直接调用，改走 _act → start_from_event → tool_executor
+- Prometheus 指标名不匹配（http_requests_total → rm_agent_command_denied_total/orchestrator_runs_total 比值，llm_token_total → rm_llm_tokens_total）
+- Orchestrator/Critic _perceive_environment 空壳 → 补全 Prometheus 感知
+- PerceptionBudgetManager 死代码 → 删除
+- 新增 K8sDataSource（kubectl CLI 查 Pod 状态）+ RBAC 配置
+- 新增 _deliberate 单元测试 + 完整链路集成测试
+
+### K8s 部署修复
+- 删除 namespace.yaml（Helm ownership 缺陷），改用 --create-namespace
+- 镜像引用参数化（global.imageRegistry 前缀）
+- ConfigMap 补 PROMETHEUS_URL + DEPLOYMENT_ENV
+- 新增 docker-build Makefile target
+
 ## [Phase 9 收口] - 2026-07-09
 
 ### 概述

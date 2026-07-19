@@ -2,13 +2,23 @@
 
 ## 状态
 
-已完成 ✓ (P0-P9 全部验收通过 + 感知模块集成接线完成). 在 Phase 0-9 全部完成的基础上, 补全持续感知和常驻进程两个缺失组件, 使系统从被动响应升级为主动感知 → 分析 → 行动的 7*24 闭环.
+部分完成 — P0 心跳已通，感知链路断裂已修复，待重新验收. 在 Phase 0-9 全部完成的基础上, 补全持续感知和常驻进程两个缺失组件, 使系统从被动响应升级为主动感知 → 分析 → 行动的 7*24 闭环.
 
 **集成状态**: perception 模块已接入 proactive agents 的 `_perceive_environment()` 方法, 完成感知 → 过滤 → 升级 → 处置的完整链路接线:
 - `ProactiveSystemEngineerAgent._perceive_environment()`: 接入 Docker/Redis/MySQL/Prometheus 四类数据源, 过滤后升级检查, critical 事件触发自主处置
 - `ProactiveRiskAnalystAgent._perceive_environment()`: 接入 MySQL/Prometheus 数据源, 过滤+升级+记录风险信号
 - `ProactiveIntentAgent._perceive_environment()`: 接入 Prometheus 数据源, 监控业务指标异常
 - `BaseProactiveAgent`: 添加懒加载的 `_filter_engine`/`_escalation_manager`/`_remediation_manager` 属性和 `_collect_and_filter` 辅助方法
+
+### Known Issues（2026-07-19 代码审计发现）
+
+1. **P4 链路断裂（已修复）**：_deliberate (base.py) 检查 `belief.source == "system_metrics"` 与实际产生的 source 不匹配，导致感知信号无法触发行动。已修复为 frozenset 集合匹配。
+2. **P6 RemediationManager 绕过五道关卡（已修复）**：SystemEngineer 直接调用 remediate() 只打日志，不经 tool_executor。已移除直接调用，改走 _act → start_from_event → tool_executor。
+3. **P7 人类升级字符串拼接（已修复）**：原实现只在 description 字符串拼"escalated to human"。现走统一内核 ask_human 节点。
+4. **P9 Skill 沉淀只存内存（已修复）**：原 _try_create_skill 只存内存 dict。现走统一内核 SkillProposer 持久化到 SkillStore。
+5. **Prometheus 指标名不匹配（已修复）**：http_requests_total 和 llm_token_total 从未注册，error_rate 恒为 0。已改为实际注册的指标名。
+6. **PerceptionBudgetManager 死代码（已删除）**：P4 验收测试测了死代码，实际生效的是 governance/ProactiveBudgetManager。
+7. **_deliberate 零测试覆盖（已补全）**：新增 test_deliberate_chain.py 覆盖 5 个场景。
 
 ## 核心目标
 

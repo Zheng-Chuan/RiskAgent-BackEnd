@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制应用代码
 COPY main.py .
 COPY src ./src
-COPY .env* ./
+# .env 文件由 K8s Secret 注入，不烘焙进镜像（.dockerignore 已排除 .env*）
+# COPY .env.example ./  # 如需默认配置可取消注释
 
 # 暴露 MCP Server 端口(可选; 未来可能用于 HTTP/可观测性等场景)
 # MCP 通常走 stdio, 这里保留端口便于扩展

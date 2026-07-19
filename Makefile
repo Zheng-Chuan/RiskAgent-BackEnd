@@ -160,7 +160,10 @@ phpmyadmin:
 	@echo "Username: admin"
 
 ## K8s 部署
-.PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status
+.PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status docker-build
+
+docker-build: ## Build Docker image for K8s deployment
+	docker build -t riskmonitor/multiagent:latest -f Dockerfile .
 
 k8s-deploy: ## Deploy to Kubernetes via Helm (prod)
 	helm upgrade --install riskmonitor deploy/k8s/ -f deploy/k8s/values-prod.yaml --create-namespace -n riskmonitor

@@ -28,3 +28,5 @@ data:
   LLM_MODEL: {{ .Values.llm.model | default "deepseek/deepseek-v4-pro" | quote }}
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}
   LLM_APP_TITLE: {{ .Values.llm.appTitle | default "" | quote }}
+  PROMETHEUS_URL: {{ printf "http://%s:%s" (.Values.prometheus.host | default "prometheus") (.Values.prometheus.port | default "9090" | toString) | quote }}
+  DEPLOYMENT_ENV: "k8s"

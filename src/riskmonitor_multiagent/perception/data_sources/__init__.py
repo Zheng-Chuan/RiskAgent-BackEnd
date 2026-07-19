@@ -4,5 +4,12 @@ from riskmonitor_multiagent.perception.data_sources.docker_source import DockerD
 from riskmonitor_multiagent.perception.data_sources.redis_source import RedisDataSource
 from riskmonitor_multiagent.perception.data_sources.mysql_source import MySQLDataSource
 from riskmonitor_multiagent.perception.data_sources.prometheus_source import PrometheusDataSource
+from riskmonitor_multiagent.perception.data_sources.k8s_source import K8sDataSource
 
-__all__ = ["DockerDataSource", "RedisDataSource", "MySQLDataSource", "PrometheusDataSource"]
+__all__ = [
+    "DockerDataSource",
+    "RedisDataSource",
+    "MySQLDataSource",
+    "PrometheusDataSource",
+    "K8sDataSource",
+]

@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: "{{ .Values.global.imageRegistry }}mysql:8.0"
           imagePullPolicy: IfNotPresent
           # binlog 配置通过启动参数保留
           args:

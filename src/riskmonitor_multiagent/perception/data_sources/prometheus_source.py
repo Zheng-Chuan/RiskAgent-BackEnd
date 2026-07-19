@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 
 from riskmonitor_multiagent.perception.signals import PerceptionSignal
@@ -52,7 +53,12 @@ class PrometheusDataSource:
             if data.get("status") == "success" and data.get("data", {}).get("result"):
                 result = data["data"]["result"][0]
                 value = result.get("value", [None, "0"])[1]
-                return float(value)
+                parsed = float(value)
+                # 分母为 0 时 Prometheus 返回 NaN，兜底返回 None
+                if math.isnan(parsed):
+                    logger.debug(f"Prometheus query '{promql}' returned NaN")
+                    return None
+                return parsed
         except Exception as e:
             logger.debug(f"Prometheus query '{promql}' failed: {e}")
         return None
@@ -90,7 +96,8 @@ class PrometheusDataSource:
         )]
 
         # 采集业务指标
-        error_rate = self._query('rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])')
+        # 用实际注册的指标计算错误率（被拒命令数 / 编排器运行总数）
+        error_rate = self._query('rate(rm_agent_command_denied_total[5m]) / rate(orchestrator_runs_total[5m])')
         if error_rate is not None:
             signals.append(PerceptionSignal(
                 source="prometheus",
@@ -105,7 +112,7 @@ class PrometheusDataSource:
                 context={"note": "no error rate data"},
             ))
 
-        token_usage = self._query('increase(llm_token_total[1m])')
+        token_usage = self._query('increase(rm_llm_tokens_total[1m])')
         if token_usage is not None:
             signals.append(PerceptionSignal(
                 source="prometheus",

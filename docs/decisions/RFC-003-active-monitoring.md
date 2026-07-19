@@ -56,8 +56,8 @@ BDI 五段骨架已完整存在，仅需激活和完善：
 | `start_background_monitor()` | 已实现，从未被常驻入口调用 | 在 `server.py` startup 中调用 |
 | `_monitor_loop()` | 已实现 | 增加异常自愈逻辑 |
 | `_perceive_environment()` | 空壳 `pass` | 接入 Docker/Redis/MySQL/Prometheus 数据源 |
-| `_deliberate()` | 已实现 | 增加预过滤层，仅在异常时触发 |
-| `_act()` | 已实现 | 增加自主处置和人类升级分支 |
+| `_deliberate()` | 已实现 (已修复: source 硬编码已改为 frozenset 集合匹配) | 增加预过滤层，仅在异常时触发 |
+| `_act()` | 已实现 (已修复: 移除 SystemEngineer 直接 remediate 调用，改走 start_from_event) | 增加自主处置和人类升级分支 |
 
 ## 与现有架构约束的兼容性
 

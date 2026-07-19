@@ -10,7 +10,6 @@ from riskmonitor_multiagent.perception import (
     PerceptionSignal, SignalSeverity,
     PerceptionFilterEngine, get_default_rules,
     EscalationManager, SystemEvent,
-    PerceptionBudgetManager,
 )
 
 
@@ -106,87 +105,15 @@ def test_escalation_stats():
     print(f"[PASS] 统计正确: escalated={stats['total_escalated']} critical={stats['total_critical']} warning={stats['total_warning']}")
 
 
-def test_budget_frequency_control():
-    """验收 16.3.3: LLM 频率控制."""
-    print("\n" + "=" * 60)
-    print("P4 验收测试: LLM 频率控制 (16.3.3)")
-    print("=" * 60)
-
-    budget = PerceptionBudgetManager(max_calls_per_minute=3)
-
-    # 前 3 次允许
-    for i in range(3):
-        assert budget.can_call_llm(), f"第 {i+1} 次应允许"
-        budget.record_call(tokens_used=1000, success=True)
-    print("[PASS] 前 3 次调用全部允许 (频控上限=3/分钟)")
-
-    # 第 4 次应被拒绝
-    assert not budget.can_call_llm(), "第 4 次应被频控拒绝"
-    print("[PASS] 第 4 次调用被频控拒绝")
-
-
-def test_budget_token_limit():
-    """验收 16.3.3: token 预算控制."""
-    print("\n--- token 预算控制 ---")
-
-    budget = PerceptionBudgetManager(max_tokens_per_hour=5000)
-
-    # 消耗 5000 tokens
-    budget.record_call(tokens_used=5000, success=True)
-    assert budget.can_call_llm() is False, "预算耗尽应拒绝"
-    print("[PASS] token 预算耗尽后拒绝 LLM 调用")
-    assert budget.is_circuit_broken(), "应触发熔断"
-    print("[PASS] 预算耗尽触发熔断")
-
-
-def test_circuit_breaker_failures():
-    """验收 16.3.3: 连续失败触发熔断."""
-    print("\n--- 连续失败熔断 ---")
-
-    budget = PerceptionBudgetManager(circuit_breaker_threshold=3)
-
-    for i in range(3):
-        budget.record_call(tokens_used=100, success=False)
-
-    assert budget.is_circuit_broken(), "3 次连续失败应触发熔断"
-    assert not budget.can_call_llm(), "熔断后应拒绝 LLM 调用"
-    print("[PASS] 3 次连续失败触发熔断，降级为纯规则处置")
-
-    # 手动重置
-    budget.reset_circuit_breaker()
-    assert budget.can_call_llm(), "重置后应允许调用"
-    print("[PASS] 手动重置熔断器后恢复正常")
-
-
-def test_budget_stats():
-    """验收: 预算统计正确."""
-    print("\n--- 预算统计 ---")
-
-    budget = PerceptionBudgetManager(max_tokens_per_hour=10000, max_calls_per_minute=10)
-    budget.record_call(tokens_used=500, success=True)
-    budget.record_call(tokens_used=300, success=True)
-    budget.record_call(tokens_used=200, success=False)
-
-    stats = budget.get_stats()
-    assert stats["total_calls"] == 3
-    assert stats["total_tokens_used"] == 1000
-    assert stats["consecutive_failures"] == 1
-    print(f"[PASS] 统计正确: calls={stats['total_calls']} tokens={stats['total_tokens_used']} failures={stats['consecutive_failures']}")
-
-
 def main():
     try:
         test_escalation_critical()
         test_escalation_warning()
         test_no_escalation_for_normal()
         test_escalation_stats()
-        test_budget_frequency_control()
-        test_budget_token_limit()
-        test_circuit_breaker_failures()
-        test_budget_stats()
 
         print("\n" + "=" * 60)
-        print("P4 Checkpoint 16.3.2 + 16.3.3 验收: 全部通过")
+        print("P4 Checkpoint 16.3.2 验收: 全部通过")
         print("=" * 60)
         print("\n P4 全部验收通过!")
         return 0

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from riskmonitor_multiagent.proactive_agents.base import (
@@ -214,6 +215,27 @@ class ProactiveOrchestratorAgent(BaseProactiveAgent):
         self.add_desire("合理分配任务给专业 Agent", priority=8)
         self.add_desire("确保计划可执行且风险可控", priority=9)
 
+    async def _perceive_environment(self) -> None:
+        """主动感知 - 监控编排指标."""
+        try:
+            from riskmonitor_multiagent.perception.data_sources import PrometheusDataSource
+            filtered = self._collect_and_filter([PrometheusDataSource()])
+            if not filtered:
+                return
+            for sig in filtered:
+                self.add_belief(
+                    content={
+                        "source": sig.source,
+                        "metric": sig.metric,
+                        "value": sig.value,
+                        "severity": sig.severity.value,
+                    },
+                    source="orchestration_perception",
+                    confidence=0.7,
+                )
+        except Exception as e:
+            logger.warning(f"[orchestrator] 感知环境失败: {e}")
+
     async def orchestrate(
         self,
         *,
@@ -320,6 +342,27 @@ class ProactiveCriticAgent(BaseProactiveAgent):
         self.add_desire("识别计划中的风险点", priority=10)
         self.add_desire("确保计划符合安全规范", priority=9)
         self.add_desire("提供有价值的改进建议", priority=7)
+
+    async def _perceive_environment(self) -> None:
+        """主动感知 - 监控计划执行质量."""
+        try:
+            from riskmonitor_multiagent.perception.data_sources import PrometheusDataSource
+            filtered = self._collect_and_filter([PrometheusDataSource()])
+            if not filtered:
+                return
+            for sig in filtered:
+                self.add_belief(
+                    content={
+                        "source": sig.source,
+                        "metric": sig.metric,
+                        "value": sig.value,
+                        "severity": sig.severity.value,
+                    },
+                    source="quality_perception",
+                    confidence=0.7,
+                )
+        except Exception as e:
+            logger.warning(f"[critic] 感知环境失败: {e}")
 
     async def review(
         self,
@@ -516,9 +559,19 @@ class ProactiveSystemEngineerAgent(BaseProactiveAgent):
                 MySQLDataSource,
                 PrometheusDataSource,
             )
+            try:
+                from riskmonitor_multiagent.perception.data_sources import K8sDataSource
+            except ImportError:
+                K8sDataSource = None
+
+            # 环境检测: K8s 环境用 K8sDataSource, 否则用 DockerDataSource
+            if K8sDataSource is not None and os.getenv("KUBERNETES_SERVICE_HOST"):
+                infra_source = K8sDataSource()
+            else:
+                infra_source = DockerDataSource()
 
             filtered = self._collect_and_filter([
-                DockerDataSource(),
+                infra_source,
                 RedisDataSource(),
                 MySQLDataSource(),
                 PrometheusDataSource(),
@@ -541,14 +594,8 @@ class ProactiveSystemEngineerAgent(BaseProactiveAgent):
                     source="perception_escalation",
                     confidence=0.9,
                 )
-
-                # critical 事件触发处置
-                if event.severity == "critical":
-                    try:
-                        result = self._remediation_manager.remediate(event)
-                        logger.info(f"[system_engineer] 处置完成: {result.action} - {result.description}")
-                    except Exception as e:
-                        logger.error(f"[system_engineer] 处置失败: {e}")
+                # critical 事件不再直接 remediate, 而是通过 _deliberate → _act →
+                # start_from_event 走统一执行内核五道关卡路径
         except Exception as e:
             logger.warning(f"[system_engineer] 感知环境失败: {e}")
 

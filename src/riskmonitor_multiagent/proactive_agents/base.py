@@ -63,6 +63,17 @@ if TYPE_CHECKING:
         TieredPromptBuilder,
     )
 
+# 感知模块产生的 belief source 集合
+# 这些 source 的 belief 需要在 _deliberate 中形成主动告警意图
+_PERCEPTION_SOURCES = frozenset({
+    "intent_perception",
+    "perception_escalation",
+    "risk_perception",
+    "risk_escalation",
+    "orchestration_perception",
+    "quality_perception",
+})
+
 logger = logging.getLogger(__name__)
 
 
@@ -409,34 +420,68 @@ class BaseProactiveAgent:
         pass
     
     async def _deliberate(self) -> None:
-        """思考 - 根据信念和愿望形成意图."""
+        """思考 - 根据信念和愿望形成意图.
+
+        处理来自感知模块 (_PERCEPTION_SOURCES) 的信念:
+        - escalation 类 belief 带有 severity 字段 (critical/warning)
+        - perception 类 belief 带有 metric/value 字段 (同时携带 severity)
+        severity=critical → priority=high; severity=warning → priority=normal.
+        兼容旧版仅含 metric/value 的 belief: 保留 error_rate>0.1 阈值检查.
+        """
         # 获取最新的信念
         recent_beliefs = self.get_beliefs()[-5:]  # 最近 5 个信念
-        
+
         # 获取活跃的愿望
         active_desires = self.get_active_desires()
-        
+
         # 检查是否有需要主动处理的情况
         for belief in recent_beliefs:
-            # 如果信念来自系统监控,检查是否需要主动告警
-            if belief.source == "system_metrics":
-                if belief.content.get("metric") == "error_rate":
-                    error_rate = belief.content.get("value", 0)
-                    if error_rate > 0.1:  # 错误率超过 10%
-                        # 形成主动告警的意图
-                        self.add_intention(
-                            description=f"主动告警:系统错误率异常 ({error_rate*100:.1f}%)",
-                            target_agent="orchestrator",
-                            tool_name="submit_alerts",
-                            tool_params={
-                                "alert_type": "system_error",
-                                "severity": "high" if error_rate > 0.2 else "medium",
-                                "message": f"系统错误率 {error_rate*100:.1f}% 超过阈值 (10%)",
-                                "metric_name": "error_rate",
-                                "metric_value": error_rate,
-                            },
-                        )
-                        logger.info(f"[{self._name}] Created proactive alert intention for error rate {error_rate*100:.1f}%")
+            # 仅处理来自感知模块的信念 (泛化:不再硬编码 system_metrics)
+            if belief.source not in _PERCEPTION_SOURCES:
+                continue
+
+            content = belief.content if isinstance(belief.content, dict) else {}
+            severity = str(content.get("severity", "")).lower()
+            metric = content.get("metric")
+            value = content.get("value")
+
+            # 优先按 severity 字段判定 (escalation 类 + perception 类均携带 severity)
+            if severity == "critical":
+                priority = "high"
+            elif severity == "warning":
+                priority = "normal"
+            elif metric == "error_rate" and isinstance(value, (int, float)) and value > 0.1:
+                # 兼容旧版 perception 信念:仅有 metric/value,无 severity
+                priority = "high" if value > 0.2 else "normal"
+                severity = "critical" if value > 0.2 else "warning"
+            else:
+                # 其他 metric 的阈值检查由感知过滤层完成,这里不再重复
+                continue
+
+            # 形成主动告警的意图
+            alert_message = (
+                content.get("description")
+                or content.get("message")
+                or f"{belief.source} 信号异常 (metric={metric}, value={value})"
+            )
+            self.add_intention(
+                description=f"主动告警:{belief.source} 信号异常 (severity={severity})",
+                target_agent="orchestrator",
+                tool_name="submit_alerts",
+                tool_params={
+                    "alert_type": "system_error",
+                    "severity": severity,
+                    "priority": priority,
+                    "message": alert_message,
+                    "metric_name": metric,
+                    "metric_value": value,
+                    "source": belief.source,
+                },
+            )
+            logger.info(
+                f"[{self._name}] Created proactive alert intention for {belief.source} "
+                f"severity={severity} metric={metric}"
+            )
     
     async def _act(self) -> None:
         """行动 - 执行意图."""
@@ -483,7 +528,7 @@ class BaseProactiveAgent:
         """把主动意图转换为统一系统事件."""
         tool_params = dict(intention.tool_params or {})
         event_type = EventType.TASK_CREATED
-        if tool_params.get("metric_name") == "error_rate":
+        if tool_params.get("severity") == "critical":
             event_type = EventType.RISK_BREACH_DETECTED
 
         task_payload = {

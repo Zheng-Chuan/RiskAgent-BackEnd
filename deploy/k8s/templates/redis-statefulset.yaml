@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: "{{ .Values.global.imageRegistry }}redis:7-alpine"
           imagePullPolicy: IfNotPresent
           # 开启 AOF 持久化并配置快照策略
           command:
