@@ -82,6 +82,8 @@
 | Phase 8 | 提示词优化与自我改进闭环 | ✓ 完成 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
 | Phase 9 | 证据优先收口与验收补强 | ✓ 完成 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
 | Phase 10 | 7*24 主动感知与自主运维 | 修复中 — 感知链路断裂已修复，待重新验收 |
+| Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | 规划中 — RFC-005 Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| Phase 12 | BDI 信念去重与意图幂等性修复 | 规划中 — RFC-006 Proposed | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 
 ---
 
@@ -96,6 +98,10 @@
 | run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
 | Hermes 五柱升级提案 | Accepted and Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
 | Evidence-First 收口提案 | Accepted and Completed | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
+| 7*24 主动感知与自主运维架构 | Accepted, In Progress | [RFC-003](./decisions/RFC-003-active-monitoring.md) |
+| K8s 全量迁移 | Accepted | [RFC-004](./decisions/RFC-004-k8s-migration.md) |
+| Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| BDI 信念去重与意图幂等性修复 | Proposed | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 
 ---
 
@@ -111,6 +117,12 @@
 | FR-6 | 系统必须支持任务失败后的恢复执行 | [Phase 2](./phases/phase-2-memory-closure.md) |
 | FR-7 | 系统必须支持 trace 回放 | [Phase 1](./phases/phase-1-execution-loop.md) |
 | FR-8 | 系统必须支持基于真实行为事件的评测 | [Phase 4](./phases/phase-4-evaluation.md) |
+| FR-9 | Skill 必须支持向量库存储与远程模型语义检索 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| FR-10 | Skill 检索必须通过远程调用 OpenRouter 模型计算语义相似度 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| FR-11 | 每个 Skill 必须包含一句话摘要字段，用于与 task 描述做语义比对 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| FR-12 | BDI 监控循环中同一信念不得重复生成意图，已处理的信念必须被标记跳过 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| FR-13 | `add_intention` 必须对相同 description+tool_params 的 pending 意图做内容去重 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| FR-14 | 监控循环每轮必须清理已处理且超过保留时长的信念，防止信念列表无限膨胀 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 
 ---
 

@@ -51,17 +51,27 @@
   - [6.7 主链执行](#67-主链执行)
   - [6.8 频率控制与预算熔断](#68-频率控制与预算熔断)
   - [6.9 关键代码出处](#69-关键代码出处)
-- [7. K8s 部署架构](#7-k8s-部署架构)
-- [8. 评估体系](#8-评估体系)
-  - [8.1 参考框架与基准](#81-参考框架与基准)
-  - [8.2 评估维度与指标体系](#82-评估维度与指标体系)
-  - [8.3 指标计算方式](#83-指标计算方式)
-  - [8.4 LLM 辅助评估](#84-llm-辅助评估)
-  - [8.5 质量门禁](#85-质量门禁)
-  - [8.6 测试数据集](#86-测试数据集)
-  - [8.7 评估报告](#87-评估报告)
-  - [8.8 优点](#88-优点)
-  - [8.9 缺点与风险](#89-缺点与风险)
+- [7. 评估体系](#7-评估体系)
+  - [7.1 参考框架与基准](#71-参考框架与基准)
+  - [7.2 评估维度与指标体系](#72-评估维度与指标体系)
+  - [7.3 指标计算方式](#73-指标计算方式)
+  - [7.4 LLM 辅助评估](#74-llm-辅助评估)
+  - [7.5 质量门禁](#75-质量门禁)
+  - [7.6 测试数据集](#76-测试数据集)
+  - [7.7 评估报告](#77-评估报告)
+  - [7.8 优点](#78-优点)
+  - [7.9 缺点与风险](#79-缺点与风险)
+  - [7.10 关键代码出处](#710-关键代码出处)
+- [8. ReAct / CoT 推理循环](#8-react--cot-推理循环)
+  - [8.1 核心概念与数据结构](#81-核心概念与数据结构)
+  - [8.2 ReAct 循环主流程](#82-react-循环主流程)
+  - [8.3 CoT 思维链的五个阶段](#83-cot-思维链的五个阶段)
+  - [8.4 各 Agent 的 ReAct 使用差异](#84-各-agent-的-react-使用差异)
+  - [8.5 _generate_final_answer 的角色差异](#85-_generate_final_answer-的角色差异)
+  - [8.6 ReAct 与评估体系的关联](#86-react-与评估体系的关联)
+  - [8.7 优点](#87-优点)
+  - [8.8 缺点与风险](#88-缺点与风险)
+  - [8.9 改进建议](#89-改进建议)
   - [8.10 关键代码出处](#810-关键代码出处)
 
 # 1. 系统统一主流程
@@ -200,6 +210,64 @@ BDI（Belief-Desire-Intention）是主动 Agent 的内部心智状态建模框�
 
 三者关系：**BDI 建模内部状态，ReAct 做单步推理-行动循环，循环里的 Thought 用 CoT 风格写**。
 
+### 三者协同 Example
+
+以 ProactiveOrchestratorAgent 处理一个 error_rate 异常为例，展示 BDI / ReAct / CoT 如何分层协作：
+
+```
+===== BDI 层（跨轮次，_monitor_loop 每 60s 一轮）=====
+
+第 1 轮 Perceive:
+  PrometheusDataSource.collect() 采集到 error_rate=0.15
+  PerceptionFilterEngine 判定 severity=warning
+  → add_belief(
+      content={metric:"error_rate", value:0.15, severity:"warning"},
+      source="orchestration_perception",
+      confidence=0.7
+    )
+
+第 1 轮 Deliberate:
+  get_beliefs()[-5:] 包含上述 B1
+  B1.severity == "warning" → priority = "normal"
+  → add_intention(
+      description="主动告警:orchestration_perception 信号异常 (severity=warning)",
+      target_agent="orchestrator",
+      tool_name="submit_alerts",
+      tool_params={severity:"warning", metric_name:"error_rate", metric_value:0.15, ...}
+    )
+
+第 1 轮 Act:
+  I1.status: pending → executing
+  _build_proactive_event(I1) → new_event(RISK_BREACH_DETECTED, ...)
+  workflow.start_from_event(event)  ← 投递到统一主链
+  I1.status: executing → completed
+
+===== ReAct 层（单任务循环，run_with_react，主链接收事件后触发）=====
+
+Step 1:
+  Thought:  "error_rate=0.15 超过阈值 0.1，需要排查根因"     ← CoT 风格
+  Reasoning: "根据 Prometheus 采集数据，error_rate 从 0.03 飙升到
+             0.15，集中在 payment-service，可能是数据库连接池耗尽"  ← CoT 推理
+  Evidence:  {sources:["prometheus"], data:{service:"payment-service"}}  ← CoT 证据
+  Action:    tool_call → query_logs(service="payment-service")
+  Observation: {status:"ok", logs:["connection pool exhausted", ...]}
+
+Step 2:
+  Thought:  "日志确认连接池耗尽，需要扩容"
+  Action:    finalize → {answer:"payment-service 连接池耗尽，建议扩容"}
+
+===== 最终输出 =====
+ProactiveAgentResult(
+  ok=True,
+  output={system_issue:True, reason:"connection_pool_exhausted", ...},
+  react_steps=[Step1, Step2],
+  bdi_state={beliefs:[B1], desires:[D1,D2,D3], intentions:[I1(completed)]},
+)
+→ 写入 run_trace.v2
+```
+
+**关键点**：BDI 在 `_monitor_loop` 中运行（后台 asyncio task），ReAct 在 `run_with_react` 中运行（主链触发），两者共享同一个 `BaseProactiveAgent` 实例的三个心智池。BDI 的 Belief 被 ReAct 的 `_generate_evidence` 读取（`get_beliefs()[-5:]`），形成数据流闭环。
+
 ## 2.2 数据结构
 
 三个心智状态定义在 [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py):
@@ -211,23 +279,100 @@ class Belief:        # 信念：Agent 认为世界的状态
     source: str      # 来源（system_metrics / user_input / tool_result 等）
     confidence: float = 1.0
     belief_id: str   # 不可变 ID，用于 trace 回溯
+    timestamp_ms: int  # 创建时间戳（毫秒）
 
 @dataclass
 class Desire:        # 愿望：Agent 想要达到的状态
     description: str
-    priority: int = 0
-    active: bool = True
+    priority: int = 0      # 优先级，数值越大越优先
+    active: bool = True    # 是否活跃
+    desire_id: str         # 不可变 ID
 
 @dataclass
 class Intention:     # 意图：Agent 承诺要执行的行动
     description: str
-    target_agent: Optional[str] = None
-    tool_name: Optional[str] = None
-    tool_params: Optional[dict] = None
+    target_agent: Optional[str] = None    # 目标 Agent
+    tool_name: Optional[str] = None      # 调用工具名
+    tool_params: Optional[dict] = None   # 工具参数（携带完整上下文）
     status: str = "pending"  # 状态机：pending → executing → completed/failed
+    intention_id: str        # 不可变 ID
+    created_timestamp_ms: int  # 创建时间戳
 ```
 
-**关键设计**：三个心智池都是**进程内 list**（[base.py:132-134](../src/riskmonitor_multiagent/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
+**关键设计**：三个心智池都是**进程内 list**（[base.py:143-145](../src/riskmonitor_multiagent/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
+
+### 五种 Agent 的愿望与感知配置
+
+| Agent | 监控间隔 | 愿望 (按优先级降序) | 感知来源 (belief source) |
+|-------|---------|-------------------|------------------------|
+| ProactiveIntentAgent | 120s | 准确识别用户意图(10)、识别潜在风险操作(8)、提供清晰意图解释(6) | `intent_perception` |
+| ProactiveOrchestratorAgent | 60s | 制定高效执行计划(10)、确保计划可执行且风险可控(9)、合理分配任务给专业 Agent(8) | `orchestration_perception` |
+| ProactiveCriticAgent | 90s | 识别计划中的风险点(10)、确保计划符合安全规范(9)、提供有价值的改进建议(7) | `quality_perception` |
+| ProactiveSystemEngineerAgent | 30s | 及时发现系统异常(10)、准确诊断问题根因(9)、提供可执行的修复建议(8) | `perception_escalation` |
+| ProactiveRiskAnalystAgent | 45s | 准确评估业务风险(10)、识别关键风险因素(9)、提供高置信度分析(8) | `risk_perception` + `risk_escalation` |
+
+### Belief 实际数据 Example
+
+**感知类信念**（来自 Prometheus，由 `_perceive_environment()` 生成）：
+```python
+Belief(
+    belief_id="belief_a1b2c3d4",
+    content={
+        "source": "prometheus",
+        "metric": "error_rate",
+        "value": 0.15,
+        "severity": "warning",     # PerceptionFilterEngine 判定
+    },
+    source="orchestration_perception",  # 标识来源（用于 _deliberate 过滤）
+    confidence=0.7,
+    timestamp_ms=1780038447000,
+)
+```
+
+**升级类信念**（由 EscalationManager 聚合多条信号后生成）：
+```python
+Belief(
+    belief_id="belief_e5f6g7h8",
+    content={
+        "event_id": "evt_001",
+        "severity": "critical",
+        "source": "redis",
+        "description": "Redis 连接数超过阈值 500",
+        "signal_count": 3,          # 聚合了 3 条原始信号
+    },
+    source="perception_escalation",   # 升级来源，confidence 更高
+    confidence=0.9,
+    timestamp_ms=1780038448000,
+)
+```
+
+**用户输入信念**（由 ReAct 入口方法添加，不参与 _deliberate 主动告警）：
+```python
+Belief(
+    belief_id="belief_i9j0k1l2",
+    content={"task_id": "task_789", "context": {...}},
+    source="orchestration_request",    # 不在 _PERCEPTION_SOURCES 中
+    confidence=1.0,
+    timestamp_ms=1780038449000,
+)
+```
+
+### `_PERCEPTION_SOURCES` 白名单
+
+`_deliberate()` 只处理以下 6 种 source 的信念（[base.py:68-75](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+
+```python
+_PERCEPTION_SOURCES = frozenset({
+    "intent_perception",        # IntentAgent 感知
+    "perception_escalation",    # SystemEngineer 升级
+    "risk_perception",          # RiskAnalyst 感知
+    "risk_escalation",          # RiskAnalyst 升级
+    "orchestration_perception", # Orchestrator 感知
+    "quality_perception",       # Critic 感知
+})
+```
+
+非感知来源的信念（如 `user_input`、`orchestrator_plan`、`orchestration_request`）不会被 `_deliberate()` 处理，它们仅供 ReAct 循环的 `_generate_evidence()` 读取。
 
 ## 2.3 状态流转：Perceive → Deliberate → Act
 
@@ -1375,38 +1520,11 @@ proactive_event → workflow.start_from_event()
 | 升级管理 | [perception/](../src/riskmonitor_multiagent/perception/) | `EscalationManager` |
 | 预算熔断 | [scheduling/](../src/riskmonitor_multiagent/scheduling/) | `ProactiveBudgetManager` |
 
-# 7. K8s 部署架构
-
-## 部署方式
-- 生产环境: Helm Chart (`deploy/k8s/`)
-- 本地开发: docker-compose.yml（完整保留）
-
-## 服务映射
-
-| Docker Compose 服务 | K8s 工作负载 | Service 名 | 端口 |
-|---|---|---|---|
-| mysql | StatefulSet | mysql | 3306 |
-| redis | StatefulSet | redis | 6379 |
-| chroma | StatefulSet | chroma | 8000 |
-| mcp-server | Deployment | mcp-server | 8000 |
-| prometheus | Deployment | prometheus | 9090 |
-| grafana | Deployment | grafana | 3000 |
-
-## 配置注入
-- 非敏感配置: ConfigMap（MYSQL_HOST/PORT、REDIS_URL、CHROMA_HOST 等）
-- 敏感配置: Secret（MYSQL_PASSWORD、LLM_API_KEY 等）
-- 应用通过 config_pydantic.py Settings 类自动读取环境变量，优先级: env > .env > default
-
-## 健康检查映射
-- livenessProbe: HTTP GET /health（无认证）
-- readinessProbe: HTTP GET /health（/ready 有认证，探针改用 /health）
-- 优雅退出: SIGTERM handler → mark_shutting_down，terminationGracePeriodSeconds=30
-
-# 8. 评估体系
+# 7. 评估体系
 
 本项目的评估体系采用 **自动化指标 + LLM 辅助评估 + 质量门禁** 三层架构，覆盖 7 大维度、40+ 项指标。
 
-## 8.1 参考框架与基准
+## 7.1 参考框架与基准
 
 评估体系参考了以下业界框架：
 
@@ -1423,7 +1541,7 @@ proactive_event → workflow.start_from_event()
 - **领域定制**：在通用框架基础上增加金融风控领域特有指标（如工具风险、记忆价值）
 - **可插拔**：指标定义与计算解耦，可通过 `get_metric_definitions()` 动态扩展
 
-## 8.2 评估维度与指标体系
+## 7.2 评估维度与指标体系
 
 **7 大维度 + 1 行为维度**：
 
@@ -1462,9 +1580,9 @@ overall_score = 0.23 * task_accuracy
              + 0.09 * memory
 ```
 
-## 8.3 指标计算方式
+## 7.3 指标计算方式
 
-### 8.3.1 任务准确度 (TaskAccuracyMetrics)
+### 7.3.1 任务准确度 (TaskAccuracyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1473,7 +1591,7 @@ overall_score = 0.23 * task_accuracy
 | `execution_success_rate` | trace.success ? 1.0 : 0.0 | trace.success |
 | `answer_quality` | LLMJudge 评估（accuracy/completeness/relevance/clarity） | LLMJudge.evaluate_answer_quality() |
 
-### 8.3.2 问题理解度 (ComprehensionMetrics)
+### 7.3.2 问题理解度 (ComprehensionMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1482,7 +1600,7 @@ overall_score = 0.23 * task_accuracy
 | `ambiguity_resolution` | 启发式：有 intent=0.7，有 intent+react_steps=0.85 | trace |
 | `context_understanding` | 启发式：基于 trace 完整性分级 | trace |
 
-### 8.3.3 协作深度 (CollaborationMetrics)
+### 7.3.3 协作深度 (CollaborationMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1492,7 +1610,7 @@ overall_score = 0.23 * task_accuracy
 | `role_specialization` | active_agents >= 3 → 0.85, >= 2 → 0.7, >= 1 → 0.5 | trace.agent_outputs |
 | `conflict_resolution_rate` | 启发式：success + active_agents >= 2 → 0.85 | trace |
 
-### 8.3.4 执行效率 (EfficiencyMetrics)
+### 7.3.4 执行效率 (EfficiencyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1503,7 +1621,7 @@ overall_score = 0.23 * task_accuracy
 | `tool_timeout_rate` | timeout_tools / total_tools | trace.tool_calls |
 | `tool_retry_rate` | retried_tools / total_tools | trace.tool_calls |
 
-### 8.3.5 推理质量 (ReasoningMetrics)
+### 7.3.5 推理质量 (ReasoningMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1513,7 +1631,7 @@ overall_score = 0.23 * task_accuracy
 | `logical_consistency` | LLMJudge 或启发式 | LLMJudge / trace |
 | `reasoning_depth` | min(1.0, step_count / 5) | trace.react_steps |
 
-### 8.3.6 工具风险 (ToolRiskMetrics)
+### 7.3.6 工具风险 (ToolRiskMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1523,7 +1641,7 @@ overall_score = 0.23 * task_accuracy
 | `approval_flow_compliance` | 期望审批且有审批轨迹 ? 0.9 : 0.3 | trace.tool_calls |
 | `dangerous_action_blocked` | 危险工具均有审批状态 ? 1.0 | trace.tool_calls |
 
-### 8.3.7 记忆价值 (MemoryMetrics)
+### 7.3.7 记忆价值 (MemoryMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1534,7 +1652,7 @@ overall_score = 0.23 * task_accuracy
 | `role_drift_rate` | planning_memory.role_drift_rate（越低越好） | trace.planning_memory |
 | `memory_cross_talk_rate` | planning_memory.memory_cross_talk_rate（越低越好） | trace.planning_memory |
 
-## 8.4 LLM 辅助评估
+## 7.4 LLM 辅助评估
 
 对于主观指标，采用 **LLM-as-Judge** 模式，由独立 LLM 评估器打分：
 
@@ -1554,7 +1672,7 @@ overall_score = 0.23 * task_accuracy
 - **降级策略**：LLM Judge 失败时返回 0.5 默认分，不阻断评估流程
 - **确定性优先**：行为事实（如工具调用、审批轨迹）用确定性规则判定，不依赖 LLM Judge
 
-## 8.5 质量门禁
+## 7.5 质量门禁
 
 质量门禁（Quality Gate）是评估体系的 **硬约束层**，用于判定评估结果是否可发布：
 
@@ -1601,7 +1719,7 @@ class GateResult:
     decision_log: list[dict]  # 每个指标的决策日志
 ```
 
-## 8.6 测试数据集
+## 7.6 测试数据集
 
 **Gold 数据集**（[eval/datasets/gold/](../eval/datasets/gold/)）：
 
@@ -1634,7 +1752,7 @@ class GateResult:
 
 **标注一致性**：通过 [compute_iaa.py](../eval/scripts/compute_iaa.py) 计算 Inter-Annotator Agreement，确保标注质量。
 
-## 8.7 评估报告
+## 7.7 评估报告
 
 [report.py](../eval/core/report.py) 支持三种报告格式：
 
@@ -1652,7 +1770,7 @@ class GateResult:
 - Comparison：与历史/benchmark 的对比
 - Case Results：逐 case 结果表
 
-## 8.8 优点
+## 7.8 优点
 
 | 优点 | 说明 |
 |---|---|
@@ -1666,7 +1784,7 @@ class GateResult:
 | **场景分类覆盖** | 12 类 benchmark 场景，覆盖从简单查询到复杂多步推理 |
 | **行为指标独立** | BehavioralMetrics 与 OverallMetrics 分离，门禁不受主观评分影响 |
 
-## 8.9 缺点与风险
+## 7.9 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |---|---|---|
@@ -1680,7 +1798,7 @@ class GateResult:
 | **无回归检测** | 低 | 缺乏自动化的回归检测机制，无法发现指标劣化趋势 |
 | **LLM Judge 成本高** | 低 | 每个 case 需要多次 LLM 调用，评估成本随用例数线性增长 |
 
-## 8.10 关键代码出处
+## 7.10 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -1694,3 +1812,425 @@ class GateResult:
 | Gold 数据集 | [cases.jsonl](../eval/datasets/gold/cases.jsonl) | 22 条标准用例 |
 | Benchmark 数据集 | [eval/benchmarks/](../eval/benchmarks/) | 12 类场景基准 |
 | CLI 入口 | [cli.py](../eval/cli.py) | 命令行评估工具 |
+
+# 8. ReAct / CoT 推理循环
+
+本项目在所有主动 Agent 中统一实现了 **ReAct（Reasoning + Acting）** 循环与 **CoT（Chain-of-Thought）** 思维链。每个 Agent 执行任务时不是一次性生成结果，而是经历多轮 Thought → Reasoning → Evidence → Action → Observation 的迭代，最终将推理链汇总为结构化输出。
+
+## 8.1 核心概念与数据结构
+
+### ReActStep
+
+ReAct 循环的每个步骤都用 [ReActStep](../src/riskmonitor_multiagent/proactive_agents/base_models.py) 表示：
+
+```python
+@dataclass
+class ReActStep:
+    step_id: str                    # 步骤编号，如 "step_1"
+    thought: str                    # 思考内容（LLM 动态生成）
+    reasoning: str                  # 推理理由（CoT 核心，解释为何选择此思考）
+    evidence: dict[str, Any]       # 证据（CoT 核心，支撑推理的具体数据/来源）
+    action_type: str               # 行动类型：llm_call / tool_call / finalize / ask_human
+    action: dict[str, Any]         # 行动参数
+    observation: Optional[dict]    # 观察结果（行动执行后的返回值）
+    timestamp_ms: int              # 时间戳（毫秒）
+```
+
+**关键设计**：
+- **动态生成**：thought / reasoning / evidence 全部由 LLM 在运行时生成，不硬编码
+- **五元组结构**：Thought + Reasoning + Evidence 构成 CoT 三要素，Action + Observation 构成 ReAct 交互环
+- **可追溯**：每个步骤带 timestamp_ms，支持事后回放和评估
+
+### ProactiveAgentResult
+
+```python
+@dataclass
+class ProactiveAgentResult:
+    ok: bool
+    output: dict[str, Any]                           # 最终结构化输出
+    react_steps: list[ReActStep]                     # 完整推理链
+    bdi_state: dict[str, Any]                       # 执行后的 BDI 状态快照
+    llm_interactions: list[dict[str, Any]]           # 所有 LLM 调用记录
+```
+
+`react_steps` 是评估体系中 `evidence_coverage`、`reasoning_quality` 等指标的核心数据来源。
+
+## 8.2 ReAct 循环主流程
+
+核心方法 [run_with_react()](../src/riskmonitor_multiagent/proactive_agents/base.py) 定义在 `BaseProactiveAgent` 基类中，所有 5 个主动 Agent 共享同一套循环骨架：
+
+```python
+async def run_with_react(self, *, task, context=None, max_tokens=512, max_steps=5):
+    react_steps = []
+    for step_idx in range(max_steps):
+        # 1. 生成思考
+        thought = await self._generate_thought(task, react_steps, context)
+        # 2. 生成推理理由（CoT）
+        reasoning = await self._generate_reasoning(task, react_steps, thought, context)
+        # 3. 生成证据（CoT）
+        evidence = await self._generate_evidence(task, react_steps, thought, reasoning, context)
+        # 4. 决定行动
+        action_type, action = await self._decide_action(task, react_steps, thought, context)
+        # 5. 执行行动 → 观察结果
+        observation = await self._execute_action(action_type, action)
+        # 组装步骤
+        step = ReActStep(step_id, thought, reasoning, evidence, action_type, action, observation)
+        react_steps.append(step)
+        # 终止判断
+        if await self._should_terminate(task, react_steps):
+            break
+    # 生成最终答案
+    final_output = await self._generate_final_answer(task, react_steps)
+    return ProactiveAgentResult(ok=True, output=final_output, react_steps=react_steps, ...)
+```
+
+**循环流程图**：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   max_steps 次循环                        │
+│                                                          │
+│  ┌──────────┐    ┌───────────┐    ┌──────────┐          │
+│  │ Thought  │───>│ Reasoning │───>│ Evidence │          │
+│  │ (LLM)    │    │ (LLM,CoT) │    │ (LLM,CoT)│          │
+│  └──────────┘    └───────────┘    └──────────┘          │
+│                                          │               │
+│                                          v               │
+│  ┌──────────┐    ┌───────────┐    ┌──────────┐          │
+│  │Observation│<──│ _execute  │<──│_decide   │          │
+│  │ (结果)    │    │ _action() │    │_action() │          │
+│  └──────────┘    └───────────┘    └──────────┘          │
+│       │                                                 │
+│       v                                                 │
+│  _should_terminate? ──Yes──> _generate_final_answer()   │
+│       │No                          │                    │
+│       v                              v                    │
+│  下一轮循环                    ProactiveAgentResult        │
+└──────────────────────────────────────────────────────────┘
+```
+
+**终止条件** ([_should_terminate()](../src/riskmonitor_multiagent/proactive_agents/base.py))：
+- `action_type == "finalize"` → 终止
+- `action_type == "ask_human"` 且 observation.timeout == True → 终止
+- 达到 `max_steps` 上限 → 自然终止
+
+## 8.3 CoT 思维链的五个阶段
+
+每个 ReAct 步骤包含 5 次独立的 LLM 调用，构成完整的 CoT 链：
+
+### 阶段 1：_generate_thought() — 生成思考
+
+```python
+prompt = f"""You are {self._name}. Generate your next thought about the task.
+Task: {task}
+Context: {context_text}
+History: {history_text}
+Generate a thought about what you should consider or do next.
+"""
+# LLM 调用：temperature=0.7, max_tokens=128
+```
+
+- **输入**：任务 + 历史 3 步摘要 + 上下文
+- **输出**：一段自然语言思考文本
+- **降级**：LLM 失败时返回 "继续执行任务"
+
+### 阶段 2：_generate_reasoning() — 生成推理理由（CoT 核心）
+
+```python
+prompt = f"""Generate reasoning that explains why you chose this thought.
+Consider:
+- What information do you have?
+- What do you need to verify?
+- What are the risks or uncertainties?
+"""
+# LLM 调用：temperature=0.7, max_tokens=256
+```
+
+- **输入**：任务 + thought + 历史摘要
+- **作用**：解释"为什么"选择此思考，构成 CoT 的推理环节
+- **降级**：返回 "基于任务要求执行"
+
+### 阶段 3：_generate_evidence() — 生成证据（CoT 核心）
+
+```python
+prompt = f"""Generate evidence that supports your reasoning.
+Current beliefs: {beliefs_text}
+Evidence (as JSON with keys like "sources", "data", "references"):
+"""
+# LLM 调用：ask_json, max_tokens=256
+```
+
+- **输入**：thought + reasoning + 当前 BDI beliefs（最近 5 条）
+- **输出**：JSON 格式的证据结构 `{"sources": [...], "data": {...}}`
+- **作用**：将推理锚定到具体数据源，防止 LLM 编造（hallucination）
+
+### 阶段 4：_decide_action() — 决定行动
+
+```python
+prompt = f"""Choose an action type and parameters:
+- "llm_call": Make another LLM call to gather more information
+- "tool_call": Execute a tool (specify tool_name and params)
+- "finalize": Task is complete, generate final answer
+"""
+# LLM 调用：ask_json, max_tokens=256
+```
+
+- **输出**：`{"action_type": "finalize", "action": {...}}`
+- **降级**：默认 finalize
+
+### 阶段 5：_execute_action() — 执行行动
+
+| action_type | 执行逻辑 | observation 返回 |
+|---|---|---|
+| `llm_call` | 标记为已执行 | `{"status": "llm_call_executed"}` |
+| `tool_call` | `_execute_tool_call()`（子类可重写） | 工具返回值 |
+| `finalize` | 标记为完成 | `{"status": "finalized", "result": action}` |
+| `ask_human` | `QuestionManager.ask_user()` 等待人工回答 | `{"status": "human_answered", "answer": ...}` |
+
+## 8.4 各 Agent 的 ReAct 使用差异
+
+5 个主动 Agent 共享 `run_with_react()` 骨架，但在参数配置、监控频率和感知源上有显著差异：
+
+| Agent | max_steps | max_tokens | monitor_interval | 感知数据源 | _generate_final_answer 输出 |
+|---|---|---|---|---|---|
+| **IntentAgent** | 5 | None（不限制） | 120s | Prometheus | intent/slots/confidence/risk |
+| **OrchestratorAgent** | 5 | 1024 | 60s | Prometheus | plan_steps/commands/task_graph |
+| **CriticAgent** | 4 | 512 | 90s | Prometheus | ok/risk_level/issues/fixes |
+| **SystemEngineerAgent** | 4 | 512 | 30s | Docker/K8s+Redis+MySQL+Prometheus | system_issue/reason/findings |
+| **RiskAnalystAgent** | 4 | 512 | 45s | MySQL+Prometheus | report/key_facts/confidence |
+
+**差异分析**：
+
+- **IntentAgent 独享 max_tokens=None**：意图识别需要让 GPT-4.5 自由输出，不受 token 限制。其他 Agent 都限制在 512-1024。
+- **SystemEngineerAgent 监控最频繁（30s）**：系统工程师需要最快感知基础设施异常（Docker/K8s + Redis + MySQL + Prometheus 四源采集）。
+- **IntentAgent 和 OrchestratorAgent 步数最多（5 步）**：意图识别和编排规划是最关键的决策环节，需要更多迭代轮次。
+- **CriticAgent 有 final_review 旁路**：当 `phase="final_review"` 时，不走 ReAct 循环，直接用 `_build_execution_review()` 基于 receipts 确定性判断（检查 blocked/failed），不走 LLM 推理。
+
+## 8.5 _generate_final_answer 的角色差异
+
+每个 Agent 重写 `_generate_final_answer()` 将 ReAct 推理链转换为本角色的结构化输出。这是 ReAct 循环的 **汇聚点**——所有推理步骤被压缩为一个标准化 JSON：
+
+### IntentAgent
+```python
+# 只取最后一步的 thought 作为推理摘要
+prompt = f"""Based on your ReAct reasoning, generate the final intent recognition result.
+Your reasoning chain: {history[-1].thought if history else ''}
+Generate SIMPLE JSON: intent, slots, confidence, risk
+"""
+```
+- **特点**：只用最后一步的 thought，不汇总全部历史
+- **转换**：通过 `_convert_to_standard_format()` 将简化 4 字段转为标准 intent schema
+
+### OrchestratorAgent
+```python
+# 汇总全部步骤的 thought + action_type
+steps_summary = "\n".join([f"Step {s.step_id}: {s.thought} -> {s.action_type}" for s in history])
+prompt = f"""Based on your ReAct reasoning, generate the final orchestration plan.
+Your reasoning chain: {steps_summary}
+Generate JSON: intent, plan_steps, commands
+"""
+```
+- **特点**：完整汇总所有步骤，但只用 thought 和 action_type，丢失 reasoning 和 evidence
+
+### CriticAgent
+```python
+# 汇总全部步骤的 thought + observation
+steps_summary = "\n".join([f"Thought: {s.thought}\nObservation: {s.observation}" for s in history])
+prompt = f"""Based on your ReAct reasoning, generate the final review.
+Generate JSON: ok, risk_level, issues, require_human_approval, suggested_fixes
+"""
+```
+- **特点**：使用 thought + observation 组合，不使用 reasoning 和 evidence
+
+### SystemEngineerAgent / RiskAnalystAgent
+```python
+# 与 CriticAgent 相同的汇总模式
+steps_summary = "\n".join([f"Thought: {s.thought}\nObservation: {s.observation}" for s in history])
+```
+- **特点**：两个分析型 Agent 使用相同的汇总模式，但输出 schema 不同
+
+## 8.6 ReAct 与评估体系的关联
+
+ReAct 推理链是评估体系中多个维度的核心数据来源：
+
+| 评估指标 | 与 ReAct 的关联 | 计算方式 |
+|---|---|---|
+| `evidence_coverage` | 统计 react_steps 中有 evidence 的步骤占比 | `evidence_steps / len(react_steps)` |
+| `thought_relevance` | LLMJudge 评估 react_steps 中 thought 的相关性 | LLM 评分或 `steps_with_reasoning / total` |
+| `reasoning_validity` | LLMJudge 评估推理链有效性 | LLM 评分或启发式 |
+| `evidence_support` | LLMJudge 评估证据对推理的支撑度 | LLM 评分或 `steps_with_evidence / total` |
+| `reasoning_depth` | 推理深度 = 步骤数 / 5 | `min(1.0, len(react_steps) / 5)` |
+| `plan_correctness` | 无 plan_steps 时用 react_steps 存在性做兜底 | 有 react_steps → 0.6 |
+| `answer_quality` | 无 LLMJudge 时用 react_steps 存在性做兜底 | 有 react_steps → 0.7 |
+| `iteration_count` | ReAct 循环迭代次数 | `len(react_steps)` |
+| `logical_consistency` | LLMJudge 评估推理链逻辑一致性 | LLM 评分或启发式 |
+
+**LLMJudge.evaluate_reasoning_quality()** 直接消费 react_steps：
+```python
+chain_text = "\n".join([
+    f"Step {i+1}:\n"
+    f"  Thought: {step.get('thought', 'N/A')}\n"
+    f"  Reasoning: {step.get('reasoning', 'N/A')}\n"
+    f"  Evidence: {step.get('evidence', 'N/A')}\n"
+    f"  Action: {step.get('action_type', 'N/A')}"
+    for i, step in enumerate(reasoning_chain[:5])
+])
+```
+
+**关键设计**：评估体系只取前 5 步进行 LLMJudge 评估，与 `max_steps=5` 的上限一致。
+
+## 8.7 优点
+
+| 优点 | 说明 |
+|---|---|
+| **推理可追溯** | 每个 step 都有 thought/reasoning/evidence，完整记录 LLM 的推理过程，支持事后审计和回放 |
+| **证据锚定** | Evidence 阶段强制 LLM 引用具体数据源，降低 hallucination 风险 |
+| **多轮自纠正** | Observation 反馈到下一轮 Thought，Agent 可以根据执行结果动态调整策略 |
+| **统一骨架** | 5 个 Agent 共享 run_with_react() 骨架，通过参数和 _generate_final_answer 重写实现差异化 |
+| **与 BDI 联动** | Evidence 阶段注入 BDI beliefs，ReAct 推理与心智模型形成闭环 |
+| **与评估对齐** | react_steps 直接作为评估体系 evidence_coverage / reasoning_quality 的数据源 |
+| **降级安全** | 每个 LLM 调用都有 fallback，单步失败不阻断整体循环 |
+| **行动类型丰富** | 支持 llm_call / tool_call / finalize / ask_human 四种行动，覆盖自主执行和人工协作 |
+
+## 8.8 缺点与风险
+
+| 缺点 | 风险等级 | 说明 |
+|---|---|---|
+| **LLM 调用次数爆炸** | 高 | 每个 ReAct 步骤需要 4-5 次 LLM 调用（thought+reasoning+evidence+action+final），5 步循环 = 20-25 次 LLM 调用，成本和延迟随步数线性增长 |
+| **串行执行无并行** | 高 | Thought → Reasoning → Evidence → Action → Observation 严格串行，无法并行化，导致单 Agent 延迟较高 |
+| **_generate_final_answer 丢失推理细节** | 中 | 大部分 Agent 在最终答案中只汇总 thought + observation，丢弃了 reasoning 和 evidence，推理链的价值在汇聚点被压缩 |
+| **Evidence 可能是 LLM 编造的** | 中 | Evidence 由 LLM 生成而非从真实工具调用获取，LLM 可能生成虚假证据（`{"sources": [], "data": {}}`），缺乏与真实数据源的绑定校验 |
+| **_should_terminate 过于简单** | 中 | 只检查 action_type==finalize 和 ask_human 超时，无法基于推理质量、证据充分性等维度做智能终止 |
+| **History 截断丢失上下文** | 中 | `_format_history()` 只保留最近 3 步（`history[-3:]`），早期步骤的推理上下文丢失，长任务可能重复推理 |
+| **温度参数偏高** | 低 | thought 和 reasoning 使用 temperature=0.7，推理链可能不稳定，相同输入产生不同推理路径 |
+| **llm_call 行动类型未实现** | 低 | `_execute_action()` 中 llm_call 只返回 `{"status": "llm_call_executed"}`，未真正执行额外 LLM 调用 |
+| **CriticAgent final_review 旁路** | 低 | final_review 阶段完全跳过 ReAct 循环，用确定性规则替代 LLM 推理，可能遗漏 LLM 能发现的深层问题 |
+
+## 8.9 改进建议
+
+### 改进 1：将 5 次 LLM 调用合并为 1 次结构化输出
+
+**问题**：每步 4-5 次 LLM 调用，成本和延迟高。
+
+**改进方案**：
+```python
+# 将 thought + reasoning + evidence + action 合并为单次 LLM 调用
+prompt = f"""Generate your next ReAct step as JSON:
+{{
+  "thought": "...",
+  "reasoning": "...",
+  "evidence": {{"sources": [...], "data": {{...}}}},
+  "action_type": "tool_call",
+  "action": {{"tool_name": "...", "params": {{...}}}}
+}}
+"""
+result = await self._base_agent.ask_json(prompt, max_tokens=512)
+```
+
+**收益**：LLM 调用次数从 5 次/步降至 1 次/步，5 步循环从 25 次降至 5 次，成本和延迟降低 80%。
+
+**代价**：单次输出质量可能不如分步生成（思维链分步生成通常比一次性生成质量更高），需要权衡。
+
+### 改进 2：Evidence 绑定真实工具调用结果
+
+**问题**：Evidence 由 LLM 生成，可能是编造的。
+
+**改进方案**：
+```python
+async def _generate_evidence(self, task, history, thought, reasoning, context):
+    # 先执行工具调用获取真实数据
+    real_data = await self._collect_real_evidence(task, reasoning)
+    # 让 LLM 基于真实数据生成证据结构
+    prompt = f"""Based on this real data, generate evidence JSON:
+Real data: {real_data}
+Your reasoning: {reasoning}
+"""
+    evidence = await self._base_agent.ask_json(prompt)
+    evidence["_real_data"] = real_data  # 附带原始数据
+    return evidence
+```
+
+**收益**：Evidence 不再是 LLM 编造的，而是锚定到真实工具调用结果，hallucination 风险大幅降低。
+
+**代价**：每步增加一次工具调用，延迟增加。
+
+### 改进 3：智能终止判断
+
+**问题**：`_should_terminate()` 只看 action_type，不评估推理质量。
+
+**改进方案**：
+```python
+async def _should_terminate(self, task, history) -> bool:
+    if not history:
+        return False
+    last_step = history[-1]
+    # 硬终止：finalize / ask_human 超时
+    if last_step.action_type == "finalize":
+        return True
+    # 软终止：证据充分性判断
+    if len(history) >= 3:
+        recent_evidence = [s for s in history[-3:] if s.evidence.get("sources")]
+        if len(recent_evidence) >= 2:
+            # 最近 3 步有 2 步以上带证据，可终止
+            return True
+    # 预算终止：累计 token 超阈值
+    total_tokens = sum(s.action.get("tokens", 0) for s in history)
+    if total_tokens > self._token_budget:
+        return True
+    return False
+```
+
+**收益**：减少不必要的推理轮次，在证据充分时提前终止，降低成本和延迟。
+
+### 改进 4：并行化 Thought 与 Reasoning
+
+**问题**：Thought → Reasoning 串行执行。
+
+**改进方案**：
+```python
+# Thought 和 Reasoning 可以并行生成
+thought_task = asyncio.create_task(self._generate_thought(...))
+reasoning_task = asyncio.create_task(self._generate_reasoning(...))  # 基于 task 而非 thought
+thought, reasoning = await asyncio.gather(thought_task, reasoning_task)
+```
+
+**收益**：每步减少一次串行等待，5 步循环可减少约 40% 延迟。
+
+**代价**：Reasoning 不再基于 Thought 生成，逻辑关联性减弱，需要调整 prompt 设计。
+
+### 改进 5：_generate_final_answer 保留完整推理链
+
+**问题**：最终答案汇总时丢失 reasoning 和 evidence。
+
+**改进方案**：
+```python
+steps_summary = "\n".join([
+    f"Step {s.step_id}:\n"
+    f"  Thought: {s.thought}\n"
+    f"  Reasoning: {s.reasoning}\n"
+    f"  Evidence: {json.dumps(s.evidence, ensure_ascii=False)}\n"
+    f"  Observation: {json.dumps(s.observation, ensure_ascii=False) if s.observation else 'N/A'}"
+    for s in history
+])
+```
+
+**收益**：最终答案保留完整推理链，LLM 可以基于更丰富的上下文生成更准确的输出，也便于评估体系做更精细的推理质量评估。
+
+## 8.10 关键代码出处
+
+| 组件 | 文件 | 方法/类 |
+|---|---|---|
+| ReAct 循环主方法 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `BaseProactiveAgent.run_with_react()` |
+| Thought 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_thought()` |
+| Reasoning 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning()` |
+| Evidence 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence()` |
+| Action 决策 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_decide_action()` |
+| Action 执行 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_execute_action()` |
+| 终止判断 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_should_terminate()` |
+| 最终答案 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_final_answer()` |
+| ReActStep 数据结构 | [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py) | `ReActStep` / `ProactiveAgentResult` |
+| 5 种角色实现 | [roles.py](../src/riskmonitor_multiagent/proactive_agents/roles.py) | `ProactiveIntentAgent` / `ProactiveOrchestratorAgent` / `ProactiveCriticAgent` / `ProactiveSystemEngineerAgent` / `ProactiveRiskAnalystAgent` |
+| 推理结果汇聚 | [workflow_result_builder.py](../src/riskmonitor_multiagent/orchestration/workflow_result_builder.py) | `all_react_steps` 汇聚逻辑 |
+| LLMJudge 推理评估 | [llm_judge.py](../eval/core/llm_judge.py) | `evaluate_reasoning_quality()` |
+| 评估指标消费 | [evaluator.py](../eval/core/evaluator.py) | `_compute_reasoning()` / `_compute_evidence_coverage()` |
+| 推理质量指标 | [metrics.py](../eval/core/metrics.py) | `ReasoningMetrics` / `EvidenceCoverage` |
