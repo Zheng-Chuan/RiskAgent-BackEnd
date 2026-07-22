@@ -3,76 +3,85 @@
 ## 目录
 
 - [1. 系统统一主流程](#1-系统统一主流程)
-- [2. Agent BDI 心智架构](#2-agent-bdi-心智架构)
-  - [2.1 定位与三者关系](#21-定位与三者关系)
-  - [2.2 数据结构](#22-数据结构)
-  - [2.3 状态流转：Perceive → Deliberate → Act](#23-状态流转perceive--deliberate--act)
-  - [2.4 意图状态机](#24-意图状态机)
-  - [2.5 与主链的接入点](#25-与主链的接入点)
-  - [2.6 关键代码出处](#26-关键代码出处)
-- [3. 统一记忆架构](#3-统一记忆架构)
-  - [3.1 总体架构](#31-总体架构)
-  - [3.2 数据结构：memory_entry.v1](#32-数据结构memory_entryv1)
-  - [3.3 短期共享记忆](#33-短期共享记忆)
-  - [3.4 短期私有记忆（分角色）](#34-短期私有记忆分角色)
-  - [3.5 长期经验记忆](#35-长期经验记忆)
-  - [3.6 记忆能解决什么问题](#36-记忆能解决什么问题)
-  - [3.7 缺点与风险](#37-缺点与风险)
-  - [3.8 关键代码出处](#38-关键代码出处)
-- [4. Skill 自创闭环生命周期](#4-skill-自创闭环生命周期)
+- [2. TaskGraph 执行内核详解](#2-taskgraph-执行内核详解)
+  - [2.1 执行逻辑概览](#21-执行逻辑概览)
+  - [2.2 关键执行步骤](#22-关键执行步骤)
+  - [2.3 节点类型与执行分发](#23-节点类型与执行分发)
+  - [2.4 审批拦截机制](#24-审批拦截机制)
+  - [2.5 意外中断的上下文恢复机制](#25-意外中断的上下文恢复机制)
+  - [2.6 执行受阻后的 TaskGraph 修改与续跑机制](#26-执行受阻后的-taskgraph-修改与续跑机制)
+  - [2.7 优缺点](#27-优缺点)
+  - [2.8 关键代码出处](#28-关键代码出处)
+- [3. Agent BDI 心智架构](#3-agent-bdi-心智架构)
+  - [3.1 定位与三者关系](#31-定位与三者关系)
+  - [3.2 数据结构](#32-数据结构)
+  - [3.3 状态流转：Perceive → Deliberate → Act](#33-状态流转perceive--deliberate--act)
+  - [3.4 意图状态机](#34-意图状态机)
+  - [3.5 与主链的接入点](#35-与主链的接入点)
+  - [3.6 关键代码出处](#36-关键代码出处)
+- [4. 统一记忆架构](#4-统一记忆架构)
   - [4.1 总体架构](#41-总体架构)
-  - [4.2 数据结构：skill.v1](#42-数据结构skillv1)
-  - [4.3 Skill 存储位置](#43-skill-存储位置)
-  - [4.4 创建：SkillProposer](#44-创建skillproposer)
-  - [4.5 检索与注入：SkillInjector](#45-检索与注入skillinjector)
-  - [4.6 使用与置信度更新：SkillUsageTracker](#46-使用与置信度更新skillusagetracker)
-  - [4.7 修订：SkillReviser](#47-修订skillreviser)
-  - [4.8 降级与归档](#48-降级与归档)
-  - [4.9 Skill 能解决什么问题](#49-skill-能解决什么问题)
-  - [4.10 缺点与风险](#410-缺点与风险)
-  - [4.11 关键代码出处](#411-关键代码出处)
-- [5. MCP 工具调用与治理](#5-mcp-工具调用与治理)
-  - [5.1 协议与传输层](#51-协议与传输层)
-  - [5.2 MCP 部署位置](#52-mcp-部署位置)
-  - [5.3 鉴权机制](#53-鉴权机制)
-  - [5.4 工具注册与角色区分](#54-工具注册与角色区分)
-  - [5.5 Agent 如何知道可用工具](#55-agent-如何知道可用工具)
-  - [5.6 工具调用全流程](#56-工具调用全流程)
-  - [5.7 五道治理关卡](#57-五道治理关卡)
-  - [5.8 MCP Resources 与 Prompts](#58-mcp-resources-与-prompts)
-  - [5.9 关键代码出处](#59-关键代码出处)
-- [6. 7×24 主动监控全流程](#6-724-主动监控全流程)
-  - [6.1 启动与停止](#61-启动与停止)
-  - [6.2 监控循环](#62-监控循环)
-  - [6.3 感知层：数据源采集与过滤](#63-感知层数据源采集与过滤)
-  - [6.4 信念更新](#64-信念更新)
-  - [6.5 意图形成](#65-意图形成)
-  - [6.6 意图执行与事件投递](#66-意图执行与事件投递)
-  - [6.7 主链执行](#67-主链执行)
-  - [6.8 频率控制与预算熔断](#68-频率控制与预算熔断)
+  - [4.2 数据结构：memory_entry.v1](#42-数据结构memory_entryv1)
+  - [4.3 短期共享记忆](#43-短期共享记忆)
+  - [4.4 短期私有记忆（分角色）](#44-短期私有记忆分角色)
+  - [4.5 长期经验记忆](#45-长期经验记忆)
+  - [4.6 记忆能解决什么问题](#46-记忆能解决什么问题)
+  - [4.7 缺点与风险](#47-缺点与风险)
+  - [4.8 关键代码出处](#48-关键代码出处)
+- [5. Skill 自创闭环生命周期](#5-skill-自创闭环生命周期)
+  - [5.1 总体架构](#51-总体架构)
+  - [5.2 数据结构：skill.v1](#52-数据结构skillv1)
+  - [5.3 Skill 存储位置](#53-skill-存储位置)
+  - [5.4 创建：SkillProposer](#54-创建skillproposer)
+  - [5.5 检索与注入：SkillInjector](#55-检索与注入skillinjector)
+  - [5.6 使用与置信度更新：SkillUsageTracker](#56-使用与置信度更新skillusagetracker)
+  - [5.7 修订：SkillReviser](#57-修订skillreviser)
+  - [5.8 降级与归档](#58-降级与归档)
+  - [5.9 Skill 能解决什么问题](#59-skill-能解决什么问题)
+  - [5.10 缺点与风险](#510-缺点与风险)
+  - [5.11 关键代码出处](#511-关键代码出处)
+- [6. MCP 工具调用与治理](#6-mcp-工具调用与治理)
+  - [6.1 协议与传输层](#61-协议与传输层)
+  - [6.2 MCP 部署位置](#62-mcp-部署位置)
+  - [6.3 鉴权机制](#63-鉴权机制)
+  - [6.4 工具注册与角色区分](#64-工具注册与角色区分)
+  - [6.5 Agent 如何知道可用工具](#65-agent-如何知道可用工具)
+  - [6.6 工具调用全流程](#66-工具调用全流程)
+  - [6.7 五道治理关卡](#67-五道治理关卡)
+  - [6.8 MCP Resources 与 Prompts](#68-mcp-resources-与-prompts)
   - [6.9 关键代码出处](#69-关键代码出处)
-- [7. 评估体系](#7-评估体系)
-  - [7.1 参考框架与基准](#71-参考框架与基准)
-  - [7.2 评估维度与指标体系](#72-评估维度与指标体系)
-  - [7.3 指标计算方式](#73-指标计算方式)
-  - [7.4 LLM 辅助评估](#74-llm-辅助评估)
-  - [7.5 质量门禁](#75-质量门禁)
-  - [7.6 测试数据集](#76-测试数据集)
-  - [7.7 评估报告](#77-评估报告)
-  - [7.8 优点](#78-优点)
-  - [7.9 缺点与风险](#79-缺点与风险)
-  - [7.10 关键代码出处](#710-关键代码出处)
-- [8. ReAct / CoT 推理循环](#8-react--cot-推理循环)
-  - [8.1 核心概念与数据结构](#81-核心概念与数据结构)
-  - [8.2 ReAct 循环主流程](#82-react-循环主流程)
-  - [8.3 CoT 思维链的五个阶段](#83-cot-思维链的五个阶段)
-  - [8.4 各 Agent 的 ReAct 使用差异](#84-各-agent-的-react-使用差异)
-  - [8.5 _generate_final_answer 的角色差异](#85-_generate_final_answer-的角色差异)
-  - [8.6 ReAct 与评估体系的关联](#86-react-与评估体系的关联)
-  - [8.7 优点](#87-优点)
-  - [8.8 缺点与风险](#88-缺点与风险)
-  - [8.9 改进建议](#89-改进建议)
+- [7. 7×24 主动监控全流程](#7-724-主动监控全流程)
+  - [7.1 启动与停止](#71-启动与停止)
+  - [7.2 监控循环](#72-监控循环)
+  - [7.3 感知层：数据源采集与过滤](#73-感知层数据源采集与过滤)
+  - [7.4 信念更新](#74-信念更新)
+  - [7.5 意图形成](#75-意图形成)
+  - [7.6 意图执行与事件投递](#76-意图执行与事件投递)
+  - [7.7 主链执行](#77-主链执行)
+  - [7.8 频率控制与预算熔断](#78-频率控制与预算熔断)
+  - [7.9 关键代码出处](#79-关键代码出处)
+- [8. 评估体系](#8-评估体系)
+  - [8.1 参考框架与基准](#81-参考框架与基准)
+  - [8.2 评估维度与指标体系](#82-评估维度与指标体系)
+  - [8.3 指标计算方式](#83-指标计算方式)
+  - [8.4 LLM 辅助评估](#84-llm-辅助评估)
+  - [8.5 质量门禁](#85-质量门禁)
+  - [8.6 测试数据集](#86-测试数据集)
+  - [8.7 评估报告](#87-评估报告)
+  - [8.8 优点](#88-优点)
+  - [8.9 缺点与风险](#89-缺点与风险)
   - [8.10 关键代码出处](#810-关键代码出处)
+- [9. ReAct / CoT 推理循环](#9-react--cot-推理循环)
+  - [9.1 核心概念与数据结构](#91-核心概念与数据结构)
+  - [9.2 ReAct 循环主流程](#92-react-循环主流程)
+  - [9.3 CoT 思维链的五个阶段](#93-cot-思维链的五个阶段)
+  - [9.4 各 Agent 的 ReAct 使用差异](#94-各-agent-的-react-使用差异)
+  - [9.5 _generate_final_answer 的角色差异](#95-_generate_final_answer-的角色差异)
+  - [9.6 ReAct 与评估体系的关联](#96-react-与评估体系的关联)
+  - [9.7 优点](#97-优点)
+  - [9.8 缺点与风险](#98-缺点与风险)
+  - [9.9 改进建议](#99-改进建议)
+  - [9.10 关键代码出处](#910-关键代码出处)
 
 # 1. 系统统一主流程
 ```text
@@ -194,11 +203,435 @@
     | resume 返回继续执行后的结果
 ```
 
-# 2. Agent BDI 心智架构
+# 2. TaskGraph 执行内核详解
+
+TaskGraph 执行内核是主流程 Step 5 的核心组件，将多角色协作抽象为有向无环图（DAG），实现可并行、可重规划、可恢复、可审计的动态任务调度。
+
+## 2.1 执行逻辑概览
+
+执行内核的核心流程是一个 **while 循环**，每轮循环执行以下闭环：
+
+```
+while remaining_nodes:
+    ① 找出就绪节点（依赖已满足）
+    ② 评估条件边（跳过不满足条件的分支）
+    ③ 并行执行所有就绪节点（asyncio.gather）
+    ④ 同步状态：更新 node.status / node_outputs / receipts / trace
+    ⑤ 判断是否应该停止（blocked / failed / stopped）
+    → 回到 ①
+```
+
+核心代码位于 [task_graph_executor.py:61 `execute()`](../src/riskmonitor_multiagent/orchestration/task_graph_executor.py)，单节点执行位于 [node_executors.py:109 `execute_node()`](../src/riskmonitor_multiagent/orchestration/node_executors.py)。
+
+## 2.2 关键执行步骤
+
+#### Step 1: 初始化与恢复上下文
+
+`execute()` 方法接收 `execution_state`（上次执行的状态快照）和 `resume_from_step_id`（恢复入口），从中恢复已完成节点、已跳过节点、节点输出、receipts、审批记录等：
+
+```python
+# task_graph_executor.py:69-94
+prior_state = dict(execution_state) if isinstance(execution_state, dict) else {}
+completed = self._extract_completed_steps(prior_state)     # 已完成的 step_id 集合
+skipped = self._extract_skipped_steps(prior_state)         # 已跳过的 step_id 集合
+node_outputs = self._extract_node_outputs(prior_state)     # 各节点输出 payload
+delegate_results = self._restore_delegate_results(prior_state)  # Agent 返回值
+receipts = self._extract_receipts(prior_state)             # 工具回执
+approval_records = self._extract_approval_records(prior_state)  # 审批记录
+execution_trace = list(prior_state.get("trace", []))       # 执行 trace
+resume_history = list(prior_state.get("resume_history", []))  # 恢复历史
+```
+
+然后构建依赖图并标记恢复点下游节点为 `pending`（清除其已完成状态）：
+
+```python
+# task_graph_executor.py:128-142
+if self._should_resume_node(step_id=step_id, resume_from_step_id=resume_from_step_id, dependency_map=dependency_map):
+    node["status"] = "pending"         # 重置为待执行
+    completed.discard(step_id)           # 从已完成集合移除
+    node_outputs.pop(step_id, None)      # 清除旧输出
+    node_statuses[step_id] = "pending"
+```
+
+`_should_resume_node()` 通过递归遍历 `dependency_map` 判断某节点是否是恢复点的下游（直接或间接依赖），确保**只重跑失败节点及其下游，已成功节点不重跑**。
+
+#### Step 2: 就绪节点识别
+
+每轮循环首先找出所有依赖已满足的节点：
+
+```python
+# task_graph_executor.py:144-164
+terminal_steps = completed | skipped   # 已终态节点
+ready_nodes = [
+    node
+    for step_id, node in remaining.items()
+    if dependency_map.get(step_id, set()).issubset(terminal_steps)
+]
+```
+
+依赖满足的判断标准：节点的所有父节点（通过 `parent_id` 或 `edges` 建立的依赖）都已进入终态（`completed` 或 `skipped`）。
+
+#### Step 3: 条件边评估与分支跳过
+
+对于每个就绪节点，调用 `_evaluate_node_readiness()` 检查入边条件。条件不满足的节点被标记为 `skipped`，不执行：
+
+```python
+# task_graph_executor.py:439-485
+readiness = self._evaluate_node_readiness(
+    task=task, node=node,
+    incoming_edges=incoming_edges_map.get(step_id, []),
+    node_outputs=node_outputs, node_statuses=node_statuses,
+)
+if readiness.get("status") == "skipped":
+    skipped_nodes.append((node, readiness))  # 条件不满足，跳过
+else:
+    executable_nodes.append(node)            # 条件满足，执行
+```
+
+支持的条件类型：`always` / `on_success` / `on_failure` / `on_skipped` / `equals:path:value` / `truthy:path` / `falsy:path`。
+
+#### Step 4: 并行执行与重试
+
+所有就绪节点通过 `asyncio.gather` 并行执行，每个节点由 `NodeExecutor.execute_with_retry()` 处理：
+
+```python
+# task_graph_executor.py:172-181
+results = await asyncio.gather(
+    *(
+        self._node_executor.execute_with_retry(
+            task=task, node=node, node_outputs=node_outputs,
+        )
+        for node in executable_nodes
+    )
+)
+```
+
+`execute_with_retry()` 的重试逻辑（[node_executors.py:47-78](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+
+```python
+# node_executors.py:47-78
+for attempt in range(retry_budget + 1):
+    result = await self.execute_once(task=task, node=node, node_outputs=node_outputs)
+    if result["status"] in {"completed", "stopped"}:
+        return result                              # 成功，返回
+    failure_classification = result.get("failure_classification", "")
+    retryable = failure_classification in {"timeout", "dependency", "runtime"}
+    retry_records.append({"attempt": attempt + 1, "failure_classification": ..., "retry_scheduled": retryable and attempt < retry_budget})
+    if not retryable or attempt >= retry_budget:
+        return result                              # 不可重试或重试次数用完
+```
+
+**关键设计**：只有 `timeout` / `dependency` / `runtime` 三类失败才会重试，`validation`（参数错误）和 `permission`（权限不足）不重试——参数错误需要人工修复，重试无意义。
+
+#### Step 5: 状态同步与下游触发
+
+执行完成后，更新节点状态并触发下游：
+
+```python
+# task_graph_executor.py:188-298
+for node, node_result in zip(processed_nodes, processed_results):
+    step_id = str(node["step_id"])
+    node["status"] = node_result["status"]     # 更新节点状态
+    node_statuses[step_id] = node_result["status"]
+
+    if node_result["status"] == "completed":
+        completed.add(step_id)                    # 加入已完成集合 → 下游依赖满足
+        node_outputs[step_id] = node_result["output"]
+    elif node_result["status"] == "skipped":
+        skipped.add(step_id)                      # 加入已跳过集合 → 下游依赖满足
+    elif node_result["status"] == "blocked":
+        should_stop = True                        # 审批等待，停止执行
+        status = "blocked"
+        blocked_step_id = step_id
+    else:  # failed
+        status = "failed"
+        failed_step_id = step_id
+
+    remaining.pop(step_id, None)                 # 从待执行集合移除
+```
+
+每完成一个节点还会触发回调 `_on_node_completed`，由 `proactive_workflow` 注册用于写入 working_memory 和 session 分段。
+
+#### Step 6: 终止判断与结果输出
+
+```python
+# task_graph_executor.py:297-334
+if should_stop or status == "failed":
+    break                       # 遇到 blocked/failed/stop，跳出循环
+
+# 无就绪节点且仍有剩余节点 → 图卡住（deadlock）
+if not executable_nodes and not skipped_nodes:
+    status = "failed"
+    for node in remaining.values():
+        node["status"] = "blocked"
+    errors.append("task_graph_stalled")
+    break
+```
+
+最终输出包含完整执行状态：
+
+```python
+return {
+    "status": status,                    # completed / failed / blocked / stopped
+    "task_graph": {"nodes": ..., "edges": ...},  # 最终图状态（含节点 status）
+    "task_graph_execution": {
+        "completed_steps": sorted(completed),
+        "skipped_steps": sorted(skipped),
+        "failed_step_id": failed_step_id,
+        "blocked_step_id": blocked_step_id,
+        "errors": errors,
+        "node_outputs": node_outputs,     # 各节点输出
+        "retry_records": retry_records,    # 重试记录
+        "resume_history": resume_history, # 恢复历史
+        "resume_ready": failed_step_id is not None,  # 是否可恢复
+        "receipts": receipts,             # 工具回执
+        "approval_records": approval_records,
+        "trace": execution_trace,         # 执行 trace
+    },
+    "delegate_results": delegate_results,
+    "receipts": receipts,
+    "final_output": final_output,
+}
+```
+
+## 2.3 节点类型与执行分发
+
+`execute_node()` 根据 `node.kind` 分发到不同执行路径（[node_executors.py:109-137](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+
+| kind | 执行逻辑 | 输出 |
+|------|---------|------|
+| `delegate` | 调用 `delegate_handlers[target_agent]`（如 SystemEngineer.analyze_task） | `delegate_result` + `output_ref=target_agent` |
+| `tool_call` | 构造 `AgentCommand` → `execute_agent_command()` → `Receipt` | `receipt` + `command_id` + `approval_record` |
+| `finalize` | 聚合所有 `node_outputs` 的 summary/report，生成最终结论 | `final_output` + `receipt_command_ids` |
+| `analyze` | 有 target_agent 则走 delegate；否则纯文本分析上游输出 | `summary` + `report` |
+| `ask_human` | 有 `human_response` 则完成；否则生成 `pending` 审批，blocked | `approval_record` + `error=human_input_required` |
+| `replan` | 标记需要重规划，输出 `replan=True` | `output_ref=replan` |
+| `stop` | 生成停止输出，status=`stopped` | `final_output` + `stopped=True` |
+
+## 2.4 审批拦截机制
+
+在执行节点前，`execute_node()` 先调用 `_check_step_approval()` 检查节点级审批（[node_executors.py:292-309](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+
+```python
+step_approval_result = self._check_step_approval(node=node)
+if step_approval_result is not None:
+    return step_approval_result  # 返回 blocked 状态，阻止执行
+```
+
+审批状态机：`pending` → `approved`（放行）/ `rejected`（blocked）/ `expired`（blocked）。只有 `approved` 和 `resumed` 状态才允许继续执行。
+
+对于 `tool_call` 节点，审批在 `Receipt` 层处理：`execute_agent_command()` 内部通过 ToolExecutor 的五道关卡检查 RBAC 权限和审批要求。
+
+## 2.5 意外中断的上下文恢复机制
+
+#### 恢复入口
+
+中断恢复通过 `resume_request` 进入主流程（见主流程图的 resume 路径）：
+
+```python
+# proactive_workflow.py:510-514
+execution_state = resume_request.get("execution_state")
+resume_from_step_id = (
+    resume_request.get("resume_from_step_id")
+    or execution_state.get("failed_step_id")  # 自动取失败节点
+)
+```
+
+#### 恢复过程
+
+`TaskGraphExecutor.execute()` 接收 `execution_state` 和 `resume_from_step_id`，执行恢复：
+
+```
+恢复前状态:
+  completed = {s1, s2}        ← s1、s2 已成功
+  s3 failed                   ← s3 失败导致中断
+  s4, s5 pending              ← s4、s5 未执行
+
+恢复操作:
+  ① 从 execution_state 恢复 completed/skipped/node_outputs/receipts
+  ② _should_resume_node(s3) == True → s3 重置为 pending
+  ③ _should_resume_node(s4) == True（s4 依赖 s3）→ s4 重置为 pending
+  ④ _should_resume_node(s5) == True（s5 依赖 s4）→ s5 重置为 pending
+  ⑤ s1、s2 不在 s3 下游 → 保持 completed，不重跑
+
+恢复后:
+  s1: completed (不重跑)       ← 幂等性保证
+  s2: completed (不重跑)
+  s3: pending → 重新执行
+  s4: pending → 等待 s3 完成后执行
+  s5: pending → 等待 s4 完成后执行
+```
+
+`_should_resume_node()` 使用递归 DFS 遍历 `dependency_map`，判断目标节点是否在恢复点的下游链路上：
+
+```python
+# task_graph_executor.py:406-437
+def _should_resume_node(self, *, step_id, resume_from_step_id, dependency_map) -> bool:
+    if step_id == resume_from_step_id:
+        return True                                    # 是恢复点本身
+    return self._depends_on(step_id=step_id, target_step_id=resume_from_step_id, dependency_map=dependency_map)
+
+def _depends_on(self, *, step_id, target_step_id, dependency_map) -> bool:
+    stack = list(dependency_map.get(step_id, set()))    # 从当前节点出发
+    visited = set()
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        if current == target_step_id:
+            return True                                # 依赖链上找到恢复点
+        stack.extend(dependency_map.get(current, set()))  # 继续向上遍历
+    return False
+```
+
+#### 恢复记录
+
+每次恢复都会在 `resume_history` 中插入一条记录：
+
+```python
+# task_graph_executor.py:86-94
+resume_history.insert(0, {
+    "resume_from_step_id": resume_from_step_id,
+    "mode": "step_resume",
+})
+```
+
+最终写入 `run_trace.v2`，审计时可追溯完整的恢复链路。
+
+## 2.6 执行受阻后的 TaskGraph 修改与续跑机制
+
+#### 受阻场景一：节点失败 → 自动重试 → 人工修复后恢复
+
+节点执行失败后，`execute_with_retry()` 根据 `failure_classification` 决定是否重试：
+
+| failure_classification | 是否自动重试 | 原因 |
+|------------------------|------------|------|
+| `timeout` | ✅ | 超时可能是暂时性的（网络抖动） |
+| `dependency` | ✅ | 依赖不可用可能是暂时的（服务重启） |
+| `runtime` | ✅ | 运行时异常有概率自恢复 |
+| `validation` | ❌ | 参数错误需要人工修复参数 |
+| `permission` | ❌ | 权限不足需要人工授权 |
+
+重试次数由 `node.retry_budget` 或 `task.execution_policy.default_retry_budget` 控制（默认 0，不重试）。
+
+当自动重试用尽后，执行返回 `status=failed`，`resume_ready=True`，等待人工干预：
+
+```
+第 1 次执行:
+  s1: completed ✓
+  s2: failed (validation error, retry_budget=1)
+    → retry_records: [{attempt:1, classification:validation, retry_scheduled:False}]
+    → resume_ready: True
+
+人工修复后第 2 次执行（传入修复后的 task_graph + execution_state + resume_from_step_id=s2）:
+  s1: completed (跳过，不重跑) ✓
+  s2: pending → 重新执行 (参数已修复) → completed ✓
+  s3: pending → 执行 → completed ✓
+  → status: completed
+```
+
+#### 受阻场景二：审批等待 → 人工审批后恢复
+
+节点级审批或工具级审批触发 `status=blocked`，执行暂停：
+
+```
+第 1 次执行:
+  s1: completed ✓
+  s2: blocked (approval_required, state=pending)
+    → approval_record: {approval_id:appr_001, state:pending}
+    → status: blocked, blocked_step_id: s2
+
+人工审批后第 2 次执行（传入 approval.state=approved 的 task_graph）:
+  s1: completed (跳过) ✓
+  s2: _check_step_approval → state=approved → 放行 → completed ✓
+  s3: pending → 执行 → completed ✓
+  → status: completed
+```
+
+#### 受阻场景三：Critic 拒绝计划 → 重规划子图挂接
+
+CriticAgent 在 plan_review 阶段拒绝 OrchestratorAgent 的计划时，触发重规划：
+
+```python
+# proactive_workflow.py:565-604
+if should_replan(critic_result.output):
+    # 1. 让 OrchestratorAgent 在 replan 上下文中重新规划
+    replan_result = await self._orchestrator_agent.orchestrate(
+        task=task,
+        context={"phase": "replan", "critic": critic_result.output, "prior_orchestrator_plan": orchestrator_result.output},
+    )
+    # 3. 将新计划作为子图挂接到原 TaskGraph 后面
+    active_task_graph = append_replan_subgraph(
+        active_task_graph,          # 原 TaskGraph
+        replan_result.output,        # 新计划
+        reason=build_replan_reason(critic_result.output),
+    )
+```
+
+`append_replan_subgraph()` 的挂接逻辑（[task_graph.py:309-426](../src/riskmonitor_multiagent/contracts/task_graph.py)）：
+
+```
+原 TaskGraph:                      重规划后:
+  s1 → s2 → s3 (finalize)           s1 → s2 → s3 (finalize)
+                                          ↓
+                                     rp1 (replan 节点)
+                                          ↓
+                                     rp1_s1 → rp1_s2 → rp1_s3 (finalize)
+```
+
+具体步骤：
+1. 在原图终端节点后插入 `replan` 节点（`step_id=rp1`），`condition=critic_rejected`
+2. 新计划的节点 step_id 加前缀 `rp1_`（如 `s1` → `rp1_s1`），避免与原图冲突
+3. 新节点的 `parent_id` 重定向到 `rp1`，形成新的子链
+4. 新子图的入口节点通过 `always` 边连接到 `rp1`
+
+#### 受阻场景四：运行时重规划
+
+执行过程中也可能触发运行时重规划（`_maybe_runtime_replan`）：
+
+```python
+# proactive_workflow.py:672-687
+runtime_replan = await self._maybe_runtime_replan(
+    task=task, intent_result=intent_result,
+    execution_result=execution_result,
+    executor=executor, ...
+)
+if runtime_replan is not None:
+    active_task_graph = runtime_replan["task_graph"]
+    execution_result = runtime_replan["execution_result"]
+```
+
+## 2.7 优缺点
+
+| 维度 | 优点 | 缺点 |
+|------|------|------|
+| **并行性** | 无依赖的节点通过 `asyncio.gather` 自动并行执行，减少总执行时间 | 并行执行下多个 `tool_call` 可能竞争外部资源（如数据库连接池），需工具层自行控制并发 |
+| **可恢复性** | `execution_state` + `resume_from_step_id` 实现精确恢复，只重跑失败节点及下游，不重跑已成功节点 | 恢复依赖调用方正确传入 `execution_state`，如果中间状态丢失（如进程崩溃且未持久化），无法恢复 |
+| **可重规划** | `append_replan_subgraph` 动态挂接新计划，保留原图历史，审计可追溯 | 重规划子图的节点命名靠 `rp{index}_` 前缀避免冲突，多次重规划后 step_id 会变长，可读性下降 |
+| **可审计性** | 每个节点的 status/error/retry_records/latency_ms/command_id 全部写入 `execution_trace`，最终进入 `run_trace.v2` | trace 数据量大（每个节点 15+ 字段），长任务图可能产生数百条 trace 记录 |
+| **容错性** | 三类失败自动重试（timeout/dependency/runtime），两类不重试（validation/permission）避免无意义重试 | `retry_budget` 默认为 0（不重试），需要调用方显式配置；重试间隔无指数退避（backoff），可能立即再次失败 |
+| **条件分支** | 支持 `always/on_success/on_failure/equals/truthy` 等多种条件，支持动态路由 | 条件评估逻辑复杂（`_evaluate_condition` 有 50+ 行分支），维护成本高 |
+| **审批集成** | 节点级审批（`_check_step_approval`）和工具级审批（`Receipt.approval_trace`）双层拦截 | 审批等待期间整个图执行暂停，如果人工审批耗时较长（如 4 小时），会话上下文可能过期 |
+
+## 2.8 关键代码出处
+
+| 组件 | 文件 | 方法/类 |
+|------|------|--------|
+| 执行器主类 | [task_graph_executor.py](../src/riskmonitor_multiagent/orchestration/task_graph_executor.py) | `TaskGraphExecutor.execute()` |
+| 节点执行器 | [node_executors.py](../src/riskmonitor_multiagent/orchestration/node_executors.py) | `NodeExecutor.execute_node()` / `execute_with_retry()` |
+| 重规划子图挂接 | [task_graph.py](../src/riskmonitor_multiagent/contracts/task_graph.py) | `append_replan_subgraph()` |
+| 图归一化 | [task_graph.py](../src/riskmonitor_multiagent/contracts/task_graph.py) | `normalize_task_graph()` / `build_task_graph_from_plan_steps()` |
+| 工具命令执行 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `execute_agent_command()` |
+| 主链接入点 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `ProactiveMultiAgentWorkflow.run()` Step 4 |
+| 运行时重规划 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `_maybe_runtime_replan()` |
+| 恢复请求处理 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `run()` resume 路径 |
+
+# 3. Agent BDI 心智架构
 
 BDI（Belief-Desire-Intention）是主动 Agent 的内部心智状态建模框架，与 ReAct（执行范式）和 CoT（推理方法）不在同一层，三者混合使用。
 
-## 2.1 定位与三者关系
+## 3.1 定位与三者关系
 
 | 维度 | CoT | ReAct | BDI |
 |---|---|---|---|
@@ -268,7 +701,7 @@ ProactiveAgentResult(
 
 **关键点**：BDI 在 `_monitor_loop` 中运行（后台 asyncio task），ReAct 在 `run_with_react` 中运行（主链触发），两者共享同一个 `BaseProactiveAgent` 实例的三个心智池。BDI 的 Belief 被 ReAct 的 `_generate_evidence` 读取（`get_beliefs()[-5:]`），形成数据流闭环。
 
-## 2.2 数据结构
+## 3.2 数据结构
 
 三个心智状态定义在 [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py):
 
@@ -374,7 +807,7 @@ _PERCEPTION_SOURCES = frozenset({
 
 非感知来源的信念（如 `user_input`、`orchestrator_plan`、`orchestration_request`）不会被 `_deliberate()` 处理，它们仅供 ReAct 循环的 `_generate_evidence()` 读取。
 
-## 2.3 状态流转：Perceive → Deliberate → Act
+## 3.3 状态流转：Perceive → Deliberate → Act
 
 后台监控循环（[base.py:318 `_monitor_loop`](../src/riskmonitor_multiagent/proactive_agents/base.py)）实现 BDI 经典循环：
 
@@ -405,7 +838,7 @@ _PERCEPTION_SOURCES = frozenset({
 - **规则驱动 Deliberate**：金融风控需要确定性阈值（如 error_rate>0.1），纯 LLM 推理不稳定
 - **意图携带完整上下文**：`tool_params` 里有 metric_name/metric_value，后续执行不需要再查
 
-## 2.4 意图状态机
+## 3.4 意图状态机
 
 意图状态流转（[base.py:441-480](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -416,7 +849,7 @@ pending → executing → completed
 
 每次状态变更都记录，支持失败重试和审计追溯。意图 ID（`intention_id`）贯穿全程，最终写入 `ProactiveAgentResult.bdi_state`，进入 run_trace。
 
-## 2.5 与主链的接入点
+## 3.5 与主链的接入点
 
 **关键约束**：主动意图不直接执行工具，而是转成统一系统事件投递回 `proactive_workflow.start_from_event`，走和用户任务**完全相同**的主链（intent → plan → task_graph → receipt）。
 
@@ -434,7 +867,7 @@ await workflow.start_from_event(
 
 符合 PRD 硬约束："所有新增能力接入统一执行内核，不形成旁路"。
 
-## 2.6 关键代码出处
+## 3.6 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -451,11 +884,11 @@ await workflow.start_from_event(
 | CoT 推理步 | [base.py:682](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning` |
 | CoT 证据步 | [base.py:755](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence` |
 
-# 3. 统一记忆架构
+# 4. 统一记忆架构
 
 记忆模块不是单独的向量库服务,而是**统一门面 + Redis 持久层 + 进程内语义索引**的混合架构。
 
-## 3.1 总体架构
+## 4.1 总体架构
 
 ```text
 [Workflow / Agents]
@@ -479,7 +912,7 @@ await workflow.start_from_event(
 - **不是外部向量库**：长期记忆是进程内 `SemanticIndexer`,不是 Chroma(Chroma 属于 knowledge 子系统)
 - **四条主链接入**：planning / execution / finalize / resume 全部接到同一套记忆读写协议
 
-## 3.2 数据结构：memory_entry.v1
+## 4.2 数据结构：memory_entry.v1
 
 所有记忆条目都符合统一 schema([contracts/memory_entry.py](../src/riskmonitor_multiagent/contracts/memory_entry.py))：
 
@@ -521,7 +954,7 @@ await workflow.start_from_event(
 - **confidence 字段**：支持动态衰减,低置信度记忆可被清理
 - **scope 隔离**：shared / private 明确区分共享和私有记忆
 
-## 3.3 短期共享记忆
+## 4.3 短期共享记忆
 
 **作用**：所有 agent 都可见的协作记忆流
 
@@ -530,7 +963,197 @@ await workflow.start_from_event(
 - Type: List
 - Value: JSON string (memory_entry.v1)
 
-**典型条目**：`plan` / `working_memory` / `final` / `lesson` / `approval` / `semantic_case`
+**典型条目**：共 6 种 `kind`，按任务生命周期阶段划分如下：
+
+| kind | 写入阶段 | 写入者 | memory_type | 作用 |
+|------|---------|--------|-------------|------|
+| `plan` | planning | OrchestratorAgent | episodic | 保存编排计划，供后续 step 恢复和下次 planning 检索 |
+| `working_memory` | execution | TaskGraphExecutor | episodic | step 级执行记录，每个 node 完成后写入，是协作面的主要数据流 |
+| `final` | finalize | CriticAgent | episodic | run 级总结摘要，包含 key_points 和 receipt 列表 |
+| `lesson` | finalize | CriticAgent | procedural | 过程性经验教训，供下次任务 planning 参考 |
+| `approval` | approval | Workflow | episodic | 审批记录，包含 approval_id 和 state 状态机快照 |
+| `semantic_case` | finalize | CriticAgent | semantic | 长期 few-shot 经验案例，经 confidence 策略筛选后写入，供 Skill 系统和记忆检索召回 |
+
+### 各 kind 详细说明与 Example
+
+**① `plan` — 编排计划记忆**
+
+写入时机：OrchestratorAgent 生成 `plan_steps` 后立即写入。写入逻辑在 [workflow_memory.py:12-43](../src/riskmonitor_multiagent/orchestration/workflow_memory.py)，将 `plan_steps` 列表的 `reason/instruction/kind` 拼接为 `plan_text`，连同完整 `plan_steps` 结构体一起存储。
+
+```json
+{
+  "agent_id": "orchestrator",
+  "scope": "shared",
+  "kind": "plan",
+  "memory_type": "episodic",
+  "run_id": "1780038446-7049a732",
+  "source": "orchestrator_plan",
+  "trace_ref": {"run_id": "1780038446-7049a732"},
+  "content": {
+    "text": "需要系统工程师分析技术层面 ; 评估业务层面影响 ; 执行风险处置",
+    "plan_steps": [
+      {"kind": "delegate", "step_id": "s1", "target_agent": "system_engineer",
+       "reason": "需要系统工程师分析技术层面", "instruction": "分析系统层面可能原因"},
+      {"kind": "delegate", "step_id": "s2", "target_agent": "risk_analyst",
+       "reason": "评估业务层面影响", "instruction": "评估业务层面影响"},
+      {"kind": "command", "step_id": "s3", "target_agent": "system_engineer",
+       "reason": "执行风险处置"}
+    ],
+    "task_id": "task_789"
+  },
+  "tags": ["plan"]
+}
+```
+
+**② `working_memory` — 执行过程记忆**
+
+写入时机：TaskGraphExecutor 每完成一个 node 后写入。写入逻辑在 [memory_operations.py:32-126](../src/riskmonitor_multiagent/memory/memory_operations.py)，记录 `step_id`、`kind`（tool_call/delegate/...）、`status`（completed/failed）、`tool_name`、`target_agent`、`error` 等执行上下文。同步写入 shared 和 private 两条（私有条目 `kind="private_task_state"`）。
+
+```json
+{
+  "agent_id": "system_engineer",
+  "scope": "shared",
+  "kind": "working_memory",
+  "memory_type": "episodic",
+  "run_id": "1780038446-7049a732",
+  "source": "task_graph_execution",
+  "agent_role": "system_engineer",
+  "task_phase": "execution",
+  "confidence": 0.93,
+  "trace_ref": {
+    "run_id": "1780038446-7049a732",
+    "step_id": "step_fetch_metrics",
+    "command_id": "cmd_001"
+  },
+  "content": {
+    "text": "step step_fetch_metrics kind=tool_call status=completed agent=system_engineer tool=query_positions task=监控交易台敞口",
+    "task_id": "task_789",
+    "payload": {"content": "监控交易台敞口和系统状态", "desk": "delta_one"},
+    "trace_entry": {"step_id": "step_fetch_metrics", "kind": "tool_call", "status": "completed"},
+    "node_result": {"output": {"summary": "service healthy", "confidence": 0.93}}
+  },
+  "tags": ["tool_call", "completed", "execution"]
+}
+```
+
+**③ `final` — 运行总结记忆**
+
+写入时机：CriticAgent 完成 `final_review` 后写入。写入逻辑在 [memory_operations.py:155-169](../src/riskmonitor_multiagent/memory/memory_operations.py)，保存 `run_summary.text`、`key_points` 和 `receipt_command_ids`。是 run 级别的最终产出快照。
+
+```json
+{
+  "agent_id": "critic",
+  "scope": "shared",
+  "kind": "final",
+  "memory_type": "episodic",
+  "run_id": "1780038446-7049a732",
+  "source": "critic_final_review",
+  "trace_ref": {"run_id": "1780038446-7049a732"},
+  "content": {
+    "text": "任务完成：交易台敞口监控正常，系统状态健康",
+    "key_points": ["error_rate 已降至 0.02", "payment-service 连接池已扩容"],
+    "receipt_command_ids": ["cmd_001", "cmd_002", "cmd_003"],
+    "task_id": "task_789",
+    "session_id": "sess_001"
+  },
+  "tags": ["summary"]
+}
+```
+
+**④ `lesson` — 过程性经验记忆**
+
+写入时机：与 `final` 同阶段，紧随其后写入。写入逻辑在 [memory_operations.py:171-191](../src/riskmonitor_multiagent/memory/memory_operations.py)，`memory_type="procedural"`（过程性记忆），由 `derive_lesson_text()` 从 `final_output` 和 `run_summary` 提炼一句话教训。通过 `should_persist` 判定后立即异步落盘到 MySQL。
+
+```json
+{
+  "agent_id": "critic",
+  "scope": "shared",
+  "kind": "lesson",
+  "memory_type": "procedural",
+  "run_id": "1780038446-7049a732",
+  "source": "critic_final_review",
+  "trace_ref": {"run_id": "1780038446-7049a732"},
+  "content": {
+    "text": "当 error_rate 飙升时优先检查数据库连接池状态，而非重启服务",
+    "task_id": "task_789",
+    "key_points": ["error_rate 已降至 0.02", "payment-service 连接池已扩容"],
+    "receipt_command_ids": ["cmd_001", "cmd_002", "cmd_003"]
+  },
+  "tags": ["lesson", "procedure"]
+}
+```
+
+**⑤ `approval` — 审批记忆**
+
+写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 [memory_operations.py:207-245](../src/riskmonitor_multiagent/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
+
+```json
+{
+  "agent_id": "orchestrator",
+  "scope": "shared",
+  "kind": "approval",
+  "memory_type": "episodic",
+  "run_id": "1780038446-7049a732",
+  "source": "approval_trace",
+  "trace_ref": {
+    "run_id": "1780038446-7049a732",
+    "step_id": "step_resize_pool",
+    "command_id": "cmd_002",
+    "approval_id": "appr_001"
+  },
+  "content": {
+    "text": "step=step_resize_pool command=cmd_002 state=approved operator=manager reason=连接池扩容属标准运维操作",
+    "task_id": "task_789",
+    "approval_record": {
+      "approval_id": "appr_001",
+      "step_id": "step_resize_pool",
+      "command_id": "cmd_002",
+      "state": "approved",
+      "operator": "manager",
+      "reason": "连接池扩容属标准运维操作"
+    }
+  },
+  "tags": ["approval", "approved"]
+}
+```
+
+**⑥ `semantic_case` — 长期经验案例记忆**
+
+写入时机：CriticAgent 在 `final_review` 阶段，经 `build_experience_policy()` 策略筛选后，`confidence` 达标的 run 才写入。写入逻辑在 [memory_operations.py:287-308](../src/riskmonitor_multiagent/memory/memory_operations.py)，`memory_type="semantic"`（语义记忆），是唯一一种长期 few-shot 经验。未通过筛选的 run 写入 `kind="experience_rejection"`。SkillStore 也用此 kind 将 Skill 索引到 SemanticIndexer（[skill_store.py:80-91](../src/riskmonitor_multiagent/skills/skill_store.py)）。通过 `should_persist` 判定后立即异步落盘。
+
+```json
+{
+  "agent_id": "critic",
+  "scope": "shared",
+  "kind": "semantic_case",
+  "memory_type": "semantic",
+  "run_id": "1780038446-7049a732",
+  "source": "critic_confidence_policy",
+  "agent_role": "critic",
+  "task_phase": "final_review",
+  "confidence": 0.85,
+  "trace_ref": {"run_id": "1780038446-7049a732"},
+  "content": {
+    "snapshot_text": "task=监控交易台敞口 intent=monitor_exposure plan=delegate→system_engineer,delegate→risk_analyst,command→resize_pool outcome=success confidence=0.85",
+    "task_id": "task_789",
+    "intent_type": "monitor_exposure",
+    "plan_summary": "delegate→system_engineer, delegate→risk_analyst, command→resize_pool",
+    "outcome": "success",
+    "agent_perspective": "critic"
+  },
+  "tags": ["experience", "few_shot", "critic"]
+}
+```
+
+### kind 与 memory_type 的关系
+
+`kind` 是业务语义标签（记录“这条记忆是什么”），`memory_type` 是认知科学分类（记录“这条记忆怎么被召回”）：
+
+| memory_type | 对应 kind | 认知科学含义 | 召回方式 |
+|-------------|---------|------------|--------|
+| `episodic`（情景记忆） | `plan` / `working_memory` / `final` / `approval` | 特定 run 中的具体事件 | 按 `run_id` / `session_id` 精确检索 |
+| `procedural`（过程记忆） | `lesson` | 从多次执行中提炼的操作经验 | 按 `tags` + `text` 关键词匹配 |
+| `semantic`（语义记忆） | `semantic_case` | 跨 run 的抽象经验案例 | 通过 SemanticIndexer 语义相似度检索 |
 
 **使用场景**：
 - planning 阶段从这里取 recent hits 和 shared board
@@ -541,7 +1164,7 @@ await workflow.start_from_event(
 - **主协作面**：shared memory 是整个系统的主协作面,private memory 只是辅助
 - **时序有序**：List 结构保证记忆按时间顺序排列,最近记忆在末尾
 
-## 3.4 短期私有记忆（分角色）
+## 4.4 短期私有记忆（分角色）
 
 **作用**：只给单个 agent 自己看的私有任务快照
 
@@ -576,7 +1199,7 @@ await workflow.start_from_event(
 - **角色隔离硬约束**：`memory_cross_talk_rate = 0%` 是治理指标,私有记忆被非所属 agent 读取的比例必须为 0
 - **辅助定位**：private memory 只是辅助角色隔离和局部状态保存,主协作面还是 shared memory
 
-## 3.5 长期经验记忆
+## 4.5 长期经验记忆
 
 **作用**：运行结束后沉淀的 summary / lesson / semantic_case,供后续 planning 时做 few-shot 和经验召回
 
@@ -593,7 +1216,7 @@ await workflow.start_from_event(
 - **轻量语义索引**：不依赖外部向量库,降低部署复杂度
 - **confidence 衰减**：长期记忆的置信度会随时间衰减,防止过时经验污染规划
 
-## 3.6 记忆能解决什么问题
+## 4.6 记忆能解决什么问题
 
 | 问题 | 记忆机制 | 效果 |
 |---|---|---|
@@ -605,7 +1228,7 @@ await workflow.start_from_event(
 | **角色状态丢失** | private memory list | agent 重启后能恢复之前的任务进度 |
 | **审计缺乏溯源** | trace_ref 绑定 | 每条记忆都能反查到 run_id / step_id / command_id |
 
-## 3.7 缺点与风险
+## 4.7 缺点与风险
 
 | 缺点 | 风险等级 | 缓解措施 |
 |---|---|---|
@@ -622,7 +1245,7 @@ await workflow.start_from_event(
 - **记忆串读**：私有记忆被非所属 agent 读取。缓解：`memory_cross_talk_rate = 0%` 硬约束
 - **持久化迁移**：Redis → DB 迁移期间的数据一致性风险。缓解：双写 + 校验
 
-## 3.8 关键代码出处
+## 4.8 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -636,11 +1259,11 @@ await workflow.start_from_event(
 | finalize 链接入 | [workflow_memory.py](../src/riskmonitor_multiagent/orchestration/workflow_memory.py) | `persist_run_artifacts()` |
 | resume 链接入 | [workflow_resume.py](../src/riskmonitor_multiagent/orchestration/workflow_resume.py) | `build_resume_payload()` |
 
-# 4. Skill 自创闭环生命周期
+# 5. Skill 自创闭环生命周期
 
 Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭环。相似任务不再重复推理,直接复用历史 Skill,预计减少 30%+ 的重复规划开销。
 
-## 4.1 总体架构
+## 5.1 总体架构
 
 ```
 [高质量 run 完成]
@@ -696,7 +1319,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 - **置信度驱动**：成功提升,失败降低,自动降级归档
 - **异常隔离**：Skill 系统失败不影响主流程
 
-## 4.2 数据结构：skill.v1
+## 5.2 数据结构：skill.v1
 
 所有 Skill 都符合统一 schema([skill_contract.py](../src/riskmonitor_multiagent/skills/skill_contract.py))：
 
@@ -751,7 +1374,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 - **revision_history 可追溯**：每次修订追加历史记录
 - **source_run_id/source_agent_id**：溯源到创建时的 run 和 agent
 
-## 4.3 Skill 存储位置
+## 5.3 Skill 存储位置
 
 **三层存储**：
 
@@ -768,7 +1391,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 - **启动恢复**：`restore_from_persistence()` 从 MySQL 加载到内存
 - **批量落盘**：`flush_to_persistence()` 批量同步所有 Skill
 
-## 4.4 创建：SkillProposer
+## 5.4 创建：SkillProposer
 
 **触发时机**：CriticAgent 评审之后,ok=True 且 confidence >= 0.85
 
@@ -780,18 +1403,18 @@ async def propose(self, *, run_id, task, critic_final, orchestrator_output, rece
     if not ok or confidence < 0.85:
         return {"action": "skipped", ...}
     
-    # 2. 提取可复用模式
+    # 3. 提取可复用模式
     skill_data = self._extract_skill_pattern(...)
     
-    # 3. 语义去重
+    # 4. 语义去重
     similar = await self._store.find_similar(skill_data, threshold=0.85)
     
     if similar:
-        # 4. 更新已有 Skill
+        # 5. 更新已有 Skill
         updated = await self._store.update(skill_id, patch)
         return {"action": "updated", ...}
     else:
-        # 5. 创建新 Skill
+        # 6. 创建新 Skill
         created = await self._store.create(skill_data)
         return {"action": "created", ...}
 ```
@@ -802,7 +1425,7 @@ async def propose(self, *, run_id, task, critic_final, orchestrator_output, rece
 - **更新优先**：相似 Skill 存在时更新,不创建新 Skill
 - **revision_history**：更新时追加修订历史
 
-## 4.5 检索与注入：SkillInjector
+## 5.5 检索与注入：SkillInjector
 
 **触发时机**：planning 阶段,OrchestratorAgent 规划之前
 
@@ -814,16 +1437,16 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
     if not skill_enabled:
         return {"skill_enabled": False, ...}
     
-    # 2. 提取查询关键词
+    # 3. 提取查询关键词
     query = self._build_query(task=task, intent=intent)
     
-    # 3. 语义检索
+    # 4. 语义检索
     hits = await self._store.search(query, limit=3, min_confidence=0.3)
     
-    # 4. 构建 few-shot 注入结构
+    # 5. 构建 few-shot 注入结构
     skills = [self._build_injection_item(hit) for hit in hits]
     
-    # 5. 治理过滤
+    # 6. 治理过滤
     if self._governor:
         skills = await self._governor.enforce_injection_limits(skills)
     
@@ -851,7 +1474,7 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 - **关键词兜底**：语义检索不稳定时用关键词重叠补全
 - **治理过滤**：SkillGovernor 控制 token 预算
 
-## 4.6 使用与置信度更新：SkillUsageTracker
+## 5.6 使用与置信度更新：SkillUsageTracker
 
 **触发时机**：Skill 被使用后,根据执行结果更新置信度
 
@@ -877,7 +1500,7 @@ async def record_usage(self, *, skill_id, success):
 - **success_rate 计算**：基于 usage_count 和成功次数
 - **自动降级**：置信度低于阈值自动改变 status
 
-## 4.7 修订：SkillReviser
+## 5.7 修订：SkillReviser
 
 **触发时机**：Skill 被使用但产生次优结果(critic ok=False 或有 issues)
 
@@ -889,13 +1512,13 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
     if ok and not has_issues:
         return None  # 不修订
     
-    # 2. 提取失败原因
+    # 3. 提取失败原因
     failure_reason = self._extract_failure_reason(critic_final)
     
-    # 3. 生成修订后的 steps
+    # 4. 生成修订后的 steps
     revised_steps = self._generate_revised_steps(...)
     
-    # 4. 生成修订提案
+    # 5. 生成修订提案
     proposal = RevisionProposal(
         skill_id=skill_id,
         revision_id=f"rev_{uuid}",
@@ -905,7 +1528,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
         proposed_by="critic" or "auto",
     )
     
-    # 5. 更新 Skill (追加 revision_history)
+    # 6. 更新 Skill (追加 revision_history)
     patch = {
         "steps": revised_steps,
         "failure_boundary": revised_failure_boundary,
@@ -919,7 +1542,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 - **revision_history 可回滚**：每次修订追加历史记录
 - **proposed_by**：区分 critic 触发还是 auto 触发
 
-## 4.8 降级与归档
+## 5.8 降级与归档
 
 **置信度衰减策略**：
 
@@ -938,7 +1561,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 - **软删除**：archived 不是物理删除,可从 MySQL 恢复
 - **检索隔离**：deprecated/archived 不影响正常检索
 
-## 4.9 Skill 能解决什么问题
+## 5.9 Skill 能解决什么问题
 
 | 问题 | Skill 机制 | 效果 |
 |---|---|---|
@@ -949,7 +1572,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 | **Skill 重复创建** | find_similar() 语义去重 | 相似 Skill 合并更新 |
 | **prompt 膨胀** | max_skills=3, SkillGovernor token 预算 | 控制注入数量 |
 
-## 4.10 缺点与风险
+## 5.10 缺点与风险
 
 | 缺点 | 风险等级 | 缓解措施 |
 |---|---|---|
@@ -966,7 +1589,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 - **异步落盘**：fire-and-forget 可能丢失。缓解：批量 flush_to_persistence() 定期同步
 - **修订质量**：LLM 生成的修订可能不准确。缓解：revision_history 可回滚
 
-## 4.11 关键代码出处
+## 5.11 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -979,11 +1602,11 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 | Skill 治理 | [skill_governor.py](../src/riskmonitor_multiagent/skills/skill_governor.py) | `SkillGovernor.enforce_injection_limits()` |
 | workflow 接入 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `SkillStore` / `SkillInjector` / `SkillProposer` / `SkillReviser` 初始化 |
 
-# 5. MCP 工具调用与治理
+# 6. MCP 工具调用与治理
 
 本系统通过 MCP（Model Context Protocol）对外暴露工具能力，所有 Agent 的工具调用统一经过 **ToolRegistry → ToolExecutor** 主路径，不形成旁路。
 
-## 5.1 协议与传输层
+## 6.1 协议与传输层
 
 **协议**：采用 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 标准，通过 `mcp.server.FastMCP` 实现。
 
@@ -1012,7 +1635,7 @@ if transport is None or not transport.strip():
 - **传输可切换**：同一套工具代码，开发用 stdio，生产用 streamable-http
 - **FastMCP 封装**：基于 `mcp.server.FastMCP`，自动处理 JSON-RPC、序列化、路由
 
-## 5.2 MCP 部署位置
+## 6.2 MCP 部署位置
 
 **MCP Server 作为独立 Pod 部署在 K8s 集群内**：
 
@@ -1049,7 +1672,7 @@ if transport is None or not transport.strip():
 - **依赖就绪检查**：initContainers 确保数据库连接可用后才启动服务
 - **健康探针**：livenessProbe 和 readinessProbe 都走 `/health`（无认证），`/ready` 有认证不适合探针
 
-## 5.3 鉴权机制
+## 6.3 鉴权机制
 
 **两层鉴权**：
 
@@ -1091,7 +1714,7 @@ def _is_allowed_by_role(*, meta: ToolMeta, target_agent: str) -> bool:
 - **内部 RBAC 严格**：角色决定可调用工具类型，read_only vs side_effect 严格隔离
 - **Context 提取**：MCP 工具调用时从 FastMCP Context 中提取 HTTP headers，复用同一套鉴权逻辑
 
-## 5.4 工具注册与角色区分
+## 6.4 工具注册与角色区分
 
 ### ToolRegistry：工具元数据注册表
 
@@ -1159,7 +1782,7 @@ _MANAGER_ALLOWLIST = {
 - **副作用工具仅 manager**：`submit_alerts` 和 `write_alert` 只有 manager 角色可调用
 - **owner 字段**：每个工具声明所属角色，用于 MCP 层路由
 
-## 5.5 Agent 如何知道可用工具
+## 6.5 Agent 如何知道可用工具
 
 Agent 通过 **TieredPromptBuilder 的 tools_index** 获知可用工具：
 
@@ -1185,7 +1808,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 - **外部客户端**：通过 MCP 协议 `tools/list` 发现工具，FastMCP 自动暴露
 - **稳定层缓存**：tools_index 放在 stable tier，版本不变则缓存命中，减少 token 消耗
 
-## 5.6 工具调用全流程
+## 6.6 工具调用全流程
 
 ```text
 [外部客户端 / Agent]
@@ -1224,7 +1847,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 - **回执标准化**：所有工具执行返回 `agent_receipt.v1`，包含完整的审计信息
 - **失败分类**：`failure_classification` 将错误分为 permission/validation/timeout/dependency/runtime，用于重试决策
 
-## 5.7 五道治理关卡
+## 6.7 五道治理关卡
 
 参考 [ADR-004](../docs/decisions/ADR-004-tool-governance.md)，工具调用必须通过五道关卡：
 
@@ -1252,7 +1875,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 - **审批可追溯**：`approval_trace` 记录完整的状态转换历史
 - **预算隔离**：`tool_call_limit` 和 `side_effect_limit` 分别计数，防止 side_effect 工具消耗过多预算
 
-## 5.8 MCP Resources 与 Prompts
+## 6.8 MCP Resources 与 Prompts
 
 除工具外，MCP Server 还暴露 **Resources** 和 **Prompts**：
 
@@ -1274,7 +1897,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 - **Resources 提供上下文**：客户端可通过 MCP 协议读取交易台、限额、行情等参考数据
 - **Prompts 提供模板**：标准化风控分析流程，减少重复 prompt 编写
 
-## 5.9 关键代码出处
+## 6.9 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -1300,11 +1923,11 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 | 错误响应 | [errors.py](../src/riskmonitor_multiagent/tools/errors.py) | `error_payload()` |
 | 治理决策 | [ADR-004](../docs/decisions/ADR-004-tool-governance.md) | 零信任工具治理体系 |
 
-# 6. 7×24 主动监控全流程
+# 7. 7×24 主动监控全流程
 
 本系统通过 `BaseProactiveAgent` 的后台监控循环实现 7×24 主动感知、自主分析、自主行动能力。主动行为不旁路执行，全部接入统一执行内核。
 
-## 6.1 启动与停止
+## 7.1 启动与停止
 
 **启动**（[base.py:318](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1330,7 +1953,7 @@ async def stop_background_monitor(self) -> None:
 - `is_running` 标志位控制循环退出，支持优雅停止
 - 构造函数里 `enable_background_monitor=True` 时自动初始化愿望（`_init_desires()`）
 
-## 6.2 监控循环
+## 7.2 监控循环
 
 **核心循环**（[base.py:343](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1349,7 +1972,7 @@ async def _monitor_loop(self):
 - `monitor_interval_seconds` 可配置（默认 60 秒），防止过于频繁
 - 任何阶段异常不会中断循环（各阶段内部有 try-except）
 
-## 6.3 感知层：数据源采集与过滤
+## 7.3 感知层：数据源采集与过滤
 
 **数据采集**（[base.py:391](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1372,7 +1995,7 @@ async def _collect_filtered_signals(self, data_sources) -> list:
 - 市场信号订阅（价格波动、成交量异常）
 - 仓位变化监控（breach、limit utilization）
 
-## 6.4 信念更新
+## 7.4 信念更新
 
 **感知环境**（[base.py:407](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1397,7 +2020,7 @@ def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Beli
 - 每个信念带 `source` 字段，后续 Deliberate 阶段可按来源过滤
 - `confidence` 支持动态衰减（低置信度信念可被清理）
 
-## 6.5 意图形成
+## 7.5 意图形成
 
 **思考过程**（[base.py:411](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1432,7 +2055,7 @@ async def _deliberate(self) -> None:
 - **意图携带完整上下文**：`tool_params` 里有 metric_name/metric_value，后续执行不需要再查
 - **子类可重写**：不同 Agent 可重写 `_deliberate()` 实现不同的意图形成逻辑
 
-## 6.6 意图执行与事件投递
+## 7.6 意图执行与事件投递
 
 **行动过程**（[base.py:441](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
@@ -1463,7 +2086,7 @@ async def _act(self) -> None:
 - **候选 Agent 列表**：`[target_agent, "critic", "orchestrator"]` 保证至少有 critic 审查
 - **符合 PRD 硬约束**："所有新增能力接入统一执行内核，不形成旁路"
 
-## 6.7 主链执行
+## 7.7 主链执行
 
 主动事件投递后，走和用户任务**完全相同**的主链：
 
@@ -1486,7 +2109,7 @@ proactive_event → workflow.start_from_event()
 - 所有工具调用产出 receipt，可审计、可回放
 - 完整 trace 记录，支持事后复盘
 
-## 6.8 频率控制与预算熔断
+## 7.8 频率控制与预算熔断
 
 **频率控制**：
 - `monitor_interval_seconds`：循环间隔（默认 60 秒）
@@ -1502,7 +2125,7 @@ proactive_event → workflow.start_from_event()
 - 熔断后系统降级为被动响应模式
 - 成本可控是 7×24 主动监控的前提
 
-## 6.9 关键代码出处
+## 7.9 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -1520,11 +2143,11 @@ proactive_event → workflow.start_from_event()
 | 升级管理 | [perception/](../src/riskmonitor_multiagent/perception/) | `EscalationManager` |
 | 预算熔断 | [scheduling/](../src/riskmonitor_multiagent/scheduling/) | `ProactiveBudgetManager` |
 
-# 7. 评估体系
+# 8. 评估体系
 
 本项目的评估体系采用 **自动化指标 + LLM 辅助评估 + 质量门禁** 三层架构，覆盖 7 大维度、40+ 项指标。
 
-## 7.1 参考框架与基准
+## 8.1 参考框架与基准
 
 评估体系参考了以下业界框架：
 
@@ -1541,7 +2164,7 @@ proactive_event → workflow.start_from_event()
 - **领域定制**：在通用框架基础上增加金融风控领域特有指标（如工具风险、记忆价值）
 - **可插拔**：指标定义与计算解耦，可通过 `get_metric_definitions()` 动态扩展
 
-## 7.2 评估维度与指标体系
+## 8.2 评估维度与指标体系
 
 **7 大维度 + 1 行为维度**：
 
@@ -1580,9 +2203,9 @@ overall_score = 0.23 * task_accuracy
              + 0.09 * memory
 ```
 
-## 7.3 指标计算方式
+## 8.3 指标计算方式
 
-### 7.3.1 任务准确度 (TaskAccuracyMetrics)
+### 8..1 任务准确度 (TaskAccuracyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1591,7 +2214,7 @@ overall_score = 0.23 * task_accuracy
 | `execution_success_rate` | trace.success ? 1.0 : 0.0 | trace.success |
 | `answer_quality` | LLMJudge 评估（accuracy/completeness/relevance/clarity） | LLMJudge.evaluate_answer_quality() |
 
-### 7.3.2 问题理解度 (ComprehensionMetrics)
+### 8..2 问题理解度 (ComprehensionMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1600,7 +2223,7 @@ overall_score = 0.23 * task_accuracy
 | `ambiguity_resolution` | 启发式：有 intent=0.7，有 intent+react_steps=0.85 | trace |
 | `context_understanding` | 启发式：基于 trace 完整性分级 | trace |
 
-### 7.3.3 协作深度 (CollaborationMetrics)
+### 8..3 协作深度 (CollaborationMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1610,7 +2233,7 @@ overall_score = 0.23 * task_accuracy
 | `role_specialization` | active_agents >= 3 → 0.85, >= 2 → 0.7, >= 1 → 0.5 | trace.agent_outputs |
 | `conflict_resolution_rate` | 启发式：success + active_agents >= 2 → 0.85 | trace |
 
-### 7.3.4 执行效率 (EfficiencyMetrics)
+### 8..4 执行效率 (EfficiencyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1621,7 +2244,7 @@ overall_score = 0.23 * task_accuracy
 | `tool_timeout_rate` | timeout_tools / total_tools | trace.tool_calls |
 | `tool_retry_rate` | retried_tools / total_tools | trace.tool_calls |
 
-### 7.3.5 推理质量 (ReasoningMetrics)
+### 8..5 推理质量 (ReasoningMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1631,7 +2254,7 @@ overall_score = 0.23 * task_accuracy
 | `logical_consistency` | LLMJudge 或启发式 | LLMJudge / trace |
 | `reasoning_depth` | min(1.0, step_count / 5) | trace.react_steps |
 
-### 7.3.6 工具风险 (ToolRiskMetrics)
+### 8..6 工具风险 (ToolRiskMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1641,7 +2264,7 @@ overall_score = 0.23 * task_accuracy
 | `approval_flow_compliance` | 期望审批且有审批轨迹 ? 0.9 : 0.3 | trace.tool_calls |
 | `dangerous_action_blocked` | 危险工具均有审批状态 ? 1.0 | trace.tool_calls |
 
-### 7.3.7 记忆价值 (MemoryMetrics)
+### 8..7 记忆价值 (MemoryMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -1652,7 +2275,7 @@ overall_score = 0.23 * task_accuracy
 | `role_drift_rate` | planning_memory.role_drift_rate（越低越好） | trace.planning_memory |
 | `memory_cross_talk_rate` | planning_memory.memory_cross_talk_rate（越低越好） | trace.planning_memory |
 
-## 7.4 LLM 辅助评估
+## 8.4 LLM 辅助评估
 
 对于主观指标，采用 **LLM-as-Judge** 模式，由独立 LLM 评估器打分：
 
@@ -1672,7 +2295,7 @@ overall_score = 0.23 * task_accuracy
 - **降级策略**：LLM Judge 失败时返回 0.5 默认分，不阻断评估流程
 - **确定性优先**：行为事实（如工具调用、审批轨迹）用确定性规则判定，不依赖 LLM Judge
 
-## 7.5 质量门禁
+## 8.5 质量门禁
 
 质量门禁（Quality Gate）是评估体系的 **硬约束层**，用于判定评估结果是否可发布：
 
@@ -1719,7 +2342,7 @@ class GateResult:
     decision_log: list[dict]  # 每个指标的决策日志
 ```
 
-## 7.6 测试数据集
+## 8.6 测试数据集
 
 **Gold 数据集**（[eval/datasets/gold/](../eval/datasets/gold/)）：
 
@@ -1752,7 +2375,7 @@ class GateResult:
 
 **标注一致性**：通过 [compute_iaa.py](../eval/scripts/compute_iaa.py) 计算 Inter-Annotator Agreement，确保标注质量。
 
-## 7.7 评估报告
+## 8.7 评估报告
 
 [report.py](../eval/core/report.py) 支持三种报告格式：
 
@@ -1770,7 +2393,7 @@ class GateResult:
 - Comparison：与历史/benchmark 的对比
 - Case Results：逐 case 结果表
 
-## 7.8 优点
+## 8.8 优点
 
 | 优点 | 说明 |
 |---|---|
@@ -1784,7 +2407,7 @@ class GateResult:
 | **场景分类覆盖** | 12 类 benchmark 场景，覆盖从简单查询到复杂多步推理 |
 | **行为指标独立** | BehavioralMetrics 与 OverallMetrics 分离，门禁不受主观评分影响 |
 
-## 7.9 缺点与风险
+## 8.9 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |---|---|---|
@@ -1798,7 +2421,7 @@ class GateResult:
 | **无回归检测** | 低 | 缺乏自动化的回归检测机制，无法发现指标劣化趋势 |
 | **LLM Judge 成本高** | 低 | 每个 case 需要多次 LLM 调用，评估成本随用例数线性增长 |
 
-## 7.10 关键代码出处
+## 8.10 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
@@ -1813,11 +2436,11 @@ class GateResult:
 | Benchmark 数据集 | [eval/benchmarks/](../eval/benchmarks/) | 12 类场景基准 |
 | CLI 入口 | [cli.py](../eval/cli.py) | 命令行评估工具 |
 
-# 8. ReAct / CoT 推理循环
+# 9. ReAct / CoT 推理循环
 
 本项目在所有主动 Agent 中统一实现了 **ReAct（Reasoning + Acting）** 循环与 **CoT（Chain-of-Thought）** 思维链。每个 Agent 执行任务时不是一次性生成结果，而是经历多轮 Thought → Reasoning → Evidence → Action → Observation 的迭代，最终将推理链汇总为结构化输出。
 
-## 8.1 核心概念与数据结构
+## 9.1 核心概念与数据结构
 
 ### ReActStep
 
@@ -1855,7 +2478,7 @@ class ProactiveAgentResult:
 
 `react_steps` 是评估体系中 `evidence_coverage`、`reasoning_quality` 等指标的核心数据来源。
 
-## 8.2 ReAct 循环主流程
+## 9.2 ReAct 循环主流程
 
 核心方法 [run_with_react()](../src/riskmonitor_multiagent/proactive_agents/base.py) 定义在 `BaseProactiveAgent` 基类中，所有 5 个主动 Agent 共享同一套循环骨架：
 
@@ -1865,13 +2488,13 @@ async def run_with_react(self, *, task, context=None, max_tokens=512, max_steps=
     for step_idx in range(max_steps):
         # 1. 生成思考
         thought = await self._generate_thought(task, react_steps, context)
-        # 2. 生成推理理由（CoT）
+        # 3. 生成推理理由（CoT）
         reasoning = await self._generate_reasoning(task, react_steps, thought, context)
-        # 3. 生成证据（CoT）
+        # 4. 生成证据（CoT）
         evidence = await self._generate_evidence(task, react_steps, thought, reasoning, context)
-        # 4. 决定行动
+        # 5. 决定行动
         action_type, action = await self._decide_action(task, react_steps, thought, context)
-        # 5. 执行行动 → 观察结果
+        # 6. 执行行动 → 观察结果
         observation = await self._execute_action(action_type, action)
         # 组装步骤
         step = ReActStep(step_id, thought, reasoning, evidence, action_type, action, observation)
@@ -1914,7 +2537,7 @@ async def run_with_react(self, *, task, context=None, max_tokens=512, max_steps=
 - `action_type == "ask_human"` 且 observation.timeout == True → 终止
 - 达到 `max_steps` 上限 → 自然终止
 
-## 8.3 CoT 思维链的五个阶段
+## 9.3 CoT 思维链的五个阶段
 
 每个 ReAct 步骤包含 5 次独立的 LLM 调用，构成完整的 CoT 链：
 
@@ -1987,7 +2610,7 @@ prompt = f"""Choose an action type and parameters:
 | `finalize` | 标记为完成 | `{"status": "finalized", "result": action}` |
 | `ask_human` | `QuestionManager.ask_user()` 等待人工回答 | `{"status": "human_answered", "answer": ...}` |
 
-## 8.4 各 Agent 的 ReAct 使用差异
+## 9.4 各 Agent 的 ReAct 使用差异
 
 5 个主动 Agent 共享 `run_with_react()` 骨架，但在参数配置、监控频率和感知源上有显著差异：
 
@@ -2006,7 +2629,7 @@ prompt = f"""Choose an action type and parameters:
 - **IntentAgent 和 OrchestratorAgent 步数最多（5 步）**：意图识别和编排规划是最关键的决策环节，需要更多迭代轮次。
 - **CriticAgent 有 final_review 旁路**：当 `phase="final_review"` 时，不走 ReAct 循环，直接用 `_build_execution_review()` 基于 receipts 确定性判断（检查 blocked/failed），不走 LLM 推理。
 
-## 8.5 _generate_final_answer 的角色差异
+## 9.5 _generate_final_answer 的角色差异
 
 每个 Agent 重写 `_generate_final_answer()` 将 ReAct 推理链转换为本角色的结构化输出。这是 ReAct 循环的 **汇聚点**——所有推理步骤被压缩为一个标准化 JSON：
 
@@ -2049,7 +2672,7 @@ steps_summary = "\n".join([f"Thought: {s.thought}\nObservation: {s.observation}"
 ```
 - **特点**：两个分析型 Agent 使用相同的汇总模式，但输出 schema 不同
 
-## 8.6 ReAct 与评估体系的关联
+## 9.6 ReAct 与评估体系的关联
 
 ReAct 推理链是评估体系中多个维度的核心数据来源：
 
@@ -2079,7 +2702,7 @@ chain_text = "\n".join([
 
 **关键设计**：评估体系只取前 5 步进行 LLMJudge 评估，与 `max_steps=5` 的上限一致。
 
-## 8.7 优点
+## 9.7 优点
 
 | 优点 | 说明 |
 |---|---|
@@ -2092,7 +2715,7 @@ chain_text = "\n".join([
 | **降级安全** | 每个 LLM 调用都有 fallback，单步失败不阻断整体循环 |
 | **行动类型丰富** | 支持 llm_call / tool_call / finalize / ask_human 四种行动，覆盖自主执行和人工协作 |
 
-## 8.8 缺点与风险
+## 9.8 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |---|---|---|
@@ -2106,7 +2729,7 @@ chain_text = "\n".join([
 | **llm_call 行动类型未实现** | 低 | `_execute_action()` 中 llm_call 只返回 `{"status": "llm_call_executed"}`，未真正执行额外 LLM 调用 |
 | **CriticAgent final_review 旁路** | 低 | final_review 阶段完全跳过 ReAct 循环，用确定性规则替代 LLM 推理，可能遗漏 LLM 能发现的深层问题 |
 
-## 8.9 改进建议
+## 9.9 改进建议
 
 ### 改进 1：将 5 次 LLM 调用合并为 1 次结构化输出
 
@@ -2216,7 +2839,7 @@ steps_summary = "\n".join([
 
 **收益**：最终答案保留完整推理链，LLM 可以基于更丰富的上下文生成更准确的输出，也便于评估体系做更精细的推理质量评估。
 
-## 8.10 关键代码出处
+## 9.10 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
