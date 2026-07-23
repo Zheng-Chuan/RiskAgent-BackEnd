@@ -709,7 +709,7 @@ ProactiveAgentResult(
 @dataclass
 class Belief:        # 信念：Agent 认为世界的状态
     content: Any     # 具体内容（可以是 dict/list/str）
-    source: str      # 来源（system_metrics / user_input / tool_result 等）
+    source: str      # 来源（orchestration_perception / intent_perception / user_input 等）
     confidence: float = 1.0
     belief_id: str   # 不可变 ID，用于 trace 回溯
     timestamp_ms: int  # 创建时间戳（毫秒）
@@ -809,7 +809,7 @@ _PERCEPTION_SOURCES = frozenset({
 
 ## 3.3 状态流转：Perceive → Deliberate → Act
 
-后台监控循环（[base.py:318 `_monitor_loop`](../src/riskmonitor_multiagent/proactive_agents/base.py)）实现 BDI 经典循环：
+后台监控循环（[base.py:353 `_monitor_loop`](../src/riskmonitor_multiagent/proactive_agents/base.py)）实现 BDI 经典循环：
 
 ```
 [后台监控循环 _monitor_loop]
@@ -840,7 +840,7 @@ _PERCEPTION_SOURCES = frozenset({
 
 ## 3.4 意图状态机
 
-意图状态流转（[base.py:441-480](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+意图状态流转（[base.py:486-525](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```
 pending → executing → completed
@@ -853,7 +853,7 @@ pending → executing → completed
 
 **关键约束**：主动意图不直接执行工具，而是转成统一系统事件投递回 `proactive_workflow.start_from_event`，走和用户任务**完全相同**的主链（intent → plan → task_graph → receipt）。
 
-接入点代码（[base.py:452-469](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+接入点代码（[base.py:497-514](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 from riskmonitor_multiagent.orchestration.proactive_workflow import get_proactive_workflow
@@ -872,17 +872,17 @@ await workflow.start_from_event(
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
 | 数据结构定义 | [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py) | `Belief` / `Desire` / `Intention` |
-| 心智池初始化 | [base.py:132-134](../src/riskmonitor_multiagent/proactive_agents/base.py) | `__init__` |
-| 后台监控循环 | [base.py:318](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
-| 感知环境 | [base.py:407](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
-| 信念→意图 | [base.py:411](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
-| 意图→行动 | [base.py:441](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
-| 意图状态机 | [base.py:213](../src/riskmonitor_multiagent/proactive_agents/base.py) | `update_intention_status` |
-| 状态快照导出 | [base.py:221](../src/riskmonitor_multiagent/proactive_agents/base.py) | `get_bdi_state` |
-| 意图→事件 | [base.py:482](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
-| ReAct 主循环 | [base.py:520](../src/riskmonitor_multiagent/proactive_agents/base.py) | `run_with_react` |
-| CoT 推理步 | [base.py:682](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning` |
-| CoT 证据步 | [base.py:755](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence` |
+| 心智池初始化 | [base.py:143-145](../src/riskmonitor_multiagent/proactive_agents/base.py) | `__init__` |
+| 后台监控循环 | [base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
+| 感知环境 | [base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
+| 信念→意图 | [base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
+| 意图→行动 | [base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
+| 意图状态机 | [base.py:224](../src/riskmonitor_multiagent/proactive_agents/base.py) | `update_intention_status` |
+| 状态快照导出 | [base.py:232](../src/riskmonitor_multiagent/proactive_agents/base.py) | `get_bdi_state` |
+| 意图→事件 | [base.py:527](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
+| ReAct 主循环 | [base.py:565](../src/riskmonitor_multiagent/proactive_agents/base.py) | `run_with_react` |
+| CoT 推理步 | [base.py:727](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning` |
+| CoT 证据步 | [base.py:800](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence` |
 
 # 4. 统一记忆架构
 
@@ -1929,7 +1929,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 
 ## 7.1 启动与停止
 
-**启动**（[base.py:318](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**启动**（[base.py:329](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def start_background_monitor(self) -> None:
@@ -1939,7 +1939,7 @@ async def start_background_monitor(self) -> None:
     self._monitor_task = asyncio.create_task(self._monitor_loop())
 ```
 
-**停止**（[base.py:328](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**停止**（[base.py:339](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def stop_background_monitor(self) -> None:
@@ -1955,7 +1955,7 @@ async def stop_background_monitor(self) -> None:
 
 ## 7.2 监控循环
 
-**核心循环**（[base.py:343](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**核心循环**（[base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def _monitor_loop(self):
@@ -1974,10 +1974,10 @@ async def _monitor_loop(self):
 
 ## 7.3 感知层：数据源采集与过滤
 
-**数据采集**（[base.py:391](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**数据采集**（[base.py:400](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
-async def _collect_filtered_signals(self, data_sources) -> list:
+async def _collect_and_filter(self, data_sources: list) -> list:
     all_signals = []
     for ds in data_sources:
         signals = ds.collect()  # 调数据源的 collect() 接口
@@ -1997,7 +1997,7 @@ async def _collect_filtered_signals(self, data_sources) -> list:
 
 ## 7.4 信念更新
 
-**感知环境**（[base.py:407](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**感知环境**（[base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def _perceive_environment(self) -> None:
@@ -2006,7 +2006,7 @@ async def _perceive_environment(self) -> None:
     pass
 ```
 
-**信念写入**（[base.py:161](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**信念写入**（[base.py:172](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Belief:
@@ -2022,7 +2022,7 @@ def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Beli
 
 ## 7.5 意图形成
 
-**思考过程**（[base.py:411](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**思考过程**（[base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def _deliberate(self) -> None:
@@ -2031,33 +2031,58 @@ async def _deliberate(self) -> None:
     active_desires = self.get_active_desires() # 取活跃愿望
     
     for belief in recent_beliefs:
-        if belief.source == "system_metrics":
-            if belief.content.get("metric") == "error_rate":
-                error_rate = belief.content.get("value", 0)
-                if error_rate > 0.1:  # 阈值判断
-                    self.add_intention(
-                        description=f"主动告警：系统错误率异常 ({error_rate*100:.1f}%)",
-                        target_agent="orchestrator",
-                        tool_name="submit_alerts",
-                        tool_params={
-                            "alert_type": "system_error",
-                            "severity": "high" if error_rate > 0.2 else "medium",
-                            "message": f"系统错误率 {error_rate*100:.1f}% 超过阈值 (10%)",
-                            "metric_name": "error_rate",
-                            "metric_value": error_rate,
-                        },
-                    )
+        # 仅处理来自感知模块的信念（泛化：不再硬编码 system_metrics）
+        if belief.source not in _PERCEPTION_SOURCES:
+            continue
+
+        content = belief.content if isinstance(belief.content, dict) else {}
+        severity = str(content.get("severity", "")).lower()
+        metric = content.get("metric")
+        value = content.get("value")
+
+        # 优先按 severity 字段判定（escalation 类 + perception 类均携带 severity）
+        if severity == "critical":
+            priority = "high"
+        elif severity == "warning":
+            priority = "normal"
+        elif metric == "error_rate" and isinstance(value, (int, float)) and value > 0.1:
+            # 兼容旧版 perception 信念：仅有 metric/value，无 severity
+            priority = "high" if value > 0.2 else "normal"
+            severity = "critical" if value > 0.2 else "warning"
+        else:
+            continue
+
+        alert_message = (
+            content.get("description")
+            or content.get("message")
+            or f"{belief.source} 信号异常 (metric={metric}, value={value})"
+        )
+        self.add_intention(
+            description=f"主动告警:{belief.source} 信号异常 (severity={severity})",
+            target_agent="orchestrator",
+            tool_name="submit_alerts",
+            tool_params={
+                "alert_type": "system_error",
+                "severity": severity,
+                "priority": priority,
+                "message": alert_message,
+                "metric_name": metric,
+                "metric_value": value,
+                "source": belief.source,
+            },
+        )
 ```
 
 **关键设计**：
 - **规则驱动**：金融风控需要确定性阈值（error_rate>0.1），纯 LLM 推理不稳定
-- **动态严重性**：根据 error_rate 动态分 high/medium
-- **意图携带完整上下文**：`tool_params` 里有 metric_name/metric_value，后续执行不需要再查
+- **泛化感知源**：使用 `_PERCEPTION_SOURCES` frozenset 白名单过滤信念，不再硬编码单个 source
+- **优先 severity 字段判定**：escalation 类和 perception 类信念均携带 `severity` 字段，优先按 critical/warning 映射 priority；保留旧版 `error_rate>0.1` 阈值检查作为后向兼容
+- **意图携带完整上下文**：`tool_params` 里有 metric_name/metric_value/source，后续执行不需要再查
 - **子类可重写**：不同 Agent 可重写 `_deliberate()` 实现不同的意图形成逻辑
 
 ## 7.6 意图执行与事件投递
 
-**行动过程**（[base.py:441](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**行动过程**（[base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
 
 ```python
 async def _act(self) -> None:
@@ -2129,16 +2154,16 @@ proactive_event → workflow.start_from_event()
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| 启动监控 | [base.py:318](../src/riskmonitor_multiagent/proactive_agents/base.py) | `start_background_monitor` |
-| 停止监控 | [base.py:328](../src/riskmonitor_multiagent/proactive_agents/base.py) | `stop_background_monitor` |
-| 监控循环 | [base.py:343](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
-| 数据采集 | [base.py:391](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_collect_filtered_signals` |
-| 感知环境 | [base.py:407](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
-| 信念写入 | [base.py:161](../src/riskmonitor_multiagent/proactive_agents/base.py) | `add_belief` |
-| 意图形成 | [base.py:411](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
-| 意图执行 | [base.py:441](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
-| 意图→事件 | [base.py:482](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
-| 事件投递 | [base.py:452](../src/riskmonitor_multiagent/proactive_agents/base.py) | `workflow.start_from_event` |
+| 启动监控 | [base.py:329](../src/riskmonitor_multiagent/proactive_agents/base.py) | `start_background_monitor` |
+| 停止监控 | [base.py:339](../src/riskmonitor_multiagent/proactive_agents/base.py) | `stop_background_monitor` |
+| 监控循环 | [base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
+| 数据采集 | [base.py:400](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_collect_and_filter` |
+| 感知环境 | [base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
+| 信念写入 | [base.py:172](../src/riskmonitor_multiagent/proactive_agents/base.py) | `add_belief` |
+| 意图形成 | [base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
+| 意图执行 | [base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
+| 意图→事件 | [base.py:527](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
+| 事件投递 | [base.py:497](../src/riskmonitor_multiagent/proactive_agents/base.py) | `workflow.start_from_event` |
 | 感知过滤引擎 | [perception/](../src/riskmonitor_multiagent/perception/) | `PerceptionFilterEngine` |
 | 升级管理 | [perception/](../src/riskmonitor_multiagent/perception/) | `EscalationManager` |
 | 预算熔断 | [scheduling/](../src/riskmonitor_multiagent/scheduling/) | `ProactiveBudgetManager` |

@@ -7,13 +7,14 @@
 - PlanBench: Planning and Execution Benchmark
 - GEMMAS: Graph-based Evaluation Metrics for Multi-Agent Systems
 
-六大评估维度:
+七大评估维度:
 1. 任务准确度 (Task Accuracy)
 2. 问题理解度 (Comprehension)
 3. 协作深度 (Collaboration)
 4. 执行效率 (Efficiency)
 5. 推理质量 (Reasoning)
 6. 工具风险 (Tool Risk)
+7. 记忆能力 (Memory)
 """
 
 from __future__ import annotations
@@ -445,7 +446,7 @@ class OverallMetrics:
     """
     综合评估指标.
     
-    汇总六大维度的评估结果.
+    汇总七大维度的评估结果.
     """
     
     task_accuracy: TaskAccuracyMetrics = field(default_factory=TaskAccuracyMetrics)
