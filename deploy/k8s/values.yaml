@@ -4,8 +4,8 @@
 # 全局镜像仓库前缀（默认空 = Docker Hub，可设为私有 registry 如 "registry.example.com/"）
 global:
   imageRegistry: ""
-  # imagePullSecrets: []
-  # - name: my-registry-secret
+  imagePullSecrets: []
+  # - name: volc-cr-secret
 
 # 镜像配置
 image:
@@ -77,6 +77,21 @@ mcp:
     limits:
       cpu: "1500m"
       memory: "1536Mi"
+
+# Ingress 配置
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: ""
+  paths:
+    - path: /api
+      pathType: Prefix
+    - path: /health
+      pathType: Prefix
+    - path: /metrics
+      pathType: Prefix
+  tls: []
 
 # ServiceAccount 配置
 # 为 mcp-server Pod 创建 SA 并授予 Pod 读取权限（K8sDataSource 感知所需）

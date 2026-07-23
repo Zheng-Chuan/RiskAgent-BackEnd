@@ -24,6 +24,10 @@ spec:
       {{- if .Values.serviceAccount }}
       serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-mcp" .Release.Name) }}
       {{- end }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: 30
       initContainers:
         # 1. 等待 MySQL 就绪（替代 depends_on: mysql: condition: service_healthy）

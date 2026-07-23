@@ -4,6 +4,8 @@
 - kubectl 已安装并配置好集群
 - Helm 3.x 已安装
 - Docker 镜像已构建并推送到镜像仓库（见 `make docker-build`）
+- 若使用火山 CR 等私有仓库，请先在目标 namespace 创建拉镜像 Secret，并在 `values.yaml` 的 `global.imagePullSecrets` 中引用
+- 若需公网或域名访问 `mcp-server`，请在 values 中启用 `ingress.enabled=true`
 
 ## 部署步骤
 
@@ -13,6 +15,8 @@
 ```bash
 helm upgrade --install riskmonitor deploy/k8s/ \
   -f deploy/k8s/values-prod.yaml \
+  --set image.repository=<your-image-repo> \
+  --set image.tag=<immutable-tag> \
   -n riskmonitor --create-namespace
 ```
 
@@ -32,13 +36,31 @@ make k8s-deploy-dev   # 开发
 > `--create-namespace` 标志会在 namespace 不存在时由 Helm 自动创建，无需手动 `kubectl create namespace`。
 > Secret 默认由 `templates/secrets.yaml` 从 values 自动生成；如需覆盖默认密钥，可在部署后用 `kubectl create secret` 手动更新。
 
+火山 CR 示例:
+```bash
+kubectl create secret docker-registry volc-cr-secret \
+  --docker-server=<your-cr-registry> \
+  --docker-username=<your-cr-username> \
+  --docker-password=<your-cr-password> \
+  -n riskmonitor
+
+helm upgrade --install riskmonitor deploy/k8s/ \
+  -f deploy/k8s/values-prod.yaml \
+  --set image.repository=<your-image-repo> \
+  --set image.tag=<immutable-tag> \
+  --set global.imagePullSecrets[0].name=volc-cr-secret \
+  --set ingress.enabled=true \
+  --set ingress.host=<your-host> \
+  -n riskmonitor --create-namespace
+```
+
 ### 2. 验证
 kubectl get pods -n riskmonitor
 kubectl get svc -n riskmonitor
 
 ### 3. 访问服务
-kubectl port-forward svc/riskmonitor-mcp-server 8000:8000 -n riskmonitor
-kubectl port-forward svc/riskmonitor-grafana 3000:3000 -n riskmonitor
+kubectl port-forward svc/mcp-server 8000:8000 -n riskmonitor
+kubectl port-forward svc/grafana 3000:3000 -n riskmonitor
 
 ## 卸载
 make k8s-uninstall
