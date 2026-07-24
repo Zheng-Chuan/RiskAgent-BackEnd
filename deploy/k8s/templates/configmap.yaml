@@ -29,4 +29,5 @@ data:
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}
   LLM_APP_TITLE: {{ .Values.llm.appTitle | default "" | quote }}
   PROMETHEUS_URL: {{ printf "http://%s:%s" (.Values.prometheus.host | default "prometheus") (.Values.prometheus.port | default "9090" | toString) | quote }}
+  RISKMONITOR_NAMESPACE: {{ .Release.Namespace | quote }}
   DEPLOYMENT_ENV: "k8s"

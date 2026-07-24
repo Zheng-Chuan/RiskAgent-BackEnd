@@ -1,3 +1,4 @@
+{{- if .Values.prometheus.enabled }}
 {{/* Prometheus - 监控和告警 (Kubernetes 版) */}}
 {{- $v := .Values | toYaml | fromYaml -}}
 ---
@@ -121,3 +122,4 @@ spec:
     app.kubernetes.io/name: riskmonitor
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: prometheus
+{{- end }}

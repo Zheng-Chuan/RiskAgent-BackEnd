@@ -1,3 +1,4 @@
+{{- if .Values.grafana.enabled }}
 {{/* Grafana - 可视化面板 (Kubernetes 版) */}}
 {{- $v := .Values | toYaml | fromYaml -}}
 ---
@@ -120,3 +121,4 @@ spec:
     app.kubernetes.io/name: riskmonitor
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: grafana
+{{- end }}

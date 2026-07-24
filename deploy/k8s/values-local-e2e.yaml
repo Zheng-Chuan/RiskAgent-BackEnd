@@ -1,0 +1,56 @@
+image:
+  repository: riskmonitor/multiagent
+  tag: k8s-local
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: false
+
+mcp:
+  replicas: "1"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "384Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+mysql:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  persistence:
+    size: "5Gi"
+
+redis:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  persistence:
+    size: "2Gi"
+
+chroma:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    size: "2Gi"
+
+prometheus:
+  enabled: false
+
+grafana:
+  enabled: false

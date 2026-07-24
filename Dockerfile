@@ -5,9 +5,19 @@ WORKDIR /app
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
+    && arch="$(dpkg --print-architecture)" \
+    && case "${arch}" in \
+        amd64) kubectl_arch="amd64" ;; \
+        arm64) kubectl_arch="arm64" ;; \
+        *) echo "unsupported architecture: ${arch}" && exit 1 ;; \
+      esac \
+    && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/${kubectl_arch}/kubectl" \
+    && chmod +x /usr/local/bin/kubectl \
     && rm -rf /var/lib/apt/lists/*
 
 # 先复制依赖清单以利用构建缓存

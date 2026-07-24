@@ -73,6 +73,7 @@ from riskmonitor_multiagent.skills import (
     SkillStore,
     SkillUsageTracker,
 )
+from riskmonitor_multiagent.services.runtime_task_store import get_runtime_task_store
 
 logger = logging.getLogger(__name__)
 
@@ -336,11 +337,15 @@ class ProactiveMultiAgentWorkflow:
     ) -> dict[str, Any]:
         start_time = time.time()
         run_id = str(run_context.get("run_id") or "")
+        task_id = str(task.get("task_id") or "")
+        runtime_task_store = get_runtime_task_store()
         
         logger.info(f"[ProactiveWorkflow] Starting for task: {task.get('task_id') or run_id}")
         
         try:
             # ===== Step 1: Setup & Resume Handling =====
+            await runtime_task_store.mark_running(task_id=task_id, run_id=run_id)
+            await runtime_task_store.set_current_agent(task_id=task_id, agent_id="intent")
             await self.start_agents()
             memory_store = get_memory_store()
             memory_enabled = task.get("memory_enabled", True) is not False
@@ -484,6 +489,7 @@ class ProactiveMultiAgentWorkflow:
                 agent_name="intent",
             )
             logger.info(f"[ProactiveWorkflow] Intent recognized: {intent_result.output.get('primary_intent_type')}")
+            await runtime_task_store.set_current_agent(task_id=task_id, agent_id="orchestrator")
 
             planning_memory = {"hits": [], "summary": {}}
             if memory_enabled:
@@ -560,6 +566,7 @@ class ProactiveMultiAgentWorkflow:
                     orchestrator=orchestrator_result.output,
                 )
                 logger.info(f"[ProactiveWorkflow] Review completed: ok={critic_result.output.get('ok')}")
+                await runtime_task_store.set_current_agent(task_id=task_id, agent_id="critic")
 
                 active_task_graph = orchestrator_result.output
                 if should_replan(critic_result.output):
@@ -607,8 +614,24 @@ class ProactiveMultiAgentWorkflow:
             completed_step_records: list[dict[str, Any]] = []
             current_segment_id: str | None = None
 
+            await runtime_task_store.set_current_agent(task_id=task_id, agent_id=None)
+
+            async def _on_node_started(*, node, trace_entry, node_result) -> None:
+                del trace_entry
+                del node_result
+                await runtime_task_store.mark_step_started(
+                    task_id=task_id,
+                    node=node,
+                )
+
             async def _on_node_completed(*, node, trace_entry, node_result) -> None:
                 nonlocal current_segment_id
+                await runtime_task_store.mark_step_completed(
+                    task_id=task_id,
+                    node=node,
+                    trace_entry=trace_entry,
+                    node_result=node_result,
+                )
                 # Memory recording
                 if memory_enabled:
                     await memory_store.record_working_memory(
@@ -661,6 +684,7 @@ class ProactiveMultiAgentWorkflow:
                     "risk_analyst": self._analyst_agent.analyze_task,
                     "analyst": self._analyst_agent.analyze_task,
                 },
+                on_node_started=_on_node_started,
                 on_node_completed=_on_node_completed,
             )
             execution_result = await executor.execute(
@@ -700,6 +724,7 @@ class ProactiveMultiAgentWorkflow:
                 ok=True,
                 output={},
             )
+            await runtime_task_store.set_current_agent(task_id=task_id, agent_id="critic")
             critic_final_result = await self._call_critic_review(
                 task=task,
                 orchestrator=orchestrator_result.output if isinstance(orchestrator_result.output, dict) else {},
@@ -850,11 +875,16 @@ class ProactiveMultiAgentWorkflow:
                         "final_output": result.get("final_output", {}),
                     },
                 )
+            await runtime_task_store.set_current_agent(task_id=task_id, agent_id=None)
             
             return result
             
         except Exception as e:
             logger.exception(f"[ProactiveWorkflow] Failed: {e}")
+            await runtime_task_store.fail_task(
+                task_id=task_id,
+                error_message=str(e),
+            )
             return {
                 "status": "failed",
                 "run_id": run_id,

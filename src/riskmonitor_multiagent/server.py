@@ -21,6 +21,7 @@ from riskmonitor_multiagent.services.logging_service import configure_logging
 from riskmonitor_multiagent.services.prometheus_metrics_service import (
     generate_prometheus_metrics,
 )
+from riskmonitor_multiagent.services.rest_bff_service import get_rest_bff_service
 from riskmonitor_multiagent.services.auth_service import is_authorized
 from riskmonitor_multiagent.resources.mcp_resources import register_resources
 from riskmonitor_multiagent.prompts.mcp_prompts import register_prompts
@@ -202,6 +203,56 @@ async def llm_usage_endpoint(request: Request) -> Response:
             "daily_total_tokens": 0,
         }
     return JSONResponse(summary)
+
+
+@mcp.custom_route("/api/tasks", methods=["POST"], include_in_schema=False)
+async def create_task_endpoint(request: Request) -> Response:
+    """浏览器友好的任务提交端点."""
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    description = payload.get("description") if isinstance(payload, dict) else None
+    if not isinstance(description, str) or not description.strip():
+        return JSONResponse(
+            {"error": {"code": "BAD_REQUEST", "message": "description is required"}},
+            status_code=400,
+        )
+
+    service = get_rest_bff_service()
+    created = await service.submit_task(description=description)
+    return JSONResponse(created, status_code=202)
+
+
+@mcp.custom_route("/api/tasks/{task_id}", methods=["GET"], include_in_schema=False)
+async def get_task_endpoint(request: Request) -> Response:
+    """浏览器友好的任务详情端点."""
+    task_id = request.path_params.get("task_id")
+    if not isinstance(task_id, str) or not task_id.strip():
+        return JSONResponse(
+            {"error": {"code": "BAD_REQUEST", "message": "task_id is required"}},
+            status_code=400,
+        )
+
+    service = get_rest_bff_service()
+    try:
+        task_detail = await service.get_task_detail(task_id=task_id)
+    except KeyError:
+        return JSONResponse(
+            {"error": {"code": "NOT_FOUND", "message": "task not found"}},
+            status_code=404,
+        )
+    return JSONResponse(task_detail)
+
+
+@mcp.custom_route("/api/agents", methods=["GET"], include_in_schema=False)
+async def get_agents_endpoint(request: Request) -> Response:
+    """浏览器友好的智能体快照端点."""
+    del request
+    service = get_rest_bff_service()
+    snapshot = await service.get_agents_snapshot()
+    return JSONResponse(snapshot)
 
 
 def _install_signal_handlers() -> None:

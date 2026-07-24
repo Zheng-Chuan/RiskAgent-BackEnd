@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from riskmonitor_multiagent.perception.signals import PerceptionSignal
@@ -24,9 +25,19 @@ class RedisDataSource:
     连接失败时降级为 unavailable 信号，不抛异常。
     """
 
-    def __init__(self, host: str = "localhost", port: int = 6379) -> None:
-        self._host = host
-        self._port = port
+    def __init__(
+        self,
+        host: str | None = None,
+        port: int | None = None,
+        db: int | None = None,
+        password: str | None = None,
+        redis_url: str | None = None,
+    ) -> None:
+        self._redis_url = (redis_url or os.getenv("REDIS_URL") or "").strip()
+        self._host = (host or os.getenv("REDIS_HOST") or "localhost").strip()
+        self._port = int(port or os.getenv("REDIS_PORT") or 6379)
+        self._db = int(db or os.getenv("REDIS_DB") or 0)
+        self._password = password if password is not None else os.getenv("REDIS_PASSWORD")
         self._client = None
 
     def _get_client(self):
@@ -35,13 +46,23 @@ class RedisDataSource:
             return self._client
         try:
             import redis
-            self._client = redis.Redis(
-                host=self._host,
-                port=self._port,
-                decode_responses=True,
-                socket_timeout=5,
-                socket_connect_timeout=5,
-            )
+            if self._redis_url:
+                self._client = redis.from_url(
+                    self._redis_url,
+                    decode_responses=True,
+                    socket_timeout=5,
+                    socket_connect_timeout=5,
+                )
+            else:
+                self._client = redis.Redis(
+                    host=self._host,
+                    port=self._port,
+                    db=self._db,
+                    password=self._password,
+                    decode_responses=True,
+                    socket_timeout=5,
+                    socket_connect_timeout=5,
+                )
         except Exception as e:
             logger.warning(f"Redis client init failed: {e}")
             return None

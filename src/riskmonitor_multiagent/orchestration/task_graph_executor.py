@@ -25,7 +25,7 @@ from riskmonitor_multiagent.orchestration.tool_executor import execute_agent_com
 from riskmonitor_multiagent.proactive_agents import ProactiveAgentResult
 
 DelegateHandler = Callable[..., Awaitable[ProactiveAgentResult]]
-NodeResultHandler = Callable[..., Awaitable[None]]
+NodeLifecycleHandler = Callable[..., Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,11 @@ class TaskGraphExecutor:
         self,
         *,
         delegate_handlers: dict[str, DelegateHandler],
-        on_node_completed: NodeResultHandler | None = None,
+        on_node_started: NodeLifecycleHandler | None = None,
+        on_node_completed: NodeLifecycleHandler | None = None,
     ) -> None:
         self._delegate_handlers = dict(delegate_handlers)
+        self._on_node_started = on_node_started
         self._on_node_completed = on_node_completed
         self._node_executor = NodeExecutor(delegate_handlers=self._delegate_handlers)
 
@@ -168,6 +170,14 @@ class TaskGraphExecutor:
                     node["status"] = "blocked"
                 errors.append("task_graph_stalled")
                 break
+
+            if self._on_node_started is not None:
+                for node in executable_nodes:
+                    await self._on_node_started(
+                        node=dict(node),
+                        trace_entry={},
+                        node_result={},
+                    )
 
             results = await asyncio.gather(
                 *(

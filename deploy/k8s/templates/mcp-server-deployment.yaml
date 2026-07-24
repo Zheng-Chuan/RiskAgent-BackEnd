@@ -17,6 +17,9 @@ spec:
       component: mcp-server
   template:
     metadata:
+      annotations:
+        checksum/app-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
       labels:
 {{- include "riskmonitor.labels" . | nindent 8 }}
         component: mcp-server
