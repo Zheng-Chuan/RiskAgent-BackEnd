@@ -61,6 +61,65 @@ def test_rest_bff_endpoints(monkeypatch) -> None:
                 "updated_at": 1234567999,
             }
 
+        async def get_memory_snapshot(self, *, limit: int) -> dict[str, object]:
+            assert limit == 20
+            return {
+                "items": [
+                    {
+                        "id": "mem_1",
+                        "taskId": "task_123",
+                        "sessionId": "session_123",
+                        "agentId": "system_engineer",
+                        "scope": "shared",
+                        "kind": "working_memory",
+                        "memoryType": "episodic",
+                        "changeType": "updated",
+                        "summary": "已同步最近任务状态",
+                        "details": ["来源 task_graph_execution"],
+                        "tags": ["delegate"],
+                        "confidence": 1.0,
+                        "createdAt": 1234567999,
+                    }
+                ],
+                "summary": {
+                    "sharedCount": 1,
+                    "privateCount": 0,
+                    "agentCount": 1,
+                },
+                "updated_at": 1234567999,
+            }
+
+        async def get_task_memory(self, *, task_id: str, limit: int) -> dict[str, object]:
+            assert task_id == "task_123"
+            assert limit == 30
+            return {
+                "task_id": "task_123",
+                "session_id": "session_123",
+                "items": [
+                    {
+                        "id": "mem_task_1",
+                        "taskId": "task_123",
+                        "sessionId": "session_123",
+                        "agentId": "risk_analyst",
+                        "scope": "private",
+                        "kind": "private_task_state",
+                        "memoryType": "episodic",
+                        "changeType": "updated",
+                        "summary": "正在复核风险暴露",
+                        "details": ["任务 task_123"],
+                        "tags": ["review"],
+                        "confidence": 1.0,
+                        "createdAt": 1234568001,
+                    }
+                ],
+                "summary": {
+                    "sharedCount": 0,
+                    "privateCount": 1,
+                    "agentCount": 1,
+                },
+                "updated_at": 1234568001,
+            }
+
     monkeypatch.setattr(server, "get_rest_bff_service", lambda: FakeRestBffService())
 
     app = mcp.streamable_http_app()
@@ -78,6 +137,15 @@ def test_rest_bff_endpoints(monkeypatch) -> None:
     assert resp.status_code == 200
     assert resp.json()["items"][0]["id"] == "system_engineer"
 
+    resp = client.get("/api/memory")
+    assert resp.status_code == 200
+    assert resp.json()["summary"]["sharedCount"] == 1
+
+    resp = client.get("/api/tasks/task_123/memory")
+    assert resp.status_code == 200
+    assert resp.json()["task_id"] == "task_123"
+    assert resp.json()["summary"]["privateCount"] == 1
+
 
 def test_rest_bff_create_task_validates_payload() -> None:
     from starlette.testclient import TestClient
@@ -90,3 +158,31 @@ def test_rest_bff_create_task_validates_payload() -> None:
     resp = client.post("/api/tasks", json={})
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "BAD_REQUEST"
+
+
+def test_rest_bff_memory_endpoints_validate_query_params(monkeypatch) -> None:
+    from starlette.testclient import TestClient
+
+    from riskmonitor_multiagent import server
+    from riskmonitor_multiagent.server import mcp
+
+    class FakeRestBffService:
+        async def get_memory_snapshot(self, *, limit: int) -> dict[str, object]:
+            assert limit == 20
+            return {"items": [], "summary": {"sharedCount": 0, "privateCount": 0, "agentCount": 0}, "updated_at": 1}
+
+        async def get_task_memory(self, *, task_id: str, limit: int) -> dict[str, object]:
+            raise KeyError(task_id)
+
+    monkeypatch.setattr(server, "get_rest_bff_service", lambda: FakeRestBffService())
+
+    app = mcp.streamable_http_app()
+    client = TestClient(app)
+
+    resp = client.get("/api/memory?limit=abc")
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "BAD_REQUEST"
+
+    resp = client.get("/api/tasks/task_missing/memory")
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "NOT_FOUND"

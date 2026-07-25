@@ -2,7 +2,7 @@
 
 ## 状态
 
-规划中, 开发中
+开发中, 基础任务接口已完成, memory 视图接口已补齐, 待 K8s 联调验收
 
 ## 核心目标
 
@@ -26,9 +26,12 @@
 - 新增 `POST /api/tasks`
 - 新增 `GET /api/tasks/{task_id}`
 - 新增 `GET /api/agents`
+- 新增 `GET /api/memory`
+- 新增 `GET /api/tasks/{task_id}/memory`
 - 为工作流新增最小运行时任务注册表
 - 用 `run_context` `task_graph_execution` `run_trace` 构建任务详情视图
 - 用工作流单例与最近 trace 派生智能体状态视图
+- 基于统一 memory store 输出浏览器友好的结构化记忆视图和脱敏结果
 
 ### Out of Scope
 
@@ -112,7 +115,10 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 - `GET /api/tasks/{task_id}` 能在任务执行中返回 `pending` 或 `running`
 - `GET /api/tasks/{task_id}` 在完成后返回步骤, 结果和错误信息
 - `GET /api/agents` 返回最小角色状态列表
+- `GET /api/memory` 返回最近结构化记忆快照和聚合摘要
+- `GET /api/tasks/{task_id}/memory` 返回任务维度的记忆视图和聚合摘要
 - FrontEnd 第一版 MVP 页面能完成一次真实联调
+- memory 响应中不直接暴露 Redis 原始结构或明文敏感信息
 
 ## 初始接口范围
 
@@ -180,11 +186,78 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 }
 ```
 
+### `GET /api/memory`
+
+响应:
+
+```json
+{
+  "items": [
+    {
+      "id": "mem_xxx",
+      "taskId": "run_xxx",
+      "sessionId": "session_xxx",
+      "agentId": "system_engineer",
+      "scope": "shared",
+      "kind": "working_memory",
+      "memoryType": "episodic",
+      "changeType": "updated",
+      "summary": "已同步最近任务状态",
+      "details": ["来源 task_graph_execution"],
+      "tags": ["delegate"],
+      "confidence": 1.0,
+      "createdAt": 1784803205000
+    }
+  ],
+  "summary": {
+    "sharedCount": 1,
+    "privateCount": 0,
+    "agentCount": 1
+  },
+  "updated_at": 1784803205000
+}
+```
+
+### `GET /api/tasks/{task_id}/memory`
+
+响应:
+
+```json
+{
+  "task_id": "run_xxx",
+  "session_id": "session_xxx",
+  "items": [
+    {
+      "id": "mem_task_xxx",
+      "taskId": "run_xxx",
+      "sessionId": "session_xxx",
+      "agentId": "risk_analyst",
+      "scope": "private",
+      "kind": "private_task_state",
+      "memoryType": "episodic",
+      "changeType": "updated",
+      "summary": "正在复核风险暴露",
+      "details": ["任务 run_xxx"],
+      "tags": ["review"],
+      "confidence": 1.0,
+      "createdAt": 1784803206000
+    }
+  ],
+  "summary": {
+    "sharedCount": 0,
+    "privateCount": 1,
+    "agentCount": 1
+  },
+  "updated_at": 1784803206000
+}
+```
+
 ## 风险与取舍
 
 - 风险 1: 运行时注册表与最终持久化状态存在短暂不一致
 - 风险 2: 智能体状态是派生态, 不能承诺强一致
 - 风险 3: 工作流当前是串行 await, 如果 `POST /api/tasks` 设计不当会阻塞 HTTP 请求
+- 风险 4: memory 展示如果直接透传底层结构, 会带来敏感信息泄露和前端解释成本
 
 取舍:
 
@@ -196,9 +269,10 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 
 - 代码: REST BFF service 和 route handler
 - 代码: 运行时任务注册表
+- 代码: memory 结构化映射与脱敏输出
 - 文档: 本阶段规划文档
 - 文档: PRD 需求补充
-- 测试: REST BFF 基本契约测试
+- 测试: REST BFF 基本契约测试与 memory 接口测试
 
 ## 相关文档
 

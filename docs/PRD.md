@@ -84,6 +84,7 @@
 | Phase 10 | 7*24 主动感知与自主运维 | 修复中 — 感知链路断裂已修复，待重新验收 |
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | 规划中 — RFC-005 Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | Phase 12 | BDI 信念去重与意图幂等性修复 | 规划中 — RFC-006 Proposed | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | 开发中 | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
 
 ---
 
@@ -123,6 +124,8 @@
 | FR-12 | BDI 监控循环中同一信念不得重复生成意图，已处理的信念必须被标记跳过 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | FR-13 | `add_intention` 必须对相同 description+tool_params 的 pending 意图做内容去重 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | FR-14 | 监控循环每轮必须清理已处理且超过保留时长的信念，防止信念列表无限膨胀 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| FR-15 | 系统必须提供浏览器友好的 memory REST BFF 视图接口 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
+| FR-16 | memory 对外输出必须经过结构化映射与脱敏处理, 不直接暴露 Redis 原始结构 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
 
 ---
 

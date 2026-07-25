@@ -111,3 +111,132 @@ async def test_get_agents_snapshot_derives_working_agent(monkeypatch: pytest.Mon
     assert agent_map["system_engineer"]["currentTaskId"] == "task_1"
     assert agent_map["intent"]["status"] == "idle"
     assert agent_map["risk_analyst"]["status"] == "idle"
+
+
+@pytest.mark.asyncio
+async def test_get_memory_snapshot_returns_structured_sanitized_items(monkeypatch: pytest.MonkeyPatch) -> None:
+    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
+
+    class FakeMemoryStore:
+        async def list_recent(
+            self,
+            *,
+            agent_id: str,
+            scope: str,
+            session_id: str | None = None,
+            run_id: str | None = None,
+            limit: int = 50,
+        ) -> list[dict[str, object]]:
+            assert agent_id == "orchestrator"
+            assert scope == "shared"
+            assert session_id is None
+            assert run_id is None
+            assert limit == 5
+            return [
+                {
+                    "entry_id": "mem_shared_1",
+                    "agent_id": "system_engineer",
+                    "scope": "shared",
+                    "kind": "working_memory",
+                    "memory_type": "episodic",
+                    "source": "task_graph_execution",
+                    "tags": ["delegate", "sk-secret-123456789012"],
+                    "confidence": 0.956,
+                    "ts_ms": 300,
+                    "run_id": "run_1",
+                    "session_id": "session_1",
+                    "content": {
+                        "text": "调用 sk-secret-123456789012 后完成分析",
+                        "task_id": "run_1",
+                        "current_progress": "已拿到结果",
+                        "next_intended_action": "生成报告",
+                    },
+                }
+            ]
+
+        async def get_private_memory_state(
+            self,
+            *,
+            agent_ids: tuple[str, ...] | list[str] | None = None,
+            session_id: str | None = None,
+            run_id: str | None = None,
+            limit: int = 5,
+        ) -> dict[str, list[dict[str, object]]]:
+            assert session_id is None
+            assert run_id is None
+            assert limit == 5
+            assert agent_ids is None or len(agent_ids) > 0
+            return {
+                "risk_analyst": [
+                    {
+                        "entry_id": "mem_private_1",
+                        "agent_id": "risk_analyst",
+                        "scope": "private",
+                        "kind": "private_task_state",
+                        "memory_type": "episodic",
+                        "source": "orchestrator_plan",
+                        "tags": ["plan"],
+                        "confidence": 1.0,
+                        "ts_ms": 320,
+                        "run_id": "run_1",
+                        "session_id": "session_1",
+                        "content": {
+                            "task_id": "run_1",
+                            "current_progress": "正在复核暴露",
+                            "next_intended_action": "继续聚合结果",
+                        },
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(
+        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        lambda: FakeMemoryStore(),
+    )
+
+    service = RestBffService()
+    snapshot = await service.get_memory_snapshot(limit=5)
+
+    assert snapshot["summary"] == {
+        "sharedCount": 1,
+        "privateCount": 1,
+        "agentCount": 2,
+    }
+    assert snapshot["updated_at"] == 320
+    assert [item["id"] for item in snapshot["items"]] == ["mem_private_1", "mem_shared_1"]
+
+    shared_item = snapshot["items"][1]
+    assert shared_item["summary"] == "调用 sk-*** 后完成分析"
+    assert shared_item["details"] == [
+        "来源 task_graph_execution",
+        "任务 run_1",
+        "已拿到结果",
+        "下一步 生成报告",
+    ]
+
+    private_item = snapshot["items"][0]
+    assert private_item["scope"] == "private"
+    assert private_item["changeType"] == "updated"
+    assert private_item["summary"] == "正在复核暴露. 下一步 继续聚合结果"
+
+
+@pytest.mark.asyncio
+async def test_get_task_memory_raises_when_task_scope_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
+    from riskmonitor_multiagent.services.runtime_task_store import RuntimeTaskStore
+
+    runtime_store = RuntimeTaskStore()
+
+    monkeypatch.setattr(
+        "riskmonitor_multiagent.services.rest_bff_service.get_runtime_task_store",
+        lambda: runtime_store,
+    )
+    monkeypatch.setattr(
+        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        lambda: None,
+    )
+
+    service = RestBffService()
+
+    with pytest.raises(KeyError):
+        await service.get_task_memory(task_id="missing_task")

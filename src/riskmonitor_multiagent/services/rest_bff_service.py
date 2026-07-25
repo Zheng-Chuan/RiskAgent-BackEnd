@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any
 
 from riskmonitor_multiagent.contracts.run_context import new_run_context
 from riskmonitor_multiagent.memory import get_memory_store
+from riskmonitor_multiagent.memory.memory_helpers import canonical_agent_id, compact_output_text
 from riskmonitor_multiagent.observability.run_trace import get_run_trace_store
 from riskmonitor_multiagent.orchestration.proactive_workflow import (
     get_proactive_workflow,
@@ -22,6 +24,8 @@ from riskmonitor_multiagent.services.runtime_task_store import get_runtime_task_
 from riskmonitor_multiagent.utils.ids import new_run_id
 
 logger = logging.getLogger(__name__)
+
+_SECRET_PATTERN = re.compile(r"sk-[A-Za-z0-9_-]{12,}")
 
 _AGENT_SPECS = (
     {
@@ -165,6 +169,20 @@ def _build_result_payload(final_output: dict[str, Any] | None) -> dict[str, Any]
     return payload
 
 
+def _mask_secret_text(value: str) -> str:
+    return _SECRET_PATTERN.sub("sk-***", value)
+
+
+def _sanitize_public_text(value: Any, *, limit: int = 220) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = " ".join(value.split())
+    if not normalized:
+        return ""
+    sanitized = _mask_secret_text(normalized)
+    return sanitized[:limit]
+
+
 class RestBffService:
     """REST BFF facade."""
 
@@ -256,6 +274,42 @@ class RestBffService:
             )
         return {"items": items, "updated_at": updated_at}
 
+    async def get_task_memory(
+        self,
+        *,
+        task_id: str,
+        limit: int = 30,
+    ) -> dict[str, Any]:
+        normalized_task_id = task_id.strip()
+        if not normalized_task_id:
+            raise ValueError("task_id is required")
+
+        task_scope = await self._resolve_task_scope(task_id=normalized_task_id)
+        if task_scope is None:
+            raise KeyError(normalized_task_id)
+
+        memory_items = await self._collect_memory_items(
+            session_id=task_scope.get("session_id"),
+            run_id=str(task_scope.get("run_id") or normalized_task_id),
+            limit=limit,
+        )
+
+        return {
+            "task_id": normalized_task_id,
+            "session_id": task_scope.get("session_id"),
+            "items": memory_items,
+            "summary": self._build_memory_summary(memory_items),
+            "updated_at": max((int(item.get("createdAt") or 0) for item in memory_items), default=_now_ms()),
+        }
+
+    async def get_memory_snapshot(self, *, limit: int = 20) -> dict[str, Any]:
+        memory_items = await self._collect_memory_items(session_id=None, run_id=None, limit=limit)
+        return {
+            "items": memory_items,
+            "summary": self._build_memory_summary(memory_items),
+            "updated_at": max((int(item.get("createdAt") or 0) for item in memory_items), default=_now_ms()),
+        }
+
     async def _execute_task(
         self,
         *,
@@ -318,6 +372,224 @@ class RestBffService:
             "error": _extract_error_payload(data),
             "created_at": created_at,
             "updated_at": updated_at,
+        }
+
+    async def _resolve_task_scope(self, *, task_id: str) -> dict[str, str | None] | None:
+        runtime_store = get_runtime_task_store()
+        runtime_snapshot = await runtime_store.get_task(task_id=task_id)
+        if isinstance(runtime_snapshot, dict):
+            return {
+                "run_id": str(runtime_snapshot.get("run_id") or task_id),
+                "session_id": (
+                    str(runtime_snapshot.get("session_id"))
+                    if isinstance(runtime_snapshot.get("session_id"), str)
+                    and str(runtime_snapshot.get("session_id")).strip()
+                    else None
+                ),
+            }
+
+        persisted_context = await self._load_persisted_run_context(task_id=task_id)
+        if not isinstance(persisted_context, dict):
+            return None
+
+        task_payload = persisted_context.get("task") if isinstance(persisted_context.get("task"), dict) else {}
+        session_id = (
+            str(task_payload.get("session_id"))
+            if isinstance(task_payload.get("session_id"), str) and str(task_payload.get("session_id")).strip()
+            else None
+        )
+        return {
+            "run_id": str(task_id),
+            "session_id": session_id,
+        }
+
+    async def _load_persisted_run_context(self, *, task_id: str) -> dict[str, Any] | None:
+        try:
+            memory_store = get_memory_store()
+            context = await memory_store.get_run_context(task_id)
+        except Exception as exc:
+            logger.warning("Load persisted memory context failed for %s: %s", task_id, exc)
+            return None
+
+        if not isinstance(context, dict):
+            return None
+        return context.get("data") if isinstance(context.get("data"), dict) else None
+
+    async def _collect_memory_items(
+        self,
+        *,
+        session_id: str | None,
+        run_id: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        memory_store = get_memory_store()
+        safe_limit = max(1, min(limit, 100))
+        shared_entries = await memory_store.list_recent(
+            agent_id="orchestrator",
+            scope="shared",
+            session_id=session_id,
+            run_id=run_id,
+            limit=safe_limit,
+        )
+        private_memory_state = await memory_store.get_private_memory_state(
+            session_id=session_id,
+            run_id=run_id,
+            limit=max(2, min(6, safe_limit)),
+        )
+
+        combined: list[dict[str, Any]] = []
+        seen_entry_ids: set[str] = set()
+        for entry in shared_entries:
+            mapped = self._map_memory_entry(entry)
+            if mapped is None or mapped["id"] in seen_entry_ids:
+                continue
+            seen_entry_ids.add(mapped["id"])
+            combined.append(mapped)
+
+        for entries in private_memory_state.values():
+            for entry in entries:
+                mapped = self._map_memory_entry(entry)
+                if mapped is None or mapped["id"] in seen_entry_ids:
+                    continue
+                seen_entry_ids.add(mapped["id"])
+                combined.append(mapped)
+
+        combined.sort(key=lambda item: int(item.get("createdAt") or 0), reverse=True)
+        return combined[:safe_limit]
+
+    def _map_memory_entry(self, entry: dict[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(entry, dict):
+            return None
+
+        entry_id = entry.get("entry_id")
+        if not isinstance(entry_id, str) or not entry_id.strip():
+            return None
+
+        content = entry.get("content") if isinstance(entry.get("content"), dict) else {}
+        summary = self._build_memory_entry_summary(entry=entry, content=content)
+        if not summary:
+            return None
+
+        task_id = content.get("task_id") if isinstance(content.get("task_id"), str) else entry.get("run_id")
+        session_id = entry.get("session_id") if isinstance(entry.get("session_id"), str) else None
+        agent_id = canonical_agent_id(entry.get("agent_id")) or str(entry.get("agent_id") or "shared")
+
+        return {
+            "id": entry_id,
+            "taskId": str(task_id) if isinstance(task_id, str) and task_id.strip() else None,
+            "sessionId": session_id,
+            "agentId": agent_id,
+            "scope": str(entry.get("scope") or "shared"),
+            "kind": str(entry.get("kind") or "unknown"),
+            "memoryType": str(entry.get("memory_type") or "episodic"),
+            "changeType": self._map_memory_change_type(entry),
+            "summary": summary,
+            "details": self._build_memory_entry_details(entry=entry, content=content),
+            "tags": [
+                str(tag)
+                for tag in entry.get("tags", [])
+                if isinstance(tag, str) and tag.strip()
+            ],
+            "confidence": round(float(entry.get("confidence") or 0.0), 2),
+            "createdAt": int(entry.get("ts_ms") or _now_ms()),
+        }
+
+    def _build_memory_entry_summary(
+        self,
+        *,
+        entry: dict[str, Any],
+        content: dict[str, Any],
+    ) -> str:
+        preferred_text = content.get("text")
+        if isinstance(preferred_text, str) and preferred_text.strip():
+            return _sanitize_public_text(preferred_text, limit=180)
+
+        if str(entry.get("kind") or "") == "private_task_state":
+            progress = _sanitize_public_text(content.get("current_progress"), limit=90)
+            next_action = _sanitize_public_text(content.get("next_intended_action"), limit=90)
+            if progress and next_action:
+                return f"{progress}. 下一步 {next_action}"
+            if progress:
+                return progress
+            if next_action:
+                return next_action
+
+        if isinstance(content.get("plan_steps"), list) and content.get("plan_steps"):
+            return _sanitize_public_text(" ; ".join(
+                str(step.get("reason") or step.get("instruction") or step.get("kind") or "")
+                for step in content["plan_steps"]
+                if isinstance(step, dict)
+            ), limit=180)
+
+        return _sanitize_public_text(compact_output_text(content), limit=180)
+
+    def _build_memory_entry_details(
+        self,
+        *,
+        entry: dict[str, Any],
+        content: dict[str, Any],
+    ) -> list[str]:
+        details: list[str] = []
+        source = _sanitize_public_text(entry.get("source"), limit=60)
+        if source:
+            details.append(f"来源 {source}")
+
+        task_id = content.get("task_id") if isinstance(content.get("task_id"), str) else entry.get("run_id")
+        if isinstance(task_id, str) and task_id.strip():
+            details.append(f"任务 {task_id.strip()}")
+
+        if str(entry.get("scope") or "shared") == "private":
+            details.append("私有记忆")
+
+        primary_intent = _sanitize_public_text(content.get("primary_intent_type"), limit=40)
+        if primary_intent:
+            details.append(f"意图 {primary_intent}")
+
+        current_progress = _sanitize_public_text(content.get("current_progress"), limit=60)
+        if current_progress and current_progress not in details:
+            details.append(current_progress)
+
+        next_action = _sanitize_public_text(content.get("next_intended_action"), limit=60)
+        if next_action:
+            details.append(f"下一步 {next_action}")
+
+        tags = [
+            _sanitize_public_text(tag, limit=24)
+            for tag in entry.get("tags", [])
+            if isinstance(tag, str) and _sanitize_public_text(tag, limit=24)
+        ]
+        if tags:
+            details.append(f"标签 {', '.join(tags[:3])}")
+
+        deduped_details: list[str] = []
+        for item in details:
+            if item not in deduped_details:
+                deduped_details.append(item)
+
+        return deduped_details[:4]
+
+    def _map_memory_change_type(self, entry: dict[str, Any]) -> str:
+        kind = str(entry.get("kind") or "")
+        if kind in {"working_memory", "private_task_state"}:
+            return "updated"
+        if kind in {"lesson", "semantic_case"}:
+            return "compressed"
+        if kind in {"experience_rejection"}:
+            return "archived"
+        return "created"
+
+    def _build_memory_summary(self, items: list[dict[str, Any]]) -> dict[str, Any]:
+        shared_count = sum(1 for item in items if item.get("scope") == "shared")
+        private_count = sum(1 for item in items if item.get("scope") == "private")
+        agent_ids = {
+            str(item.get("agentId"))
+            for item in items
+            if isinstance(item.get("agentId"), str) and str(item.get("agentId")).strip()
+        }
+        return {
+            "sharedCount": shared_count,
+            "privateCount": private_count,
+            "agentCount": len(agent_ids),
         }
 
     def _map_runtime_task_detail(self, runtime_snapshot: dict[str, Any]) -> dict[str, Any]:

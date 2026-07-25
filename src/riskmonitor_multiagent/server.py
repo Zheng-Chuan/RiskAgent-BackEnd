@@ -225,6 +225,36 @@ async def create_task_endpoint(request: Request) -> Response:
     return JSONResponse(created, status_code=202)
 
 
+@mcp.custom_route("/api/tasks/{task_id}/memory", methods=["GET"], include_in_schema=False)
+async def get_task_memory_endpoint(request: Request) -> Response:
+    """浏览器友好的任务记忆视图端点."""
+    task_id = request.path_params.get("task_id")
+    if not isinstance(task_id, str) or not task_id.strip():
+        return JSONResponse(
+            {"error": {"code": "BAD_REQUEST", "message": "task_id is required"}},
+            status_code=400,
+        )
+
+    raw_limit = request.query_params.get("limit")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else 30
+    except ValueError:
+        return JSONResponse(
+            {"error": {"code": "BAD_REQUEST", "message": "limit must be integer"}},
+            status_code=400,
+        )
+
+    service = get_rest_bff_service()
+    try:
+        payload = await service.get_task_memory(task_id=task_id, limit=limit)
+    except KeyError:
+        return JSONResponse(
+            {"error": {"code": "NOT_FOUND", "message": "task not found"}},
+            status_code=404,
+        )
+    return JSONResponse(payload)
+
+
 @mcp.custom_route("/api/tasks/{task_id}", methods=["GET"], include_in_schema=False)
 async def get_task_endpoint(request: Request) -> Response:
     """浏览器友好的任务详情端点."""
@@ -244,6 +274,23 @@ async def get_task_endpoint(request: Request) -> Response:
             status_code=404,
         )
     return JSONResponse(task_detail)
+
+
+@mcp.custom_route("/api/memory", methods=["GET"], include_in_schema=False)
+async def get_memory_endpoint(request: Request) -> Response:
+    """浏览器友好的全局记忆快照端点."""
+    raw_limit = request.query_params.get("limit")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else 20
+    except ValueError:
+        return JSONResponse(
+            {"error": {"code": "BAD_REQUEST", "message": "limit must be integer"}},
+            status_code=400,
+        )
+
+    service = get_rest_bff_service()
+    snapshot = await service.get_memory_snapshot(limit=limit)
+    return JSONResponse(snapshot)
 
 
 @mcp.custom_route("/api/agents", methods=["GET"], include_in_schema=False)
