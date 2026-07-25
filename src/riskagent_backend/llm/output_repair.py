@@ -16,10 +16,109 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+_JSON_TEXT_NORMALIZATION_MAP = {
+    "“": '"',
+    "”": '"',
+    "‘": '"',
+    "’": '"',
+    "｛": "{",
+    "｝": "}",
+    "［": "[",
+    "］": "]",
+    "，": ",",
+    "：": ":",
+    "；": ",",
+}
+
 
 class OutputRepairError(Exception):
     """输出修复失败异常."""
     pass
+
+
+def _normalize_json_like_text(text: str) -> str:
+    """只在字符串外修正 JSON 常见全角标点和引号."""
+    if not text:
+        return text
+
+    normalized: list[str] = []
+    in_string = False
+    escaped = False
+
+    for char in text:
+        if escaped:
+            normalized.append(char)
+            escaped = False
+            continue
+
+        if char == "\\":
+            normalized.append(char)
+            escaped = True
+            continue
+
+        if char in {'\"', '“', '”', '‘', '’'}:
+            normalized.append('\"')
+            in_string = not in_string
+            continue
+
+        if not in_string and char in _JSON_TEXT_NORMALIZATION_MAP:
+            normalized.append(_JSON_TEXT_NORMALIZATION_MAP[char])
+            continue
+
+        normalized.append(char)
+
+    return "".join(normalized)
+
+
+def _extract_balanced_json_block(text: str) -> Optional[str]:
+    """提取第一个括号平衡的 JSON 对象或数组."""
+    if not text:
+        return None
+
+    start = -1
+    opening = ""
+    closing = ""
+    depth = 0
+    in_string = False
+    escaped = False
+
+    for index, char in enumerate(text):
+        if start == -1:
+            if char == "{":
+                start = index
+                opening = "{"
+                closing = "}"
+                depth = 1
+            elif char == "[":
+                start = index
+                opening = "["
+                closing = "]"
+                depth = 1
+            continue
+
+        if escaped:
+            escaped = False
+            continue
+
+        if char == "\\":
+            escaped = True
+            continue
+
+        if char == '\"':
+            in_string = not in_string
+            continue
+
+        if in_string:
+            continue
+
+        if char == opening:
+            depth += 1
+        elif char == closing:
+            depth -= 1
+            if depth == 0:
+                return text[start:index + 1]
+
+    return None
 
 
 def extract_json_from_text(text: str) -> Optional[str]:
@@ -34,7 +133,7 @@ def extract_json_from_text(text: str) -> Optional[str]:
     if not text:
         return None
 
-    text = text.strip()
+    text = _normalize_json_like_text(text.strip())
 
     # 1. 尝试直接解析
     try:
@@ -48,18 +147,18 @@ def extract_json_from_text(text: str) -> Optional[str]:
     matches = re.findall(code_block_pattern, text)
     for match in matches:
         try:
-            json.loads(match.strip())
-            return match.strip()
+            candidate = _normalize_json_like_text(match.strip())
+            json.loads(candidate)
+            return candidate
         except Exception:
             pass
 
-    # 3. 尝试从文本中找到 {...} 部分
-    brace_pattern = r"(\{[\s\S]*\})"
-    matches = re.findall(brace_pattern, text)
-    for match in matches:
+    # 3. 尝试提取第一个括号平衡的 JSON 块
+    balanced = _extract_balanced_json_block(text)
+    if balanced is not None:
         try:
-            json.loads(match)
-            return match
+            json.loads(balanced)
+            return balanced
         except Exception:
             pass
 
@@ -79,7 +178,7 @@ def fix_common_json_issues(text: str) -> str:
     if not text:
         return text
 
-    result = text.strip()
+    result = _normalize_json_like_text(text.strip())
 
     # 移除单行注释 // ...
     result = re.sub(r"//.*$", "", result, flags=re.MULTILINE)

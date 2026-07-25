@@ -142,12 +142,6 @@ Example:
 
         result = await self._base_agent.ask_json(
             user_prompt=prompt,
-            fallback={
-                "intent": "unknown",
-                "slots": {},
-                "confidence": 0.5,
-                "risk": "MEDIUM",
-            },
             max_tokens=None,  # 不限制 token 数
         )
         
@@ -279,34 +273,6 @@ Generate JSON with:
 
         result = await self._base_agent.ask_json(
             user_prompt=prompt,
-            fallback={
-                "schema_version": "orchestrator_output.v1",
-                "intent": {"type": "unknown", "confidence": 0.0, "slots": {}},
-                "plan_steps": [
-                    {
-                        "kind": "delegate",
-                        "step_id": "s1",
-                        "reason": "需要系统工程师分析技术层面",
-                        "target_agent": "system_engineer",
-                        "instruction": "分析系统层面可能原因",
-                    },
-                    {
-                        "kind": "delegate",
-                        "step_id": "s2",
-                        "reason": "需要风险分析师评估业务影响",
-                        "target_agent": "risk_analyst",
-                        "instruction": "评估业务层面影响",
-                    },
-                    {
-                        "kind": "finalize",
-                        "step_id": "s3",
-                        "reason": "综合双视角输出结论",
-                        "instruction": "基于分析做最终结论",
-                    },
-                ],
-                "commands": None,
-                "evidence": {"fields": ["task"]},
-            },
             max_tokens=1024,
         )
         

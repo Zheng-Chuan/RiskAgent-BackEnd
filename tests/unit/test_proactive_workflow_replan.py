@@ -20,7 +20,7 @@ def test_proactive_workflow_replans_when_critic_rejects():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(
             ok=True,
             output={"primary_intent_type": "analyze_risk"},
@@ -140,7 +140,7 @@ def test_proactive_workflow_runtime_replans_after_tool_failure():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(
             ok=True,
             output={"primary_intent_type": "runtime_replan"},
@@ -240,7 +240,7 @@ def test_proactive_workflow_can_resume_from_failed_step():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(
             ok=True,
             output={"primary_intent_type": "resume_analysis"},
@@ -339,7 +339,7 @@ def test_proactive_workflow_runs_parallel_delegate_branches_and_finalize():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(
             ok=True,
             output={"primary_intent_type": "parallel_analysis"},
@@ -438,7 +438,7 @@ def test_proactive_workflow_surfaces_tool_receipts_from_task_graph():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(
             ok=True,
             output={"primary_intent_type": "tool_execution"},
@@ -547,6 +547,37 @@ def test_validate_resume_request_completeness_flags_missing_fields():
     assert result["is_complete"] is False
     assert set(result["missing_fields"]) == {"memory_state", "run_summary", "approval_decision"}
     assert result["failure_classification"] == "resume_context_incomplete"
+
+
+def test_proactive_workflow_fails_when_intent_agent_returns_error():
+    workflow = ProactiveBackEndWorkflow()
+
+    async def _noop():
+        return None
+
+    async def _fake_intent(*, task, metadata=None):
+        del task, metadata
+        return ProactiveAgentResult(
+            ok=False,
+            output={"error": "BAD_LLM_OUTPUT"},
+            meta={"agent_name": "intent"},
+        )
+
+    workflow.start_agents = _noop
+    workflow._intent_agent.recognize = _fake_intent
+
+    result = asyncio.run(
+        workflow.run(
+            {
+                "task_id": "intent-failed-1",
+                "source": "human",
+                "payload": {"content": "测试严格失败"},
+            }
+        )
+    )
+
+    assert result.get("status") == "failed"
+    assert result.get("errors") == ["INTENT_FAILED: BAD_LLM_OUTPUT"]
 
 
 def test_proactive_workflow_fails_fast_for_incomplete_resume_request():
@@ -668,7 +699,7 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(ok=True, output={"primary_intent_type": "resume_analysis"})
 
     async def _fake_critic(*, task, orchestrator, receipts=None, final_output=None, phase="plan_review"):
@@ -780,7 +811,7 @@ def test_proactive_workflow_omits_memory_fields_when_memory_disabled():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(ok=True, output={"primary_intent_type": "parallel_analysis"})
 
     async def _fake_orchestrate(*, task, context=None):
@@ -866,7 +897,7 @@ def test_proactive_workflow_disables_private_memory_only():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(ok=True, output={"primary_intent_type": "parallel_analysis"})
 
     async def _fake_orchestrate(*, task, context=None):
@@ -998,7 +1029,7 @@ def test_proactive_workflow_resumes_pending_approval_from_blocked_step():
     async def _noop():
         return None
 
-    async def _fake_intent(*, task):
+    async def _fake_intent(*, task, metadata=None):
         return ProactiveAgentResult(ok=True, output={"primary_intent_type": "approval_resume"})
 
     async def _fake_critic(*, task, orchestrator, receipts=None, final_output=None, phase="plan_review"):
@@ -1105,3 +1136,298 @@ def test_proactive_workflow_resumes_pending_approval_from_blocked_step():
     assert calls["engineer"] == 1
     assert calls["analyst"] == 1
     assert "审批后业务侧继续执行" in (second.get("final_output") or {}).get("summary", "")
+
+
+
+def test_proactive_workflow_syncs_planned_graph_before_critic_review():
+    workflow = ProactiveBackEndWorkflow()
+    sync_calls: list[dict[str, object]] = []
+
+    class _FakeRuntimeTaskStore:
+        def __init__(self):
+            self.record = {
+                "task_id": "graph-sync-1",
+                "status": "pending",
+                "graph": None,
+            }
+
+        async def get_task(self, *, task_id):
+            return dict(self.record) if task_id == self.record["task_id"] else None
+
+        async def create_task(self, *, task_id, session_id=None, description=""):
+            self.record = {
+                "task_id": task_id,
+                "session_id": session_id,
+                "description": description,
+                "status": "pending",
+                "graph": None,
+            }
+
+        async def mark_running(self, *, task_id, run_id=None):
+            self.record["status"] = "running"
+            self.record["run_id"] = run_id
+            return None
+
+        async def set_current_agent(self, *, task_id, agent_id):
+            self.record["current_agent"] = agent_id
+            return None
+
+        async def sync_task_graph(self, *, task_id, task_graph, execution_state=None):
+            sync_calls.append({
+                "task_id": task_id,
+                "task_graph": task_graph,
+                "execution_state": execution_state,
+            })
+            self.record["graph"] = {
+                "nodes": list(task_graph.get("nodes") or []),
+                "edges": list(task_graph.get("edges") or []),
+            }
+
+        async def mark_step_started(self, *, task_id, node):
+            return None
+
+        async def mark_step_completed(self, *, task_id, node, trace_entry, node_result):
+            return None
+
+        async def fail_task(self, *, task_id, error_message, result=None):
+            self.record["status"] = "failed"
+            self.record["error"] = error_message
+            return None
+
+    async def _noop():
+        return None
+
+    async def _fake_intent(*, task, metadata=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={"primary_intent_type": "analyze_risk"},
+        )
+
+    async def _fake_orchestrate(*, task, context=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={
+                "plan_steps": [
+                    {
+                        "kind": "delegate",
+                        "step_id": "s1",
+                        "reason": "先做系统分析",
+                        "target_agent": "system_engineer",
+                        "instruction": "输出系统结论",
+                    },
+                    {
+                        "kind": "finalize",
+                        "step_id": "s2",
+                        "reason": "汇总结果",
+                        "instruction": "输出最终结论",
+                    },
+                ],
+            },
+        )
+
+    async def _fake_critic(*, task, orchestrator):
+        assert sync_calls
+        planned_graph = sync_calls[0]["task_graph"]
+        assert isinstance(planned_graph, dict)
+        nodes = planned_graph.get("nodes")
+        assert isinstance(nodes, list) and len(nodes) == 2
+        return ProactiveAgentResult(
+            ok=True,
+            output={
+                "ok": True,
+                "issues": [],
+                "suggested_fixes": [],
+            },
+        )
+
+    async def _fake_engineer(*, task, context=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={"summary": "系统分析完成"},
+        )
+
+    workflow.start_agents = _noop
+    workflow._intent_agent.recognize = _fake_intent
+    workflow._orchestrator_agent.orchestrate = _fake_orchestrate
+    workflow._critic_agent.review = _fake_critic
+    workflow._engineer_agent.analyze_task = _fake_engineer
+
+    with patch(
+        "riskagent_backend.orchestration.proactive_workflow.get_runtime_task_store",
+        return_value=_FakeRuntimeTaskStore(),
+    ):
+        result = asyncio.run(
+            workflow.run(
+                {
+                    "task_id": "graph-sync-1",
+                    "source": "human",
+                    "memory_enabled": False,
+                    "payload": {"content": "先规划再执行"},
+                }
+            )
+        )
+
+    assert result.get("status") == "completed"
+    assert sync_calls
+    task_graph = result.get("task_graph") or {}
+    nodes = task_graph.get("nodes") or []
+    assert len(nodes) == 2
+    assert {node.get("step_id") for node in nodes} == {"s1", "s2"}
+
+
+
+def test_proactive_workflow_fails_when_runtime_graph_readback_mismatches():
+    workflow = ProactiveBackEndWorkflow()
+
+    class _MismatchRuntimeTaskStore:
+        def __init__(self):
+            self.failed_error = None
+            self.record = {
+                "task_id": "graph-mismatch-1",
+                "status": "pending",
+                "graph": None,
+            }
+
+        async def get_task(self, *, task_id):
+            return dict(self.record) if task_id == self.record["task_id"] else None
+
+        async def create_task(self, *, task_id, session_id=None, description=""):
+            self.record["task_id"] = task_id
+            self.record["session_id"] = session_id
+            self.record["description"] = description
+
+        async def mark_running(self, *, task_id, run_id=None):
+            self.record["status"] = "running"
+            return None
+
+        async def set_current_agent(self, *, task_id, agent_id):
+            return None
+
+        async def sync_task_graph(self, *, task_id, task_graph, execution_state=None):
+            self.record["graph"] = {"nodes": [], "edges": []}
+
+        async def fail_task(self, *, task_id, error_message, result=None):
+            self.failed_error = error_message
+            self.record["status"] = "failed"
+            return None
+
+    async def _noop():
+        return None
+
+    async def _fake_intent(*, task, metadata=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={"primary_intent_type": "analyze_risk"},
+        )
+
+    async def _fake_orchestrate(*, task, context=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={
+                "plan_steps": [
+                    {
+                        "kind": "finalize",
+                        "step_id": "s1",
+                        "reason": "直接输出结论",
+                        "instruction": "给出最终答案",
+                    },
+                ],
+            },
+        )
+
+    workflow.start_agents = _noop
+    workflow._intent_agent.recognize = _fake_intent
+    workflow._orchestrator_agent.orchestrate = _fake_orchestrate
+
+    fake_store = _MismatchRuntimeTaskStore()
+    with patch(
+        "riskagent_backend.orchestration.proactive_workflow.get_runtime_task_store",
+        return_value=fake_store,
+    ):
+        result = asyncio.run(
+            workflow.run(
+                {
+                    "task_id": "graph-mismatch-1",
+                    "source": "human",
+                    "memory_enabled": False,
+                    "payload": {"content": "严格校验图读写一致性"},
+                }
+            )
+        )
+
+    assert result.get("status") == "failed"
+    assert fake_store.failed_error is not None
+    assert "TASK_GRAPH_RUNTIME_MISMATCH" in fake_store.failed_error
+
+
+
+def test_proactive_workflow_fails_on_orchestrator_bad_llm_output():
+    workflow = ProactiveBackEndWorkflow()
+
+    class _RuntimeTaskStore:
+        def __init__(self):
+            self.failed_error = None
+            self.record = {
+                "task_id": "orchestrator-fail-1",
+                "status": "pending",
+                "graph": None,
+            }
+
+        async def get_task(self, *, task_id):
+            return dict(self.record) if task_id == self.record["task_id"] else None
+
+        async def create_task(self, *, task_id, session_id=None, description=""):
+            self.record["task_id"] = task_id
+            self.record["session_id"] = session_id
+            self.record["description"] = description
+
+        async def mark_running(self, *, task_id, run_id=None):
+            self.record["status"] = "running"
+            return None
+
+        async def set_current_agent(self, *, task_id, agent_id):
+            return None
+
+        async def fail_task(self, *, task_id, error_message, result=None):
+            self.failed_error = error_message
+            self.record["status"] = "failed"
+            return None
+
+    async def _noop():
+        return None
+
+    async def _fake_intent(*, task, metadata=None):
+        return ProactiveAgentResult(
+            ok=True,
+            output={"primary_intent_type": "analyze_risk"},
+        )
+
+    async def _fake_orchestrate(*, task, context=None):
+        return ProactiveAgentResult(
+            ok=False,
+            output={"error": "BAD_LLM_OUTPUT"},
+            meta={"agent_name": "orchestrator"},
+        )
+
+    workflow.start_agents = _noop
+    workflow._intent_agent.recognize = _fake_intent
+    workflow._orchestrator_agent.orchestrate = _fake_orchestrate
+
+    fake_store = _RuntimeTaskStore()
+    with patch(
+        "riskagent_backend.orchestration.proactive_workflow.get_runtime_task_store",
+        return_value=fake_store,
+    ):
+        result = asyncio.run(
+            workflow.run(
+                {
+                    "task_id": "orchestrator-fail-1",
+                    "source": "human",
+                    "memory_enabled": False,
+                    "payload": {"content": "禁止编排降级"},
+                }
+            )
+        )
+
+    assert result.get("status") == "failed"
+    assert fake_store.failed_error == "ORCHESTRATOR_FAILED: BAD_LLM_OUTPUT"

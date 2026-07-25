@@ -20,13 +20,14 @@ from riskagent_backend.proactive_agents import (
     ProactiveSystemEngineerAgent,
     ProactiveRiskAnalystAgent,
 )
+from riskagent_backend.contracts.agent_outputs import normalize_orchestrator_output, validate_orchestrator_output
 from riskagent_backend.contracts.event import normalize_event, validate_event
 from riskagent_backend.contracts.run_context import (
     new_run_context,
     normalize_run_context,
     validate_run_context,
 )
-from riskagent_backend.contracts.task_graph import append_replan_subgraph
+from riskagent_backend.contracts.task_graph import append_replan_subgraph, validate_task_graph
 from riskagent_backend.governance.proactive_budget import get_proactive_budget_manager
 from riskagent_backend.memory import get_memory_store, SessionSegmenter
 from riskagent_backend.orchestration.message_bus import get_message_bus
@@ -73,7 +74,7 @@ from riskagent_backend.skills import (
     SkillStore,
     SkillUsageTracker,
 )
-from riskagent_backend.services.runtime_task_store import get_runtime_task_store
+from riskagent_backend.services.runtime_task_store import RuntimeTaskStore, get_runtime_task_store
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +345,19 @@ class ProactiveBackEndWorkflow:
         
         try:
             # ===== Step 1: Setup & Resume Handling =====
+            if not await runtime_task_store.get_task(task_id=task_id):
+                task_payload = task.get("payload") if isinstance(task.get("payload"), dict) else {}
+                description = str(
+                    task.get("description")
+                    or task_payload.get("content")
+                    or task_payload.get("text")
+                    or task_id
+                )
+                await runtime_task_store.create_task(
+                    task_id=task_id,
+                    session_id=str(task.get("session_id") or "") or None,
+                    description=description,
+                )
             await runtime_task_store.mark_running(task_id=task_id, run_id=run_id)
             await runtime_task_store.set_current_agent(task_id=task_id, agent_id="intent")
             await self.start_agents()
@@ -481,10 +495,13 @@ class ProactiveBackEndWorkflow:
             intent_task = dict(task)
             for _key in ("benchmark_config", "memory_enabled", "private_memory_enabled", "baseline_mode"):
                 intent_task.pop(_key, None)
-            intent_result = self._ensure_proactive_result(
-                await self._intent_agent.recognize(
-                    task=intent_task,
-                    metadata={"intent_isolation": True, "instruction": "你的任务是识别用户意图,不要参考历史记忆或 shared memory 中的内容."},
+            intent_result = self._require_successful_agent_result(
+                self._ensure_proactive_result(
+                    await self._intent_agent.recognize(
+                        task=intent_task,
+                        metadata={"intent_isolation": True, "instruction": "你的任务是识别用户意图,不要参考历史记忆或 shared memory 中的内容."},
+                    ),
+                    agent_name="intent",
                 ),
                 agent_name="intent",
             )
@@ -493,17 +510,22 @@ class ProactiveBackEndWorkflow:
 
             planning_memory = {"hits": [], "summary": {}}
             if memory_enabled:
-                await persist_intent_memory(
-                    memory_store=memory_store,
-                    run_id=run_id,
-                    task=task,
-                    intent_output=intent_result.output,
-                )
-                planning_memory = await memory_store.retrieve_for_planning(
-                    task=task,
-                    intent=intent_result.output,
-                    limit=5,
-                )
+                try:
+                    await persist_intent_memory(
+                        memory_store=memory_store,
+                        run_id=run_id,
+                        task=task,
+                        intent_output=intent_result.output,
+                    )
+                    planning_memory = await memory_store.retrieve_for_planning(
+                        task=task,
+                        intent=intent_result.output,
+                        limit=5,
+                    )
+                except Exception as exc:
+                    # 记忆后端降级时不应阻断主执行链路.
+                    logger.warning("[ProactiveWorkflow] Planning memory degraded: %s", exc)
+                    planning_memory = {"hits": [], "summary": {}}
                 planning_memory = merge_resume_memory_into_planning_memory(
                     planning_memory=planning_memory,
                     resume_request=resume_request,
@@ -542,24 +564,38 @@ class ProactiveBackEndWorkflow:
                     planning_memory=planning_memory,
                     run_id=run_id,
                 )
-                orchestrator_result = self._ensure_proactive_result(
-                    await self._orchestrator_agent.orchestrate(
-                        task=task,
-                        context=self._extend_orchestrator_context(
+                orchestrator_result = self._normalize_orchestrator_result(
+                    self._ensure_proactive_result(
+                        await self._orchestrator_agent.orchestrate(
                             task=task,
-                            base_context=plan_context,
+                            context=self._extend_orchestrator_context(
+                                task=task,
+                                base_context=plan_context,
+                            ),
                         ),
-                    ),
-                    agent_name="orchestrator",
-                )
-                logger.info(f"[ProactiveWorkflow] Plan created with {len(orchestrator_result.output.get('plan_steps', []))} steps")
-                if memory_enabled:
-                    await persist_plan_memory(
-                        memory_store=memory_store,
-                        run_id=run_id,
-                        task=task,
-                        orchestrator_output=orchestrator_result.output,
+                        agent_name="orchestrator",
                     )
+                )
+                await self._sync_planned_task_graph(
+                    runtime_task_store=runtime_task_store,
+                    task_id=task_id,
+                    task_graph=dict(orchestrator_result.output.get("task_graph") or {}),
+                )
+                logger.info(
+                    "[ProactiveWorkflow] Plan created with %s steps and %s graph nodes",
+                    len(orchestrator_result.output.get("plan_steps", [])),
+                    len((orchestrator_result.output.get("task_graph") or {}).get("nodes", [])),
+                )
+                if memory_enabled:
+                    try:
+                        await persist_plan_memory(
+                            memory_store=memory_store,
+                            run_id=run_id,
+                            task=task,
+                            orchestrator_output=orchestrator_result.output,
+                        )
+                    except Exception as exc:
+                        logger.warning("[ProactiveWorkflow] Persist plan memory degraded: %s", exc)
                 
                 critic_result = await self._call_critic_review(
                     task=task,
@@ -579,26 +615,33 @@ class ProactiveBackEndWorkflow:
                         planning_memory=planning_memory,
                         run_id=run_id,
                     )
-                    replan_result = self._ensure_proactive_result(
-                        await self._orchestrator_agent.orchestrate(
-                            task=task,
-                            context=self._extend_orchestrator_context(
+                    replan_result = self._normalize_orchestrator_result(
+                        self._ensure_proactive_result(
+                            await self._orchestrator_agent.orchestrate(
                                 task=task,
-                                base_context={
-                                    "phase": "replan",
-                                    **replan_base,
-                                    "critic": critic_result.output,
-                                    "prior_orchestrator_plan": orchestrator_result.output,
-                                    "prior_task_graph": active_task_graph,
-                                },
+                                context=self._extend_orchestrator_context(
+                                    task=task,
+                                    base_context={
+                                        "phase": "replan",
+                                        **replan_base,
+                                        "critic": critic_result.output,
+                                        "prior_orchestrator_plan": orchestrator_result.output,
+                                        "prior_task_graph": active_task_graph,
+                                    },
+                                ),
                             ),
-                        ),
-                        agent_name="orchestrator",
+                            agent_name="orchestrator",
+                        )
                     )
                     active_task_graph = append_replan_subgraph(
                         active_task_graph,
                         replan_result.output,
                         reason=build_replan_reason(critic_result.output),
+                    )
+                    await self._sync_planned_task_graph(
+                        runtime_task_store=runtime_task_store,
+                        task_id=task_id,
+                        task_graph=dict(active_task_graph),
                     )
                     replan_details = {
                         "trigger": "critic_rejected",
@@ -639,14 +682,17 @@ class ProactiveBackEndWorkflow:
                 )
                 # Memory recording
                 if memory_enabled:
-                    await memory_store.record_working_memory(
-                        run_id=run_id,
-                        task=task,
-                        trace_entry=trace_entry,
-                        node=node,
-                        node_result=node_result,
-                        private_memory_enabled=private_memory_enabled,
-                    )
+                    try:
+                        await memory_store.record_working_memory(
+                            run_id=run_id,
+                            task=task,
+                            trace_entry=trace_entry,
+                            node=node,
+                            node_result=node_result,
+                            private_memory_enabled=private_memory_enabled,
+                        )
+                    except Exception as exc:
+                        logger.warning("[ProactiveWorkflow] Record working memory degraded: %s", exc)
                 # Session segmentation
                 try:
                     completed_step_records.append({
@@ -700,6 +746,8 @@ class ProactiveBackEndWorkflow:
             )
             runtime_replan = await self._maybe_runtime_replan(
                 task=task,
+                task_id=task_id,
+                runtime_task_store=runtime_task_store,
                 intent_result=intent_result,
                 critic_result=critic_result,
                 memory_enabled=memory_enabled,
@@ -761,12 +809,15 @@ class ProactiveBackEndWorkflow:
                 receipts=execution_result.get("receipts", []),
                 approval_records=execution_result.get("approval_records", []),
             ):
-                persisted_memory = await memory_store.persist_run_artifacts(
-                    run_id=run_id,
-                    task=task,
-                    final_output=execution_result.get("final_output", {}),
-                    critic_final=critic_final_result.output,
-                )
+                try:
+                    persisted_memory = await memory_store.persist_run_artifacts(
+                        run_id=run_id,
+                        task=task,
+                        final_output=execution_result.get("final_output", {}),
+                        critic_final=critic_final_result.output,
+                    )
+                except Exception as exc:
+                    logger.warning("[ProactiveWorkflow] Persist run artifacts degraded: %s", exc)
             
             # Skill 置信度更新: 基于执行结果和 Critic 评审更新被注入 Skill 的置信度
             tracked_skill_ids = self._skill_usage_tracker.get_tracked_skills(run_id)
@@ -848,43 +899,49 @@ class ProactiveBackEndWorkflow:
                 start_time=start_time,
             )
             if memory_enabled and isinstance(result.get("approval_trace"), list) and result.get("approval_trace"):
-                result["approval_memory"] = await memory_store.persist_approval_memory(
-                    run_id=run_id,
-                    task=task,
-                    approval_records=result.get("approval_trace", []),
-                )
+                try:
+                    result["approval_memory"] = await memory_store.persist_approval_memory(
+                        run_id=run_id,
+                        task=task,
+                        approval_records=result.get("approval_trace", []),
+                    )
+                except Exception as exc:
+                    logger.warning("[ProactiveWorkflow] Persist approval memory degraded: %s", exc)
             if memory_enabled:
-                await memory_store.save_run_context(
-                    run_id=run_id,
-                    event_id=str(
-                        (source_event or {}).get("event_id")
-                        or task.get("task_id")
-                        or run_id
-                    ),
-                    data={
-                        "status": result.get("status"),
-                        "entry_type": result.get("entry_type"),
-                        "run_context": result.get("run_context", {}),
-                        "task": task,
-                        "source_event": source_event or {},
-                        "route_decision": route_decision or {},
-                        "intent": result.get("intent", {}),
-                        "task_graph": result.get("task_graph", {}),
-                        "task_graph_execution": result.get("task_graph_execution", {}),
-                        "receipts": result.get("receipts", []),
-                        "approval_trace": result.get("approval_trace", []),
-                        "memory_hits": result.get("memory_hits", []),
-                        "planning_memory": result.get("planning_memory", {}),
-                        "shared_memory_board": result.get("shared_memory_board", []),
-                        "private_memory_state": result.get("private_memory_state", {}),
-                        "run_summary": result.get("run_summary", {}),
-                        "procedural_lesson": result.get("procedural_lesson", {}),
-                        "long_term_experience": result.get("long_term_experience", {}),
-                        "rejected_experience": result.get("rejected_experience", {}),
-                        "memory_policy": result.get("memory_policy", {}),
-                        "final_output": result.get("final_output", {}),
-                    },
-                )
+                try:
+                    await memory_store.save_run_context(
+                        run_id=run_id,
+                        event_id=str(
+                            (source_event or {}).get("event_id")
+                            or task.get("task_id")
+                            or run_id
+                        ),
+                        data={
+                            "status": result.get("status"),
+                            "entry_type": result.get("entry_type"),
+                            "run_context": result.get("run_context", {}),
+                            "task": task,
+                            "source_event": source_event or {},
+                            "route_decision": route_decision or {},
+                            "intent": result.get("intent", {}),
+                            "task_graph": result.get("task_graph", {}),
+                            "task_graph_execution": result.get("task_graph_execution", {}),
+                            "receipts": result.get("receipts", []),
+                            "approval_trace": result.get("approval_trace", []),
+                            "memory_hits": result.get("memory_hits", []),
+                            "planning_memory": result.get("planning_memory", {}),
+                            "shared_memory_board": result.get("shared_memory_board", []),
+                            "private_memory_state": result.get("private_memory_state", {}),
+                            "run_summary": result.get("run_summary", {}),
+                            "procedural_lesson": result.get("procedural_lesson", {}),
+                            "long_term_experience": result.get("long_term_experience", {}),
+                            "rejected_experience": result.get("rejected_experience", {}),
+                            "memory_policy": result.get("memory_policy", {}),
+                            "final_output": result.get("final_output", {}),
+                        },
+                    )
+                except Exception as exc:
+                    logger.warning("[ProactiveWorkflow] Save run context degraded: %s", exc)
             await runtime_task_store.set_current_agent(task_id=task_id, agent_id=None)
             
             return result
@@ -1073,6 +1130,8 @@ class ProactiveBackEndWorkflow:
         self,
         *,
         task: dict[str, Any],
+        task_id: str,
+        runtime_task_store: RuntimeTaskStore,
         intent_result: ProactiveAgentResult,
         critic_result: ProactiveAgentResult,
         memory_enabled: bool,
@@ -1097,21 +1156,29 @@ class ProactiveBackEndWorkflow:
             planning_memory=planning_memory,
             run_id=run_id,
         )
-        replan_result = self._ensure_proactive_result(
-            await self._orchestrator_agent.orchestrate(
-                task=task,
-                context=self._extend_orchestrator_context(
+        replan_result = self._normalize_orchestrator_result(
+            self._ensure_proactive_result(
+                await self._orchestrator_agent.orchestrate(
                     task=task,
-                    base_context={
-                        "phase": "runtime_replan",
-                        **runtime_replan_base,
-                        "critic": critic_result.output,
-                        "prior_task_graph": active_task_graph,
-                        "execution_failure": extract_execution_failure(execution_result),
-                    },
+                    context=self._extend_orchestrator_context(
+                        task=task,
+                        base_context={
+                            "phase": "runtime_replan",
+                            **runtime_replan_base,
+                            "critic": critic_result.output,
+                            "prior_task_graph": active_task_graph,
+                            "execution_failure": extract_execution_failure(execution_result),
+                        },
+                    ),
                 ),
-            ),
-            agent_name="orchestrator",
+                agent_name="orchestrator",
+            )
+        )
+        await self._sync_planned_task_graph(
+            runtime_task_store=runtime_task_store,
+            task_id=task_id,
+            task_graph=dict(replan_result.output.get("task_graph") or {}),
+            execution_state=execution_result.get("task_graph_execution") if isinstance(execution_result.get("task_graph_execution"), dict) else None,
         )
         runtime_execution = await executor.execute(
             task=task,
@@ -1166,6 +1233,144 @@ class ProactiveBackEndWorkflow:
             bdi_state=result.bdi_state,
             llm_interactions=result.llm_interactions,
         )
+
+    def _normalize_orchestrator_result(
+        self,
+        result: ProactiveAgentResult,
+    ) -> ProactiveAgentResult:
+        """严格校验编排结果, 禁止 fallback 或隐式降级."""
+        if not result.ok:
+            raise RuntimeError(self._build_orchestrator_failure_reason(result=result))
+
+        raw_output = result.output if isinstance(result.output, dict) else {}
+        if not isinstance(raw_output.get("plan_steps"), list) or not raw_output.get("plan_steps"):
+            raise RuntimeError("ORCHESTRATOR_PLAN_STEPS_MISSING")
+
+        is_valid_output, output_errors = validate_orchestrator_output(raw_output)
+        if not is_valid_output:
+            raise RuntimeError(
+                "ORCHESTRATOR_OUTPUT_INVALID: " + "; ".join(output_errors)
+            )
+
+        normalized_output = normalize_orchestrator_output(raw_output)
+        task_graph = normalized_output.get("task_graph") if isinstance(normalized_output.get("task_graph"), dict) else {}
+        nodes = task_graph.get("nodes") if isinstance(task_graph.get("nodes"), list) else []
+        if not nodes:
+            raise RuntimeError("ORCHESTRATOR_TASK_GRAPH_EMPTY")
+
+        is_valid_graph, graph_errors = validate_task_graph(task_graph)
+        if not is_valid_graph:
+            raise RuntimeError(
+                "ORCHESTRATOR_TASK_GRAPH_INVALID: " + "; ".join(graph_errors)
+            )
+
+        plan_step_ids = [
+            str(step.get("step_id") or "")
+            for step in raw_output.get("plan_steps", [])
+            if isinstance(step, dict) and str(step.get("step_id") or "")
+        ]
+        graph_node_ids = [
+            str(node.get("step_id") or node.get("id") or "")
+            for node in nodes
+            if isinstance(node, dict) and str(node.get("step_id") or node.get("id") or "")
+        ]
+        if plan_step_ids != graph_node_ids:
+            raise RuntimeError(
+                "ORCHESTRATOR_PLAN_GRAPH_MISMATCH: "
+                f"plan_steps={plan_step_ids}, graph_nodes={graph_node_ids}"
+            )
+
+        return self._replace_output(result, output=normalized_output)
+
+    def _require_successful_agent_result(
+        self,
+        result: ProactiveAgentResult,
+        *,
+        agent_name: str,
+    ) -> ProactiveAgentResult:
+        if result.ok:
+            return result
+        output = result.output if isinstance(result.output, dict) else {}
+        if isinstance(output.get("error"), str) and output.get("error"):
+            raise RuntimeError(f"{agent_name.upper()}_FAILED: {output.get('error')}")
+        meta = result.meta if isinstance(result.meta, dict) else {}
+        if isinstance(meta.get("error"), str) and meta.get("error"):
+            raise RuntimeError(f"{agent_name.upper()}_FAILED: {meta.get('error')}")
+        raise RuntimeError(f"{agent_name.upper()}_FAILED: unknown_error")
+
+    def _build_orchestrator_failure_reason(
+        self,
+        *,
+        result: ProactiveAgentResult,
+    ) -> str:
+        output = result.output if isinstance(result.output, dict) else {}
+        if isinstance(output.get("error"), str) and output.get("error"):
+            return f"ORCHESTRATOR_FAILED: {output.get('error')}"
+        meta = result.meta if isinstance(result.meta, dict) else {}
+        if isinstance(meta.get("error"), str) and meta.get("error"):
+            return f"ORCHESTRATOR_FAILED: {meta.get('error')}"
+        return "ORCHESTRATOR_FAILED: unknown_error"
+
+    async def _sync_planned_task_graph(
+        self,
+        *,
+        runtime_task_store: RuntimeTaskStore,
+        task_id: str,
+        task_graph: dict[str, Any],
+        execution_state: dict[str, Any] | None = None,
+    ) -> None:
+        """写入规划图后立即回读校验, 一旦错位直接失败."""
+        if not isinstance(task_graph, dict):
+            raise RuntimeError("TASK_GRAPH_SYNC_INPUT_INVALID")
+
+        expected_nodes = task_graph.get("nodes") if isinstance(task_graph.get("nodes"), list) else []
+        expected_edges = task_graph.get("edges") if isinstance(task_graph.get("edges"), list) else []
+        if not expected_nodes:
+            raise RuntimeError("TASK_GRAPH_SYNC_EMPTY_GRAPH")
+
+        await runtime_task_store.sync_task_graph(
+            task_id=task_id,
+            task_graph=task_graph,
+            execution_state=execution_state,
+        )
+
+        runtime_snapshot = await runtime_task_store.get_task(task_id=task_id)
+        if not isinstance(runtime_snapshot, dict):
+            raise RuntimeError(f"TASK_GRAPH_RUNTIME_MISSING: task_id={task_id}")
+        runtime_graph = runtime_snapshot.get("graph") if isinstance(runtime_snapshot.get("graph"), dict) else {}
+        actual_nodes = runtime_graph.get("nodes") if isinstance(runtime_graph.get("nodes"), list) else []
+        actual_edges = runtime_graph.get("edges") if isinstance(runtime_graph.get("edges"), list) else []
+
+        expected_node_ids = [
+            str(node.get("step_id") or node.get("id") or "")
+            for node in expected_nodes
+            if isinstance(node, dict) and str(node.get("step_id") or node.get("id") or "")
+        ]
+        actual_node_ids = [
+            str(node.get("id") or node.get("step_id") or "")
+            for node in actual_nodes
+            if isinstance(node, dict) and str(node.get("id") or node.get("step_id") or "")
+        ]
+        expected_edge_ids = [
+            f"{edge.get('from_step_id')}->{edge.get('to_step_id')}"
+            for edge in expected_edges
+            if isinstance(edge, dict)
+            and str(edge.get("from_step_id") or "")
+            and str(edge.get("to_step_id") or "")
+        ]
+        actual_edge_ids = [
+            f"{edge.get('source') or edge.get('from_step_id')}->{edge.get('target') or edge.get('to_step_id')}"
+            for edge in actual_edges
+            if isinstance(edge, dict)
+            and str(edge.get("source") or edge.get("from_step_id") or "")
+            and str(edge.get("target") or edge.get("to_step_id") or "")
+        ]
+        if expected_node_ids != actual_node_ids or expected_edge_ids != actual_edge_ids:
+            raise RuntimeError(
+                "TASK_GRAPH_RUNTIME_MISMATCH: "
+                f"expected_nodes={expected_node_ids}, actual_nodes={actual_node_ids}, "
+                f"expected_edges={expected_edge_ids}, actual_edges={actual_edge_ids}"
+            )
 
 
 _proactive_workflow: Optional[ProactiveBackEndWorkflow] = None

@@ -151,6 +151,26 @@ def _build_graph_summary(nodes: list[dict[str, Any]], edges: list[dict[str, Any]
     }
 
 
+def build_empty_task_graph_snapshot(
+    *,
+    task_id: str,
+    session_id: str | None,
+    task_status: str,
+    updated_at: int | None = None,
+) -> dict[str, Any]:
+    snapshot_updated_at = int(updated_at or _now_ms())
+    return {
+        "task_id": task_id,
+        "session_id": session_id,
+        "status": _normalize_task_status(task_status),
+        "schema_version": "task_graph.v1",
+        "nodes": [],
+        "edges": [],
+        "summary": _build_graph_summary([], []),
+        "updated_at": snapshot_updated_at,
+    }
+
+
 def build_task_graph_snapshot(
     *,
     task_id: str,
@@ -330,7 +350,12 @@ class RuntimeTaskStore:
             "created_at": created_at,
             "updated_at": created_at,
             "steps": [],
-            "graph": None,
+            "graph": build_empty_task_graph_snapshot(
+                task_id=task_id,
+                session_id=session_id,
+                task_status="pending",
+                updated_at=created_at,
+            ),
             "result": None,
             "error": None,
             "current_agent_id": None,
@@ -369,10 +394,18 @@ class RuntimeTaskStore:
             record["status"] = "running"
             if isinstance(run_id, str) and run_id.strip():
                 record["run_id"] = run_id.strip()
+            updated_at = _now_ms()
             if isinstance(record.get("graph"), dict):
                 record["graph"]["status"] = "running"
-                record["graph"]["updated_at"] = _now_ms()
-            record["updated_at"] = _now_ms()
+                record["graph"]["updated_at"] = updated_at
+            else:
+                record["graph"] = build_empty_task_graph_snapshot(
+                    task_id=str(record.get("task_id") or task_id),
+                    session_id=str(record.get("session_id") or "") or None,
+                    task_status="running",
+                    updated_at=updated_at,
+                )
+            record["updated_at"] = updated_at
 
     async def set_current_agent(self, *, task_id: str, agent_id: str | None) -> None:
         async with self._lock:
@@ -402,6 +435,7 @@ class RuntimeTaskStore:
                 execution_state=execution_state,
                 updated_at=updated_at,
             )
+            self._replace_steps_from_graph(record=record)
             record["updated_at"] = updated_at
 
     async def mark_step_started(
@@ -515,6 +549,9 @@ class RuntimeTaskStore:
                     execution_state=result.get("task_graph_execution") if isinstance(result.get("task_graph_execution"), dict) else None,
                     updated_at=_now_ms(),
                 )
+                trace = result.get("task_graph_execution") if isinstance(result.get("task_graph_execution"), dict) else {}
+                if not isinstance(trace.get("trace"), list) or not trace.get("trace"):
+                    self._replace_steps_from_graph(record=record)
             record["updated_at"] = _now_ms()
 
     async def fail_task(
@@ -543,6 +580,9 @@ class RuntimeTaskStore:
                         execution_state=result.get("task_graph_execution") if isinstance(result.get("task_graph_execution"), dict) else None,
                         updated_at=_now_ms(),
                     )
+                    trace = result.get("task_graph_execution") if isinstance(result.get("task_graph_execution"), dict) else {}
+                    if not isinstance(trace.get("trace"), list) or not trace.get("trace"):
+                        self._replace_steps_from_graph(record=record)
             elif isinstance(record.get("graph"), dict):
                 record["graph"]["status"] = "failed"
                 record["graph"]["updated_at"] = _now_ms()
@@ -590,6 +630,34 @@ class RuntimeTaskStore:
         if mapped_steps:
             record["steps"] = mapped_steps
 
+    def _replace_steps_from_graph(self, *, record: dict[str, Any]) -> None:
+        graph = record.get("graph") if isinstance(record.get("graph"), dict) else {}
+        nodes = graph.get("nodes") if isinstance(graph.get("nodes"), list) else []
+        if not nodes:
+            return
+        mapped_steps: list[dict[str, Any]] = []
+        for item in nodes:
+            if not isinstance(item, dict):
+                continue
+            step_id = str(item.get("id") or item.get("step_id") or "")
+            if not step_id:
+                continue
+            node_data = item.get("data") if isinstance(item.get("data"), dict) else {}
+            mapped_steps.append(
+                {
+                    "id": step_id,
+                    "title": str(item.get("label") or "") or _build_step_title(
+                        step_id=step_id,
+                        kind=item.get("kind") or node_data.get("kind"),
+                        target_agent=item.get("targetAgent") or node_data.get("target_agent"),
+                        tool_name=item.get("toolName") or node_data.get("tool_name"),
+                    ),
+                    "status": _normalize_step_status(item.get("status") or node_data.get("status")),
+                }
+            )
+        if mapped_steps:
+            record["steps"] = mapped_steps
+
     def _upsert_step(
         self,
         *,
@@ -630,4 +698,9 @@ def get_runtime_task_store() -> RuntimeTaskStore:
     return _runtime_task_store
 
 
-__all__ = ["RuntimeTaskStore", "build_task_graph_snapshot", "get_runtime_task_store"]
+__all__ = [
+    "RuntimeTaskStore",
+    "build_empty_task_graph_snapshot",
+    "build_task_graph_snapshot",
+    "get_runtime_task_store",
+]

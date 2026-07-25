@@ -156,15 +156,29 @@ class SemanticIndexer:
         return (cosine * 0.7) + (overlap * 0.3)
 
 
-def _make_json_safe(value: Any) -> Any:
-    """确保值可以安全 JSON 序列化."""
+def _make_json_safe(value: Any, *, _visited: set[int] | None = None) -> Any:
+    """确保值可以安全 JSON 序列化, 并处理循环引用."""
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
+
+    visited = _visited if isinstance(_visited, set) else set()
+    obj_id = id(value)
+    if obj_id in visited:
+        return '<circular_ref>'
+
     if isinstance(value, dict):
-        return {
-            str(key): _make_json_safe(item)
-            for key, item in value.items()
-        }
+        visited.add(obj_id)
+        try:
+            return {
+                str(key): _make_json_safe(item, _visited=visited)
+                for key, item in value.items()
+            }
+        finally:
+            visited.discard(obj_id)
     if isinstance(value, (list, tuple, set)):
-        return [_make_json_safe(item) for item in value]
+        visited.add(obj_id)
+        try:
+            return [_make_json_safe(item, _visited=visited) for item in value]
+        finally:
+            visited.discard(obj_id)
     return str(value)

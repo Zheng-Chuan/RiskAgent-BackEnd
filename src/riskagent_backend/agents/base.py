@@ -79,7 +79,7 @@ class BaseAgent:
         self,
         *,
         user_prompt: str,
-        fallback: dict[str, Any],
+        fallback: dict[str, Any] | None = None,
         governance: dict[str, Any] | None = None,
         temperature: float = 0.2,
         max_tokens: int | None = 512,
@@ -97,7 +97,7 @@ class BaseAgent:
 
         Args:
             user_prompt: 用户提示词
-            fallback: 失败时的默认返回值
+            fallback: 可选的默认返回值, 仅在允许降级且显式提供时使用
             governance: 治理参数(user_id, priority)
             temperature: 采样温度
             max_tokens: 最大 Token 数
@@ -163,7 +163,7 @@ class BaseAgent:
             )
 
         except LLMError as e:
-            if self._should_use_fallback(e):
+            if fallback is not None and self._should_use_fallback(e):
                 logger.warning(
                     "Agent %s falling back to default JSON output due to LLM error: %s",
                     self._name,

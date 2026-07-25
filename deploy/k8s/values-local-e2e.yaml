@@ -54,3 +54,9 @@ prometheus:
 
 grafana:
   enabled: false
+
+llm:
+  baseUrl: https://openrouter.ai/api/v1
+  model: deepseek/deepseek-v4-pro
+  httpReferer: http://127.0.0.1:4174
+  appTitle: RiskAgent Local E2E

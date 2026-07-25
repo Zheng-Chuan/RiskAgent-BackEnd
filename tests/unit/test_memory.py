@@ -200,6 +200,18 @@ async def test_memory_store_run_summary_with_mock_redis():
     assert summary.get("text") == "总结"
 
 
+def test_make_json_safe_handles_circular_reference():
+    from riskagent_backend.memory.memory_helpers import make_json_safe
+
+    payload = {"name": "root"}
+    payload["self"] = payload
+
+    safe = make_json_safe(payload)
+
+    assert safe["name"] == "root"
+    assert safe["self"] == "<circular_ref>"
+
+
 def test_memory_store_semantic_enabled_by_default(monkeypatch):
     """测试 MemoryStore 默认启用内置语义搜索."""
     monkeypatch.delenv("PAGE_INDEX_ENABLED", raising=False)

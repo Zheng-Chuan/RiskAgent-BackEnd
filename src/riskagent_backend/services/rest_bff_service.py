@@ -21,6 +21,7 @@ from riskagent_backend.orchestration.proactive_workflow import (
     run_proactive_workflow,
 )
 from riskagent_backend.services.runtime_task_store import (
+    build_empty_task_graph_snapshot,
     build_task_graph_snapshot,
     get_runtime_task_store,
 )
@@ -255,8 +256,19 @@ class RestBffService:
 
         runtime_store = get_runtime_task_store()
         runtime_snapshot = await runtime_store.get_task(task_id=normalized_task_id)
-        if isinstance(runtime_snapshot, dict) and isinstance(runtime_snapshot.get("graph"), dict):
-            return dict(runtime_snapshot["graph"])
+        if isinstance(runtime_snapshot, dict):
+            if isinstance(runtime_snapshot.get("graph"), dict):
+                return dict(runtime_snapshot["graph"])
+            return build_empty_task_graph_snapshot(
+                task_id=normalized_task_id,
+                session_id=(
+                    str(runtime_snapshot.get("session_id"))
+                    if isinstance(runtime_snapshot.get("session_id"), str) and str(runtime_snapshot.get("session_id")).strip()
+                    else None
+                ),
+                task_status=str(runtime_snapshot.get("status") or "pending"),
+                updated_at=int(runtime_snapshot.get("updated_at") or _now_ms()),
+            )
 
         persisted_context = await self._load_persisted_run_context(task_id=normalized_task_id)
         if not isinstance(persisted_context, dict):

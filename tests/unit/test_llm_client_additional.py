@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import socket
 from unittest.mock import AsyncMock, MagicMock
 
@@ -178,3 +179,35 @@ async def test_chat_completions_timeout_and_dns_patch(monkeypatch: pytest.Monkey
 
     assert exc.value.code == "UPSTREAM_TIMEOUT"
     assert socket.getaddrinfo is original_getaddrinfo
+
+
+
+def test_extract_json_from_text_handles_balanced_nested_payload():
+    from riskagent_backend.llm.output_repair import extract_json_from_text
+
+    raw = """分析结果如下
+```json
+{"a": 1, "b": {"c": [1, 2, 3]}}
+```
+请继续"""
+    extracted = extract_json_from_text(raw)
+
+    assert extracted == '{"a": 1, "b": {"c": [1, 2, 3]}}'
+
+
+
+def test_fix_common_json_issues_normalizes_fullwidth_json_punctuation():
+    from riskagent_backend.llm.output_repair import fix_common_json_issues
+
+    raw = '｛“schema_version”： “demo.v1”， “plan_steps”： ［｛“step_id”： “s1”， “kind”： “finalize”，｝］｝'
+    repaired = fix_common_json_issues(raw)
+
+    assert json.loads(repaired) == {
+        "schema_version": "demo.v1",
+        "plan_steps": [
+            {
+                "step_id": "s1",
+                "kind": "finalize",
+            }
+        ],
+    }
