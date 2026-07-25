@@ -4,7 +4,7 @@
 |------|-----|
 | Status | Accepted, In Progress |
 | Date | 2026-07-18 |
-| Author | RiskMonitor-MultiAgent 项目组 |
+| Author | RiskAgent-BackEnd 项目组 |
 
 ## Update Log
 
@@ -18,7 +18,7 @@
 
 1. **`start_background_monitor()` 从未被任何入口调用**：`start_agents()` 在 `proactive_workflow.py:107` 聚合调用它，但仅在 `run()` 内部（请求级生命周期）触发，`server.py` 启动入口不启动常驻感知协程。
 2. **`_perceive_environment()` 为空壳**：方法体是 `pass`，未接入 Docker API、Redis INFO、MySQL SHOW STATUS、Prometheus 指标流等真实监控数据源。
-3. **`ProactiveMultiAgentWorkflow` 是一次性请求-响应模式**：执行完毕即退出，无常驻协程维持后台循环。
+3. **`ProactiveBackEndWorkflow` 是一次性请求-响应模式**：执行完毕即退出，无常驻协程维持后台循环。
 
 ## 决策
 
@@ -71,4 +71,4 @@ BDI 五段骨架已完整存在，仅需激活和完善：
 - `docs/phases/phase-10-active-monitoring.md` — Phase 10 详细 checkpoint
 - `docs/ARCHITECTURE.md` — 系统架构主链路
 - `docs/PRD.md` — 产品需求文档
-- `src/riskmonitor_multiagent/proactive_agents/base.py` — BDI 骨架实现
+- `src/riskagent_backend/proactive_agents/base.py` — BDI 骨架实现

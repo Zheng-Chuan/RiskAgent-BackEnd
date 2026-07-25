@@ -1,8 +1,8 @@
-# RiskMonitor-MultiAgent PRD
+# RiskAgent-BackEnd PRD
 
 ## 1. 文档目标
 
-本文档是 RiskMonitor-MultiAgent 项目的产品需求总纲. 详细的分阶段规划, 技术决策和产品战略分别存放在独立文档中.
+本文档是 RiskAgent-BackEnd 项目的产品需求总纲. 详细的分阶段规划, 技术决策和产品战略分别存放在独立文档中.
 
 - **产品战略与客户价值**: [docs/STRATEGY.md](./STRATEGY.md)
 - **技术决策记录**: [docs/decisions/](./decisions/)
@@ -13,7 +13,7 @@
 
 ## 2. 项目定位
 
-把 RiskMonitor-MultiAgent 从"有骨架的多 Agent 工作流原型"升级为"简历表述和代码实现严格一致的可验证系统", 并在此基础上进一步升级为"自我改进的智能风控平台".
+把 RiskAgent-BackEnd 从"有骨架的多 Agent 工作流原型"升级为"简历表述和代码实现严格一致的可验证系统", 并在此基础上进一步升级为"自我改进的智能风控平台".
 
 ### 2.1 成功标准
 
@@ -126,6 +126,9 @@
 | FR-14 | 监控循环每轮必须清理已处理且超过保留时长的信念，防止信念列表无限膨胀 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | FR-15 | 系统必须提供浏览器友好的 memory REST BFF 视图接口 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
 | FR-16 | memory 对外输出必须经过结构化映射与脱敏处理, 不直接暴露 Redis 原始结构 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
+| FR-17 | 系统必须提供浏览器友好的 SSE 事件流接口, 实时推送智能体状态与记忆视图 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
+| FR-18 | 系统必须提供浏览器友好的 TaskGraph REST BFF 视图接口 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
+| FR-19 | 系统必须通过 SSE 实时推送任务级 TaskGraph 快照 | [Phase 13](./phases/phase-13-rest-bff-bootstrap.md) |
 
 ---
 
@@ -168,6 +171,7 @@
 - 记忆检索已经真实参与规划和恢复
 - 评测结果中关键计数项全部来自真实事件
 - README, ARCHITECTURE, PRD 的能力口径保持一致
+- 浏览器可通过 REST 和 SSE 读取真实执行的 TaskGraph DAG 快照
 
 ---
 

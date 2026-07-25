@@ -4,7 +4,7 @@
 |------|-----|
 | Status | Proposed |
 | Date | 2026-07-22 |
-| Author | RiskMonitor-MultiAgent 项目组 |
+| Author | RiskAgent-BackEnd 项目组 |
 
 ## Update Log
 
@@ -14,7 +14,7 @@
 
 ## 上下文
 
-当前 Skill 系统的语义检索依赖进程内 `SemanticIndexer`（`src/riskmonitor_multiagent/memory/semantic_indexer.py`），其核心实现为：
+当前 Skill 系统的语义检索依赖进程内 `SemanticIndexer`（`src/riskagent_backend/memory/semantic_indexer.py`），其核心实现为：
 
 1. **向量化**：词袋模型（Bag-of-Words），分词后 `hash(token) % 128` 映射到 128 维向量，L2 归一化
 2. **相似度计算**：`cosine * 0.7 + token_overlap * 0.3`
@@ -129,7 +129,7 @@
 
 **与现有 LLMClient 的关系**：
 
-项目已有 `LLMClient`（`src/riskmonitor_multiagent/llm/`）封装 LLM 调用。OpenRouter embedding 调用应复用或扩展现有 client，不绕过治理约束。具体实现方式待定：
+项目已有 `LLMClient`（`src/riskagent_backend/llm/`）封装 LLM 调用。OpenRouter embedding 调用应复用或扩展现有 client，不绕过治理约束。具体实现方式待定：
 - 方案 A：在 `LLMClient` 中新增 `embed()` 方法
 - 方案 B：新建独立的 `EmbeddingClient` 类
 
@@ -331,7 +331,7 @@
 - `docs/phases/phase-5-skill-creation.md` — Phase 5 技能自创闭环详细 checkpoint
 - `docs/ARCHITECTURE.md` — 第 4 章 Skill 自创闭环生命周期
 - `docs/PRD.md` — 产品需求文档
-- `src/riskmonitor_multiagent/skills/skill_store.py` — Skill 存储与检索实现
-- `src/riskmonitor_multiagent/skills/skill_injector.py` — Skill 注入器
-- `src/riskmonitor_multiagent/skills/skill_proposer.py` — Skill 创建器
-- `src/riskmonitor_multiagent/memory/semantic_indexer.py` — 当前语义索引器（词袋模型）
+- `src/riskagent_backend/skills/skill_store.py` — Skill 存储与检索实现
+- `src/riskagent_backend/skills/skill_injector.py` — Skill 注入器
+- `src/riskagent_backend/skills/skill_proposer.py` — Skill 创建器
+- `src/riskagent_backend/memory/semantic_indexer.py` — 当前语义索引器（词袋模型）

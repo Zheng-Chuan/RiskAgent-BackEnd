@@ -7,7 +7,7 @@
 1. 多维度评估: 任务准确度、问题理解度、协作深度、执行效率、推理质量、工具风险
 2. 自动化 + LLM 辅助评估: 客观指标自动计算,主观指标用 LLM 评估
 3. 历史对比: 与上次评估结果对比
-4. 业界基准对比: 与 GAIA、MultiAgentBench、PlanBench 等对比
+4. 业界基准对比: 与 GAIA、BackEndBench、PlanBench 等对比
 """
 
 from eval.core.evaluator import EvaluationResult, Evaluator

@@ -22,26 +22,26 @@ from typing import Any
 
 import pytest
 
-from riskmonitor_multiagent.contracts.event import EventType, new_event
-from riskmonitor_multiagent.contracts.run_trace import (
+from riskagent_backend.contracts.event import EventType, new_event
+from riskagent_backend.contracts.run_trace import (
     RUN_TRACE_SCHEMA_VERSION,
     validate_run_trace,
 )
-from riskmonitor_multiagent.observability.run_trace import (
+from riskagent_backend.observability.run_trace import (
     RunTraceStore,
     build_run_trace_snapshot,
 )
-from riskmonitor_multiagent.orchestration.proactive_workflow import (
-    ProactiveMultiAgentWorkflow,
+from riskagent_backend.orchestration.proactive_workflow import (
+    ProactiveBackEndWorkflow,
 )
-from riskmonitor_multiagent.perception.escalation import EscalationManager
-from riskmonitor_multiagent.perception.rules import FilterRule, PerceptionFilterEngine
-from riskmonitor_multiagent.perception.signals import PerceptionSignal, SignalSeverity
-from riskmonitor_multiagent.proactive_agents.base import (
+from riskagent_backend.perception.escalation import EscalationManager
+from riskagent_backend.perception.rules import FilterRule, PerceptionFilterEngine
+from riskagent_backend.perception.signals import PerceptionSignal, SignalSeverity
+from riskagent_backend.proactive_agents.base import (
     BaseProactiveAgent,
     _PERCEPTION_SOURCES,
 )
-from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+from riskagent_backend.skills import SkillProposer, SkillStore
 
 
 # =====================================================================================
@@ -366,7 +366,7 @@ async def test_db_pool_exhausted_detection(monkeypatch: pytest.MonkeyPatch) -> N
     # _act: 构造 RISK_BREACH_DETECTED 事件, 通过 _FakeWorkflow 捕获
     captured: dict[str, Any] = {}
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.proactive_workflow.get_proactive_workflow",
+        "riskagent_backend.orchestration.proactive_workflow.get_proactive_workflow",
         lambda: _FakeWorkflow(captured),
     )
     await agent._act()
@@ -389,7 +389,7 @@ async def test_db_pool_exhausted_full_chain_with_trace(
     agent = _DbPoolExhaustedAgent()
     captured: dict[str, Any] = {}
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.proactive_workflow.get_proactive_workflow",
+        "riskagent_backend.orchestration.proactive_workflow.get_proactive_workflow",
         lambda: _FakeWorkflow(captured),
     )
 
@@ -560,9 +560,9 @@ async def test_db_pool_exhausted_run_trace(tmp_path: Path) -> None:
     # 使用临时目录的 RunTraceStore, 避免污染 results/run_traces/
     temp_store = RunTraceStore(base_dir=str(tmp_path))
 
-    # 通过真实 ProactiveMultiAgentWorkflow._record_run_trace_snapshot 记录 trace
+    # 通过真实 ProactiveBackEndWorkflow._record_run_trace_snapshot 记录 trace
     # (复用 message_bus.get_related_event_history 的真实调用, 对未知 run_id 返回空)
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     workflow._run_trace_store = temp_store  # type: ignore[attr-defined]
     workflow._record_run_trace_snapshot(
         result=result,

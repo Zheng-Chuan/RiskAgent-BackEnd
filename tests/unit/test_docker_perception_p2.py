@@ -8,9 +8,9 @@ import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.perception.data_sources.docker_source import DockerDataSource
-from riskmonitor_multiagent.perception.signals import PerceptionSignal, SignalSeverity
-from riskmonitor_multiagent.perception import PerceptionFilterEngine, get_default_rules
+from riskagent_backend.perception.data_sources.docker_source import DockerDataSource
+from riskagent_backend.perception.signals import PerceptionSignal, SignalSeverity
+from riskagent_backend.perception import PerceptionFilterEngine, get_default_rules
 
 
 def test_docker_data_source_collect():
@@ -108,7 +108,7 @@ def test_docker_ps_comparison():
     # 获取 docker ps 直接输出
     try:
         result = subprocess.run(
-            ["docker", "ps", "-a", "--format", "{{json .}}", "--filter", "name=riskmonitor-"],
+            ["docker", "ps", "-a", "--format", "{{json .}}", "--filter", "name=riskagent-"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -127,7 +127,7 @@ def test_docker_ps_comparison():
     docker_ps_names = set(c.get("Names", "").lstrip("/") for c in docker_ps_containers)
 
     if not docker_ps_names:
-        print("[SKIP] 无 riskmonitor 容器运行，跳过一致性对比")
+        print("[SKIP] 无 riskagent 容器运行，跳过一致性对比")
         return
 
     # 对比

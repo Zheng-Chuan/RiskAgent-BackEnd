@@ -51,7 +51,7 @@ def _make_task(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_skill_on_retrieves_matching_skills():
     """skill_enabled=True 时检索到匹配 Skill, 返回非空 skills 列表."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(
@@ -84,7 +84,7 @@ async def test_skill_on_retrieves_matching_skills():
 @pytest.mark.asyncio
 async def test_skill_off_no_injection():
     """skill_enabled=False 时 skills 列表为空."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(confidence=0.9))
@@ -106,7 +106,7 @@ async def test_skill_off_no_injection():
 @pytest.mark.asyncio
 async def test_low_confidence_filtered():
     """confidence < min_confidence 的 Skill 被过滤."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     # 创建低置信度 Skill (低于默认 min_confidence=0.3)
@@ -131,7 +131,7 @@ async def test_low_confidence_filtered():
 @pytest.mark.asyncio
 async def test_non_active_status_filtered():
     """status != 'active' 的 Skill 不参与注入."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="活跃技能", status="active", confidence=0.9))
@@ -156,7 +156,7 @@ async def test_non_active_status_filtered():
 @pytest.mark.asyncio
 async def test_max_skills_limit():
     """创建 5 个 Skill, 只返回 max_skills 个."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     for i in range(5):
@@ -183,7 +183,7 @@ async def test_max_skills_limit():
 @pytest.mark.asyncio
 async def test_empty_query_safe_handling():
     """无匹配 Skill 时返回空列表."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     # 不创建任何 Skill
@@ -202,7 +202,7 @@ async def test_empty_query_safe_handling():
 @pytest.mark.asyncio
 async def test_empty_task_returns_empty():
     """task 无可提取关键词时安全返回空列表."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(confidence=0.9))
@@ -225,7 +225,7 @@ async def test_empty_task_returns_empty():
 @pytest.mark.asyncio
 async def test_injection_structure_correctness():
     """检查返回结构含 skill_id, name, steps, applicable_conditions, failure_boundary, confidence."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(
@@ -268,7 +268,7 @@ async def test_injection_structure_correctness():
 @pytest.mark.asyncio
 async def test_injection_summary_with_skills():
     """有匹配 Skill 时 injection_summary 包含正确数量."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="技能A", confidence=0.9))
@@ -289,7 +289,7 @@ async def test_injection_summary_with_skills():
 @pytest.mark.asyncio
 async def test_injection_summary_no_skills():
     """无匹配 Skill 时 injection_summary 仍生成."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     injector = SkillInjector(store)
@@ -307,7 +307,7 @@ async def test_injection_summary_no_skills():
 @pytest.mark.asyncio
 async def test_injection_summary_skill_off():
     """skill_off 时 injection_summary 提示 disabled."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     injector = SkillInjector(store)
@@ -326,7 +326,7 @@ async def test_injection_summary_skill_off():
 @pytest.mark.asyncio
 async def test_search_exception_returns_safe_structure():
     """skill_store.search 抛异常时返回安全结构, 不崩溃."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(confidence=0.9))
@@ -353,7 +353,7 @@ async def test_search_exception_returns_safe_structure():
 @pytest.mark.asyncio
 async def test_intent_from_dict_primary_intent_type():
     """task.intent 为 dict 时从 primary_intent_type 提取."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(
@@ -380,7 +380,7 @@ async def test_intent_from_dict_primary_intent_type():
 @pytest.mark.asyncio
 async def test_payload_style_task():
     """兼容 payload.content 风格的 task."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(

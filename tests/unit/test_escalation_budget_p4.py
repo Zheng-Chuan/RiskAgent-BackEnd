@@ -6,7 +6,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.perception import (
+from riskagent_backend.perception import (
     PerceptionSignal, SignalSeverity,
     PerceptionFilterEngine, get_default_rules,
     EscalationManager, SystemEvent,

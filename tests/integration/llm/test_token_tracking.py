@@ -15,12 +15,12 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.llm.token_tracker import (
+from riskagent_backend.llm.token_tracker import (
     get_token_tracker,
     record_token_usage,
     reset_token_tracker,
 )
-from riskmonitor_multiagent.observability.metrics import (
+from riskagent_backend.observability.metrics import (
     render_prometheus_metrics,
     reset_observability_metrics,
 )
@@ -151,7 +151,7 @@ class TestRealLLMTokenTracking:
     @pytest.mark.asyncio
     async def test_real_llm_call_records_tokens(self):
         """真实 LLM 调用后 token 被正确记录"""
-        from riskmonitor_multiagent.llm.llm_client import LlmClient
+        from riskagent_backend.llm.llm_client import LlmClient
 
         client = LlmClient()
 
@@ -176,7 +176,7 @@ class TestRealLLMTokenTracking:
     @pytest.mark.asyncio
     async def test_real_llm_latency_recorded(self):
         """真实 LLM 调用延迟被记录"""
-        from riskmonitor_multiagent.llm.llm_client import LlmClient
+        from riskagent_backend.llm.llm_client import LlmClient
 
         client = LlmClient()
         await client.chat_completions(
@@ -190,7 +190,7 @@ class TestRealLLMTokenTracking:
     @pytest.mark.asyncio
     async def test_real_llm_model_label_correct(self):
         """真实调用的 model 标签正确"""
-        from riskmonitor_multiagent.llm.llm_client import LlmClient
+        from riskagent_backend.llm.llm_client import LlmClient
 
         client = LlmClient()
         await client.chat_completions(
@@ -205,7 +205,7 @@ class TestRealLLMTokenTracking:
     @pytest.mark.asyncio
     async def test_cache_hit_does_not_record_tokens(self):
         """缓存命中不记录 token 消耗"""
-        from riskmonitor_multiagent.llm.llm_client import LlmClient
+        from riskagent_backend.llm.llm_client import LlmClient
 
         client = LlmClient()
         messages = [{"role": "user", "content": "缓存测试固定内容12345"}]
@@ -232,7 +232,7 @@ class TestUsageAPIEndpoint:
         """端点返回正确 JSON 格式"""
         from starlette.testclient import TestClient
 
-        from riskmonitor_multiagent.server import mcp
+        from riskagent_backend.server import mcp
 
         app = mcp.streamable_http_app()
         client = TestClient(app)
@@ -259,7 +259,7 @@ class TestUsageAPIEndpoint:
         """端点反映已记录的数据"""
         from starlette.testclient import TestClient
 
-        from riskmonitor_multiagent.server import mcp
+        from riskagent_backend.server import mcp
 
         # 先记录一些数据
         record_token_usage(model="test-api", prompt_tokens=100, completion_tokens=200, total_tokens=300)

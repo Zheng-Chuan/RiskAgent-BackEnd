@@ -8,13 +8,13 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.proactive_agents import ProactiveAgentResult
-from riskmonitor_multiagent.orchestration.proactive_workflow import ProactiveMultiAgentWorkflow
-from riskmonitor_multiagent.orchestration.workflow_resume import validate_resume_request_completeness
+from riskagent_backend.proactive_agents import ProactiveAgentResult
+from riskagent_backend.orchestration.proactive_workflow import ProactiveBackEndWorkflow
+from riskagent_backend.orchestration.workflow_resume import validate_resume_request_completeness
 
 
 def test_proactive_workflow_replans_when_critic_rejects():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     calls = {"orchestrate": 0}
 
     async def _noop():
@@ -134,7 +134,7 @@ def test_proactive_workflow_replans_when_critic_rejects():
 
 
 def test_proactive_workflow_runtime_replans_after_tool_failure():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     calls = {"orchestrate": 0}
 
     async def _noop():
@@ -234,7 +234,7 @@ def test_proactive_workflow_runtime_replans_after_tool_failure():
 
 
 def test_proactive_workflow_can_resume_from_failed_step():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     calls = {"engineer": 0, "analyst": 0}
 
     async def _noop():
@@ -334,7 +334,7 @@ def test_proactive_workflow_can_resume_from_failed_step():
 
 
 def test_proactive_workflow_runs_parallel_delegate_branches_and_finalize():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def _noop():
         return None
@@ -433,7 +433,7 @@ def test_proactive_workflow_runs_parallel_delegate_branches_and_finalize():
 
 
 def test_proactive_workflow_surfaces_tool_receipts_from_task_graph():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def _noop():
         return None
@@ -512,7 +512,7 @@ def test_proactive_workflow_surfaces_tool_receipts_from_task_graph():
     workflow._critic_agent.review = _fake_critic
 
     with patch(
-        "riskmonitor_multiagent.orchestration.node_executors.execute_agent_command",
+        "riskagent_backend.orchestration.node_executors.execute_agent_command",
         return_value=fake_receipt,
     ):
         result = asyncio.run(
@@ -550,7 +550,7 @@ def test_validate_resume_request_completeness_flags_missing_fields():
 
 
 def test_proactive_workflow_fails_fast_for_incomplete_resume_request():
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def _noop():
         return None
@@ -661,7 +661,7 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
             }
 
     fake_store = _FakeMemoryStore()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     calls = {"engineer": 0, "analyst": 0}
     seen_resume_context: dict[str, object] = {}
 
@@ -701,7 +701,7 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
     workflow._engineer_agent.analyze_task = _fake_engineer
     workflow._analyst_agent.analyze_task = _fake_analyst_bad
 
-    with patch("riskmonitor_multiagent.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
+    with patch("riskagent_backend.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
         first = asyncio.run(
             workflow.run(
                 {
@@ -775,7 +775,7 @@ def test_proactive_workflow_omits_memory_fields_when_memory_disabled():
         async def retrieve_for_planning(self, *args, **kwargs):
             raise AssertionError("memory store should not be used when memory is disabled")
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def _noop():
         return None
@@ -802,7 +802,7 @@ def test_proactive_workflow_omits_memory_fields_when_memory_disabled():
     workflow._orchestrator_agent.orchestrate = _fake_orchestrate
     workflow._critic_agent.review = _fake_critic
 
-    with patch("riskmonitor_multiagent.orchestration.proactive_workflow.get_memory_store", return_value=_FailIfCalledStore()):
+    with patch("riskagent_backend.orchestration.proactive_workflow.get_memory_store", return_value=_FailIfCalledStore()):
         result = asyncio.run(
             workflow.run(
                 {
@@ -861,7 +861,7 @@ def test_proactive_workflow_disables_private_memory_only():
             return []
 
     fake_store = _FakeMemoryStore()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def _noop():
         return None
@@ -894,7 +894,7 @@ def test_proactive_workflow_disables_private_memory_only():
     workflow._critic_agent.review = _fake_critic
     workflow._engineer_agent.analyze_task = _fake_engineer
 
-    with patch("riskmonitor_multiagent.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
+    with patch("riskagent_backend.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
         result = asyncio.run(
             workflow.run(
                 {
@@ -992,7 +992,7 @@ def test_proactive_workflow_resumes_pending_approval_from_blocked_step():
             }
 
     fake_store = _FakeMemoryStore()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     calls = {"engineer": 0, "analyst": 0}
 
     async def _noop():
@@ -1054,7 +1054,7 @@ def test_proactive_workflow_resumes_pending_approval_from_blocked_step():
         ],
     }
 
-    with patch("riskmonitor_multiagent.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
+    with patch("riskagent_backend.orchestration.proactive_workflow.get_memory_store", return_value=fake_store):
         first = asyncio.run(
             workflow.run(
                 {

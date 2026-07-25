@@ -84,7 +84,7 @@ def _make_execution_result(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_skill_revision_improves_outcome():
     """Skill 使用 → 失败 → 修订 → 再次使用 → A/B 对比显示改善."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -145,7 +145,7 @@ async def test_skill_revision_improves_outcome():
 @pytest.mark.asyncio
 async def test_full_revision_chain():
     """修订链路: check → propose → apply → verify (store 中的数据正确更新)."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -203,7 +203,7 @@ async def test_full_revision_chain():
 @pytest.mark.asyncio
 async def test_ab_compare_integration():
     """A/B 对比集成测试: 修订后的 steps 在多种场景中不劣于修订前."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -264,7 +264,7 @@ async def test_ab_compare_integration():
 @pytest.mark.asyncio
 async def test_multiple_revision_chain():
     """连续多次修订 → revision_history 累积, 每次 steps 都更新."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -303,7 +303,7 @@ async def test_multiple_revision_chain():
 @pytest.mark.asyncio
 async def test_revision_exception_isolated():
     """SkillReviser 异常不影响后续操作."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
     from unittest.mock import AsyncMock, patch
 
     store = SkillStore()
@@ -352,7 +352,7 @@ async def test_revision_exception_isolated():
 @pytest.mark.asyncio
 async def test_revision_history_rollback():
     """apply_revision 后可以通过 revision_history 回滚到任意版本."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -396,17 +396,17 @@ async def test_revision_history_rollback():
     assert len(rolled_back["revision_history"]) == 2
 
 
-# ==================== 7. 与 ProactiveMultiAgentWorkflow 集成 ====================
+# ==================== 7. 与 ProactiveBackEndWorkflow 集成 ====================
 
 
 @pytest.mark.asyncio
 async def test_workflow_revision_after_critic_fail():
-    """ProactiveMultiAgentWorkflow 中 critic 失败后自动触发 Skill 修订."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    """ProactiveBackEndWorkflow 中 critic 失败后自动触发 Skill 修订."""
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     # 创建 Skill
     created = await workflow._skill_store.create(_make_skill(confidence=0.7))
@@ -429,7 +429,7 @@ async def test_workflow_revision_after_critic_fail():
     workflow._skill_usage_tracker.clear_tracking(run_id)
 
     # 使用 SkillReviser 进行修订
-    from riskmonitor_multiagent.skills import SkillReviser
+    from riskagent_backend.skills import SkillReviser
 
     reviser = SkillReviser(workflow._skill_store)
     proposal = await reviser.check_and_propose_revision(

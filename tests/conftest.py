@@ -21,8 +21,8 @@ def reset_memory_store():
 
     # 清理全局 MemoryStore 实例,强制重新创建
     try:
-        from riskmonitor_multiagent.memory.memory_store import _MEMORY_STORE, MemoryStore
-        import riskmonitor_multiagent.memory.memory_store as ms_module
+        from riskagent_backend.memory.memory_store import _MEMORY_STORE, MemoryStore
+        import riskagent_backend.memory.memory_store as ms_module
 
         if _MEMORY_STORE is not None:
             # 尝试关闭现有连接
@@ -43,7 +43,7 @@ def reset_memory_store():
 
     # 测试结束后清理 Redis
     try:
-        from riskmonitor_multiagent.memory.memory_store import _MEMORY_STORE
+        from riskagent_backend.memory.memory_store import _MEMORY_STORE
 
         if _MEMORY_STORE is not None:
             import asyncio
@@ -64,14 +64,14 @@ def reset_memory_store():
 
 def pytest_sessionfinish(session, exitstatus):
     try:
-        from riskmonitor_multiagent.data_access.mysql_engine import dispose_engine
+        from riskagent_backend.data_access.mysql_engine import dispose_engine
 
         dispose_engine()
     except Exception:
         pass
 
     try:
-        from riskmonitor_multiagent.memory.stores import dispose_all_sql_memory_engines
+        from riskagent_backend.memory.stores import dispose_all_sql_memory_engines
 
         dispose_all_sql_memory_engines()
     except Exception:

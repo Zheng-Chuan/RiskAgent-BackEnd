@@ -7,11 +7,11 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.orchestration.tool_executor import ToolResult, execute_agent_command, new_agent_command
+from riskagent_backend.orchestration.tool_executor import ToolResult, execute_agent_command, new_agent_command
 
 
 def test_tool_executor_retries_timeout_and_classifies_failure(monkeypatch):
-    import riskmonitor_multiagent.orchestration.tool_executor as te
+    import riskagent_backend.orchestration.tool_executor as te
 
     calls = {"n": 0}
 
@@ -51,7 +51,7 @@ def test_tool_executor_retries_timeout_and_classifies_failure(monkeypatch):
 
 
 def test_tool_executor_enforces_run_budget(monkeypatch):
-    import riskmonitor_multiagent.orchestration.tool_executor as te
+    import riskagent_backend.orchestration.tool_executor as te
 
     te._RUN_BUDGET_STATE.clear()
 
@@ -97,7 +97,7 @@ def test_tool_executor_enforces_run_budget(monkeypatch):
 
 def test_tool_executor_returns_rejected_approval_trace(monkeypatch):
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )
@@ -137,7 +137,7 @@ def test_tool_executor_returns_rejected_approval_trace(monkeypatch):
 
 def test_tool_executor_returns_resumed_approval_trace_and_request(monkeypatch):
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )
@@ -190,7 +190,7 @@ def test_tool_executor_returns_resumed_approval_trace_and_request(monkeypatch):
 
 def test_tool_executor_returns_expired_approval_trace(monkeypatch):
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )

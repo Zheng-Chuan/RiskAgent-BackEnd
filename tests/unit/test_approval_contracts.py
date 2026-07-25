@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.contracts.approval import (
+from riskagent_backend.contracts.approval import (
     APPROVAL_RECORD_SCHEMA_VERSION,
     APPROVAL_REQUEST_SCHEMA_VERSION,
     ensure_approval_transition,

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.contracts.event import EventType, new_event
-from riskmonitor_multiagent.governance.proactive_budget import (
+from riskagent_backend.contracts.event import EventType, new_event
+from riskagent_backend.governance.proactive_budget import (
     ProactiveBudgetManager,
     reset_proactive_budget_manager,
 )
-from riskmonitor_multiagent.orchestration.proactive_workflow import (
-    ProactiveMultiAgentWorkflow,
+from riskagent_backend.orchestration.proactive_workflow import (
+    ProactiveBackEndWorkflow,
     reset_proactive_workflow,
 )
-from riskmonitor_multiagent.observability.run_trace import reset_run_trace_store
+from riskagent_backend.observability.run_trace import reset_run_trace_store
 
 
 def test_proactive_budget_blocks_event_burst() -> None:
@@ -54,7 +54,7 @@ async def test_start_from_event_returns_blocked_when_budget_denies(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     class FakeBudget:
         def evaluate_and_reserve(self, *, run_id: str, event: dict) -> object:
@@ -84,7 +84,7 @@ async def test_user_task_run_not_guarded_by_proactive_budget(
 ) -> None:
     reset_proactive_workflow()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     async def fake_run_internal(self, *, task: dict, run_context: dict, route_decision=None, source_event=None) -> dict:
         return {
@@ -103,7 +103,7 @@ async def test_user_task_run_not_guarded_by_proactive_budget(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,

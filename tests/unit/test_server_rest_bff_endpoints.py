@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _SRC_ROOT = _PROJECT_ROOT / "src"
@@ -13,8 +15,8 @@ if str(_SRC_ROOT) not in sys.path:
 def test_rest_bff_endpoints(monkeypatch) -> None:
     from starlette.testclient import TestClient
 
-    from riskmonitor_multiagent import server
-    from riskmonitor_multiagent.server import mcp
+    from riskagent_backend import server
+    from riskagent_backend.server import mcp
 
     class FakeRestBffService:
         async def submit_task(self, *, description: str) -> dict[str, object]:
@@ -39,9 +41,44 @@ def test_rest_bff_endpoints(monkeypatch) -> None:
                         "status": "running",
                     }
                 ],
+                "graph": {
+                    "task_id": "task_123",
+                    "status": "running",
+                    "schema_version": "task_graph.v1",
+                    "nodes": [
+                        {
+                            "id": "step_1",
+                            "label": "delegate system_engineer",
+                            "kind": "delegate",
+                            "status": "running",
+                            "data": {"step_id": "step_1"},
+                        }
+                    ],
+                    "edges": [],
+                    "updated_at": 1234567999,
+                },
                 "result": None,
                 "error": None,
                 "created_at": 1234567890,
+                "updated_at": 1234567999,
+            }
+
+        async def get_task_graph(self, *, task_id: str) -> dict[str, object]:
+            assert task_id == "task_123"
+            return {
+                "task_id": "task_123",
+                "status": "running",
+                "schema_version": "task_graph.v1",
+                "nodes": [
+                    {
+                        "id": "step_1",
+                        "label": "delegate system_engineer",
+                        "kind": "delegate",
+                        "status": "running",
+                        "data": {"step_id": "step_1"},
+                    }
+                ],
+                "edges": [],
                 "updated_at": 1234567999,
             }
 
@@ -132,6 +169,11 @@ def test_rest_bff_endpoints(monkeypatch) -> None:
     resp = client.get("/api/tasks/task_123")
     assert resp.status_code == 200
     assert resp.json()["status"] == "running"
+    assert resp.json()["graph"]["nodes"][0]["id"] == "step_1"
+
+    resp = client.get("/api/tasks/task_123/graph")
+    assert resp.status_code == 200
+    assert resp.json()["nodes"][0]["label"] == "delegate system_engineer"
 
     resp = client.get("/api/agents")
     assert resp.status_code == 200
@@ -150,7 +192,7 @@ def test_rest_bff_endpoints(monkeypatch) -> None:
 def test_rest_bff_create_task_validates_payload() -> None:
     from starlette.testclient import TestClient
 
-    from riskmonitor_multiagent.server import mcp
+    from riskagent_backend.server import mcp
 
     app = mcp.streamable_http_app()
     client = TestClient(app)
@@ -163,8 +205,8 @@ def test_rest_bff_create_task_validates_payload() -> None:
 def test_rest_bff_memory_endpoints_validate_query_params(monkeypatch) -> None:
     from starlette.testclient import TestClient
 
-    from riskmonitor_multiagent import server
-    from riskmonitor_multiagent.server import mcp
+    from riskagent_backend import server
+    from riskagent_backend.server import mcp
 
     class FakeRestBffService:
         async def get_memory_snapshot(self, *, limit: int) -> dict[str, object]:
@@ -191,9 +233,9 @@ def test_rest_bff_memory_endpoints_validate_query_params(monkeypatch) -> None:
 def test_rest_bff_memory_endpoint_masks_sensitive_content(monkeypatch) -> None:
     from starlette.testclient import TestClient
 
-    from riskmonitor_multiagent import server
-    from riskmonitor_multiagent.server import mcp
-    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
+    from riskagent_backend import server
+    from riskagent_backend.server import mcp
+    from riskagent_backend.services.rest_bff_service import RestBffService
 
     class FakeMemoryStore:
         async def list_recent(
@@ -238,7 +280,7 @@ def test_rest_bff_memory_endpoint_masks_sensitive_content(monkeypatch) -> None:
             return {}
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        "riskagent_backend.services.rest_bff_service.get_memory_store",
         lambda: FakeMemoryStore(),
     )
     monkeypatch.setattr(server, "get_rest_bff_service", lambda: RestBffService())
@@ -251,3 +293,156 @@ def test_rest_bff_memory_endpoint_masks_sensitive_content(monkeypatch) -> None:
     body = resp.json()
     assert body["items"][0]["summary"] == "调用 sk-*** 后完成分析"
     assert "sk-or-v1-sensitive-token-123456" not in str(body)
+
+
+class _FakeStreamRequest:
+    def __init__(
+        self,
+        *,
+        query_params: dict[str, str] | None = None,
+        disconnected_after: int = 1,
+    ) -> None:
+        self.query_params = query_params or {}
+        self.path_params: dict[str, str] = {}
+        self._disconnect_checks = 0
+        self._disconnected_after = disconnected_after
+
+    async def is_disconnected(self) -> bool:
+        is_done = self._disconnect_checks >= self._disconnected_after
+        self._disconnect_checks += 1
+        return is_done
+
+
+@pytest.mark.asyncio
+async def test_rest_bff_stream_emits_agent_snapshot(monkeypatch) -> None:
+    from riskagent_backend import server
+
+    class FakeRestBffService:
+        async def get_agents_snapshot(self) -> dict[str, object]:
+            return {
+                "items": [
+                    {
+                        "id": "system_engineer",
+                        "name": "ProactiveSystemEngineerAgent",
+                        "role": "engineer",
+                        "status": "working",
+                        "currentTaskId": "task_123",
+                        "capabilities": ["analyze"],
+                        "lastActiveAt": 1234567999,
+                    }
+                ],
+                "updated_at": 1234567999,
+            }
+
+        async def get_memory_snapshot(self, *, limit: int) -> dict[str, object]:
+            del limit
+            return {"items": [], "summary": {"sharedCount": 0, "privateCount": 0, "agentCount": 0}, "updated_at": 1234567999}
+
+        async def get_task_graph(self, *, task_id: str) -> dict[str, object]:
+            assert task_id == "task_123"
+            return {
+                "task_id": "task_123",
+                "status": "running",
+                "schema_version": "task_graph.v1",
+                "nodes": [
+                    {
+                        "id": "step_1",
+                        "label": "delegate system_engineer",
+                        "kind": "delegate",
+                        "status": "running",
+                        "data": {"step_id": "step_1"},
+                    }
+                ],
+                "edges": [],
+                "updated_at": 1234567999,
+            }
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(server, "get_rest_bff_service", lambda: FakeRestBffService())
+    monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
+
+    request = _FakeStreamRequest(query_params={"memory": "0", "task_id": "task_123"}, disconnected_after=2)
+    response = await server.get_stream_endpoint(request)
+
+    first_chunk = await response.body_iterator.__anext__()
+    second_chunk = await response.body_iterator.__anext__()
+    await response.body_iterator.aclose()
+
+    assert response.media_type == "text/event-stream"
+    assert first_chunk == b"retry: 1500\n\n"
+    assert b"event: agent_snapshot" in second_chunk
+    assert b'"type": "agent_snapshot"' in second_chunk
+
+
+@pytest.mark.asyncio
+async def test_rest_bff_stream_deduplicates_same_snapshot(monkeypatch) -> None:
+    from riskagent_backend import server
+
+    class FakeRestBffService:
+        async def get_agents_snapshot(self) -> dict[str, object]:
+            return {
+                "items": [
+                    {
+                        "id": "system_engineer",
+                        "name": "ProactiveSystemEngineerAgent",
+                        "role": "engineer",
+                        "status": "working",
+                        "currentTaskId": "task_123",
+                        "capabilities": ["analyze"],
+                        "lastActiveAt": 1234567999,
+                    }
+                ],
+                "updated_at": 1234567999,
+            }
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(server, "get_rest_bff_service", lambda: FakeRestBffService())
+    monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
+
+    request = _FakeStreamRequest(query_params={"memory": "0"}, disconnected_after=2)
+    response = await server.get_stream_endpoint(request)
+
+    retry_chunk = await response.body_iterator.__anext__()
+    event_chunk = await response.body_iterator.__anext__()
+
+    with pytest.raises(StopAsyncIteration):
+        await response.body_iterator.__anext__()
+
+    assert retry_chunk == b"retry: 1500\n\n"
+    assert b"event: agent_snapshot" in event_chunk
+
+
+@pytest.mark.asyncio
+async def test_rest_bff_stream_returns_task_not_found_event(monkeypatch) -> None:
+    from riskagent_backend import server
+
+    class FakeRestBffService:
+        async def get_task_memory(self, *, task_id: str, limit: int) -> dict[str, object]:
+            del limit
+            raise KeyError(task_id)
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(server, "get_rest_bff_service", lambda: FakeRestBffService())
+    monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
+
+    request = _FakeStreamRequest(
+        query_params={"agents": "0", "memory": "1", "task_id": "task_missing"},
+        disconnected_after=1,
+    )
+    response = await server.get_stream_endpoint(request)
+
+    retry_chunk = await response.body_iterator.__anext__()
+    error_chunk = await response.body_iterator.__anext__()
+
+    with pytest.raises(StopAsyncIteration):
+        await response.body_iterator.__anext__()
+
+    assert retry_chunk == b"retry: 1500\n\n"
+    assert b"event: error" in error_chunk
+    assert b'"code": "NOT_FOUND"' in error_chunk

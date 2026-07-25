@@ -7,8 +7,8 @@ src_root = project_root / "src"
 if str(src_root) not in sys.path:
     sys.path.insert(0, str(src_root))
 
-from riskmonitor_multiagent.contracts.approval import validate_approval_request
-from riskmonitor_multiagent.orchestration.tool_executor import (
+from riskagent_backend.contracts.approval import validate_approval_request
+from riskagent_backend.orchestration.tool_executor import (
     execute_agent_command,
     new_agent_command,
 )
@@ -35,7 +35,7 @@ def _build_alert(alert_id: str, request_id: str) -> dict:
 
 def test_approval_resume_workflow_blocks_then_resumes(monkeypatch) -> None:
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )

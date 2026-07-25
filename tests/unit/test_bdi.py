@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.proactive_agents.base import (
+from riskagent_backend.proactive_agents.base import (
     Belief,
     Desire,
     Intention,

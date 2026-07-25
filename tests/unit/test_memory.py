@@ -13,7 +13,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 
 def test_memory_entry_validate_and_normalize():
-    from riskmonitor_multiagent.contracts.memory_entry import MEMORY_ENTRY_SCHEMA_VERSION, normalize_memory_entry, validate_memory_entry
+    from riskagent_backend.contracts.memory_entry import MEMORY_ENTRY_SCHEMA_VERSION, normalize_memory_entry, validate_memory_entry
 
     entry = normalize_memory_entry(
         {
@@ -36,7 +36,7 @@ def test_memory_entry_validate_and_normalize():
 
 
 def test_memory_entry_scope_must_be_private_or_shared():
-    from riskmonitor_multiagent.contracts.memory_entry import normalize_memory_entry, validate_memory_entry
+    from riskagent_backend.contracts.memory_entry import normalize_memory_entry, validate_memory_entry
 
     entry = normalize_memory_entry(
         {
@@ -68,7 +68,7 @@ def test_memory_entry_scope_must_be_private_or_shared():
 @pytest.mark.asyncio
 async def test_memory_store_roundtrip_with_mock_redis():
     """测试 MemoryStore 使用 mock Redis."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     # 模拟存储数据
     _store_data = {}
@@ -147,7 +147,7 @@ async def test_memory_store_roundtrip_with_mock_redis():
 @pytest.mark.asyncio
 async def test_memory_store_run_context_with_mock_redis():
     """测试 MemoryStore 的 run context 功能."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     # 创建 mock Redis
     mock_redis = MagicMock()
@@ -176,7 +176,7 @@ async def test_memory_store_run_context_with_mock_redis():
 @pytest.mark.asyncio
 async def test_memory_store_run_summary_with_mock_redis():
     """测试 MemoryStore 的 run summary 功能."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     # 创建 mock Redis
     mock_redis = MagicMock()
@@ -204,7 +204,7 @@ def test_memory_store_semantic_enabled_by_default(monkeypatch):
     """测试 MemoryStore 默认启用内置语义搜索."""
     monkeypatch.delenv("PAGE_INDEX_ENABLED", raising=False)
     monkeypatch.delenv("SEMANTIC_MEMORY_ENABLED", raising=False)
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     store = MemoryStore()
     assert store._config.enable_semantic_memory is True
@@ -213,7 +213,7 @@ def test_memory_store_semantic_enabled_by_default(monkeypatch):
 @pytest.mark.asyncio
 async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
     """测试 plan 前 retrieval 会汇总近期记忆."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     _store_data = {}
     mock_redis = MagicMock()
@@ -294,7 +294,7 @@ async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
 @pytest.mark.asyncio
 async def test_memory_store_retrieve_for_planning_gates_low_relevance_hits():
     """低相关记忆不会直接进入规划摘要."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     _store_data = {}
     mock_redis = MagicMock()
@@ -376,7 +376,7 @@ async def test_memory_store_retrieve_for_planning_gates_low_relevance_hits():
 @pytest.mark.asyncio
 async def test_memory_store_semantic_search_returns_real_hits():
     """测试 semantic search 走真实命中路径而不是空实现."""
-    from riskmonitor_multiagent.memory import MemoryConfig, MemoryStore
+    from riskagent_backend.memory import MemoryConfig, MemoryStore
 
     _store_data = {}
     mock_redis = MagicMock()
@@ -430,7 +430,7 @@ async def test_memory_store_semantic_search_returns_real_hits():
 @pytest.mark.asyncio
 async def test_memory_store_build_resume_payload_uses_run_context_and_memory_state():
     """测试 run_id 恢复会复用运行上下文和 memory state."""
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     context_payload = {
         "run_id": "run_demo_2",
@@ -484,7 +484,7 @@ async def test_memory_store_build_resume_payload_uses_run_context_and_memory_sta
 
 @pytest.mark.asyncio
 async def test_memory_store_build_resume_payload_prefers_blocked_step_id():
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     context_payload = {
         "run_id": "run_demo_blocked",
@@ -528,7 +528,7 @@ async def test_memory_store_build_resume_payload_prefers_blocked_step_id():
 
 @pytest.mark.asyncio
 async def test_memory_store_record_working_memory_builds_private_and_shared_views():
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     _store_data = {}
     mock_redis = MagicMock()
@@ -590,7 +590,7 @@ async def test_memory_store_record_working_memory_builds_private_and_shared_view
 
 @pytest.mark.asyncio
 async def test_memory_store_persist_run_artifacts_builds_long_term_experience():
-    from riskmonitor_multiagent.memory import MemoryConfig, MemoryStore
+    from riskagent_backend.memory import MemoryConfig, MemoryStore
 
     _store_data = {}
     mock_redis = MagicMock()

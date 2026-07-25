@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.proactive_agents.moderator import ModeratorAgent
-from riskmonitor_multiagent.orchestration.iterative_refinement import (
+from riskagent_backend.proactive_agents.moderator import ModeratorAgent
+from riskagent_backend.orchestration.iterative_refinement import (
     ArbitrationDecision,
     Conflict,
     IterativeRefinementEngine,
@@ -188,7 +188,7 @@ class TestIterativeRefinementEngine:
     @pytest.mark.asyncio
     async def test_arbitrate_conflict_with_moderator(self) -> None:
         """测试通过 moderator 仲裁冲突."""
-        from riskmonitor_multiagent.orchestration.message_bus import MessageBus
+        from riskagent_backend.orchestration.message_bus import MessageBus
 
         engine = IterativeRefinementEngine()
         moderator = ModeratorAgent(message_bus=MessageBus())
@@ -221,8 +221,8 @@ class TestIterativeRefinementEngine:
     @pytest.mark.asyncio
     async def test_arbitration_publishes_conflict_and_resolution_events(self) -> None:
         """测试仲裁会发布冲突和解决事件."""
-        from riskmonitor_multiagent.contracts.event import EventType
-        from riskmonitor_multiagent.orchestration.message_bus import MessageBus
+        from riskagent_backend.contracts.event import EventType
+        from riskagent_backend.orchestration.message_bus import MessageBus
 
         bus = MessageBus()
         engine = IterativeRefinementEngine()

@@ -2,7 +2,7 @@
 
 ## 状态
 
-开发中, 基础任务接口已完成, memory 视图接口已补齐, 待 K8s 联调验收
+开发中, 基础任务接口, memory 视图接口, TaskGraph 图快照接口和 SSE 事件流代码已完成, 当前进入本地 K8s 验收阶段.
 
 ## 核心目标
 
@@ -10,7 +10,7 @@
 
 ## 为什么这是新需求
 
-当前 MultiAgent 的对外 HTTP 能力只有 `/health` `/ready` `/metrics` `/api/llm/usage`.
+当前 BackEnd 的对外 HTTP 能力只有 `/health` `/ready` `/metrics` `/api/llm/usage`.
 
 虽然系统内部已经具备统一工作流, `run_trace.v2`, `run_context`, `task_graph_execution`, `receipts`, `memory` 等真实状态来源, 但仍缺少以下两个关键能力:
 
@@ -28,16 +28,20 @@
 - 新增 `GET /api/agents`
 - 新增 `GET /api/memory`
 - 新增 `GET /api/tasks/{task_id}/memory`
+- 新增 `GET /api/stream`
+- 新增 `GET /api/tasks/{task_id}/graph`
 - 为工作流新增最小运行时任务注册表
+- 为运行时任务注册表新增 TaskGraph 快照能力
 - 用 `run_context` `task_graph_execution` `run_trace` 构建任务详情视图
 - 用工作流单例与最近 trace 派生智能体状态视图
 - 基于统一 memory store 输出浏览器友好的结构化记忆视图和脱敏结果
+- 基于 SSE 向前端实时推送智能体状态, 记忆快照和 TaskGraph 快照
 
 ### Out of Scope
 
-- 不实现 SSE
 - 不实现完整 trace 查询 API
 - 不实现前端审批恢复接口
+- 不实现浏览器端的 DAG 编辑能力
 - 不做长期历史任务分页列表
 - 不把 MCP 暴露给浏览器
 
@@ -62,6 +66,7 @@
 - 结果摘要
 - 错误信息
 - 最近更新时间
+- 可独立查询的 TaskGraph 节点, 边和图级状态
 
 ### 需求三: 最小智能体状态视图
 
@@ -99,6 +104,7 @@
 - `steps`
 - `result`
 - `error`
+- `graph_snapshot`
 
 ### 路由层边界
 
@@ -117,6 +123,8 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 - `GET /api/agents` 返回最小角色状态列表
 - `GET /api/memory` 返回最近结构化记忆快照和聚合摘要
 - `GET /api/tasks/{task_id}/memory` 返回任务维度的记忆视图和聚合摘要
+- `GET /api/tasks/{task_id}/graph` 返回任务维度的真实 TaskGraph DAG 快照
+- `GET /api/stream` 能实时推送智能体状态, 记忆快照和 TaskGraph 快照
 - FrontEnd 第一版 MVP 页面能完成一次真实联调
 - memory 响应中不直接暴露 Redis 原始结构或明文敏感信息
 
@@ -252,16 +260,33 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 }
 ```
 
+### `GET /api/stream`
+
+响应媒体类型:
+
+```text
+text/event-stream
+```
+
+事件:
+
+- `agent_snapshot`
+- `memory_snapshot`
+- `graph_snapshot`
+- `heartbeat`
+
 ## 风险与取舍
 
 - 风险 1: 运行时注册表与最终持久化状态存在短暂不一致
 - 风险 2: 智能体状态是派生态, 不能承诺强一致
 - 风险 3: 工作流当前是串行 await, 如果 `POST /api/tasks` 设计不当会阻塞 HTTP 请求
 - 风险 4: memory 展示如果直接透传底层结构, 会带来敏感信息泄露和前端解释成本
+- 风险 5: SSE 如果不做快照去重和心跳保活, 会造成前端重连抖动和无效事件洪泛
 
 取舍:
 
 - 优先实现异步提交和最小轮询能力
+- 优先实现 SSE 实时推送, 轮询保留为兜底
 - 优先保证任务详情可信, 智能体状态允许弱一致
 - 优先做与 FrontEnd 契约一致的 JSON 结构, 不把内部复杂对象直接暴露出去
 
@@ -270,9 +295,12 @@ REST BFF 层不直接实现业务逻辑. 其职责是:
 - 代码: REST BFF service 和 route handler
 - 代码: 运行时任务注册表
 - 代码: memory 结构化映射与脱敏输出
+- 代码: TaskGraph 结构化映射与运行时快照同步
+- 代码: SSE 事件流与快照去重逻辑
+- 代码: `GET /api/tasks/{task_id}/graph` 与 `graph_snapshot` 已接入浏览器契约
 - 文档: 本阶段规划文档
 - 文档: PRD 需求补充
-- 测试: REST BFF 基本契约测试与 memory 接口测试
+- 测试: REST BFF 基本契约测试, memory 接口测试与 SSE 事件流测试
 
 ## 相关文档
 

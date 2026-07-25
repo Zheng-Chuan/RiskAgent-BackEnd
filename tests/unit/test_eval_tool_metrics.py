@@ -10,7 +10,7 @@ for path in (_PROJECT_ROOT, _PROJECT_ROOT / "src"):
 from eval.core.evaluator import Evaluator, EvaluationResult, ExecutionTrace, TestCase as EvalTestCase
 from eval.core.metrics import EfficiencyMetrics, MemoryMetrics, OverallMetrics
 from eval.core.report import ReportGenerator
-from riskmonitor_multiagent.observability.run_trace import build_run_trace_snapshot
+from riskagent_backend.observability.run_trace import build_run_trace_snapshot
 
 
 def test_evaluator_computes_tool_rates_from_real_receipts():

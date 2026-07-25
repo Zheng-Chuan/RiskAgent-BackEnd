@@ -1,0 +1,1060 @@
+"""
+主动 Agent 基类 - 具备 BDI 模型、ReAct 循环和后台监控能力.
+
+核心特性:
+1. BDI 模型:信念(Belief)、愿望(Desire)、意图(Intention)
+2. ReAct 循环:Thought → Reasoning → Action → Observation
+3. CoT 思维链:每个步骤都有动态生成的 reason 和 evidence
+4. 后台监控:主动感知环境变化并发起行为
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from typing import Any, Callable, Optional
+
+from riskagent_backend.agents.base import AgentResult, BaseAgent
+from riskagent_backend.contracts.event import EventType, new_event
+from riskagent_backend.observability.metrics import inc_counter, observe_ms
+from riskagent_backend.proactive_agents.base_models import (
+    Belief,
+    Desire,
+    Intention,
+    ReActStep,
+    ProactiveAgentResult,
+)
+
+# 感知模块懒加载 (避免循环导入, 仅在首次使用时初始化)
+_perception_filter_engine = None
+_perception_escalation_manager = None
+_perception_remediation_manager = None
+
+
+def _get_filter_engine():
+    global _perception_filter_engine
+    if _perception_filter_engine is None:
+        from riskagent_backend.perception import PerceptionFilterEngine, get_default_rules
+        _perception_filter_engine = PerceptionFilterEngine(get_default_rules())
+    return _perception_filter_engine
+
+
+def _get_escalation_manager():
+    global _perception_escalation_manager
+    if _perception_escalation_manager is None:
+        from riskagent_backend.perception import EscalationManager
+        _perception_escalation_manager = EscalationManager()
+    return _perception_escalation_manager
+
+
+def _get_remediation_manager():
+    global _perception_remediation_manager
+    if _perception_remediation_manager is None:
+        from riskagent_backend.perception import RemediationManager
+        _perception_remediation_manager = RemediationManager()
+    return _perception_remediation_manager
+
+# 向前兼容: TYPE_CHECKING 下导入 TieredPromptBuilder, 避免循环导入
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from riskagent_backend.prompts.tiered_prompt_builder import (
+        PromptTier,
+        TieredPromptBuilder,
+    )
+
+# 感知模块产生的 belief source 集合
+# 这些 source 的 belief 需要在 _deliberate 中形成主动告警意图
+_PERCEPTION_SOURCES = frozenset({
+    "intent_perception",
+    "perception_escalation",
+    "risk_perception",
+    "risk_escalation",
+    "orchestration_perception",
+    "quality_perception",
+})
+
+logger = logging.getLogger(__name__)
+
+
+class BaseProactiveAgent:
+    """
+    主动 Agent 基类.
+    
+    具备:
+    1. BDI 模型:信念、愿望、意图
+    2. ReAct 循环:动态生成 thought/reasoning/evidence
+    3. 后台监控:主动感知环境
+    4. CoT 思维链:每个步骤都有推理过程
+    """
+    
+    def __init__(
+        self,
+        *,
+        name: str,
+        system_prompt: str,
+        prompt_version: str | None = None,
+        policy_version: str | None = None,
+        model: str | None = None,
+        enable_background_monitor: bool = True,
+        monitor_interval_seconds: int = 60,
+        enable_context_compression: bool = False,
+        context_compressor: Any | None = None,
+    ) -> None:
+        """
+        初始化主动 Agent.
+        
+        Args:
+            name: Agent 名称
+            system_prompt: 系统提示词
+            prompt_version: 提示词版本
+            policy_version: 策略版本
+            model: 模型名称
+            enable_background_monitor: 是否启用后台监控
+            monitor_interval_seconds: 后台监控间隔(秒)
+            enable_context_compression: 是否启用上下文压缩
+            context_compressor: 自定义 ContextCompressor 实例
+        """
+        self._name = name
+        self._system_prompt = system_prompt
+        self._prompt_version = prompt_version
+        self._policy_version = policy_version
+        self._model = model
+        self._enable_monitor = enable_background_monitor
+        self._monitor_interval = monitor_interval_seconds
+
+        # 上下文压缩器
+        if context_compressor is not None:
+            self._context_compressor = context_compressor
+        elif enable_context_compression:
+            from riskagent_backend.memory.context_compressor import ContextCompressor
+            self._context_compressor = ContextCompressor(enable_llm_summary=False)
+        else:
+            self._context_compressor = None
+        
+        self._base_agent = BaseAgent(
+            name=name,
+            system_prompt=system_prompt,
+            model=model,
+            prompt_version=prompt_version,
+            policy_version=policy_version,
+        )
+        
+        self._beliefs: list[Belief] = []
+        self._desires: list[Desire] = []
+        self._intentions: list[Intention] = []
+        
+        self._llm_interactions: list[dict[str, Any]] = []
+        
+        self._monitor_task: Optional[asyncio.Task] = None
+        self._is_running = False
+        
+        self._last_task_result: Optional[ProactiveAgentResult] = None
+
+        # 三层 prompt 构建器 (可选增强, 默认 None)
+        self._prompt_builder: TieredPromptBuilder | None = None
+
+        if self._enable_monitor:
+            self._init_desires()
+    
+    def _init_desires(self) -> None:
+        """初始化 Agent 的愿望(子类可重写)."""
+        pass
+    
+    @property
+    def name(self) -> str:
+        return self._name
+    
+    @property
+    def is_running(self) -> bool:
+        return self._is_running
+    
+    def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Belief:
+        """添加信念."""
+        belief = Belief(content=content, source=source, confidence=confidence)
+        self._beliefs.append(belief)
+        logger.debug(f"[{self._name}] Added belief: {belief.belief_id}")
+        return belief
+    
+    def get_beliefs(self, source: Optional[str] = None) -> list[Belief]:
+        """获取信念."""
+        if source:
+            return [b for b in self._beliefs if b.source == source]
+        return list(self._beliefs)
+    
+    def clear_beliefs(self) -> None:
+        """清空信念."""
+        self._beliefs.clear()
+    
+    def add_desire(self, description: str, priority: int = 0) -> Desire:
+        """添加愿望."""
+        desire = Desire(description=description, priority=priority)
+        self._desires.append(desire)
+        logger.debug(f"[{self._name}] Added desire: {desire.desire_id}")
+        return desire
+    
+    def get_active_desires(self) -> list[Desire]:
+        """获取活跃愿望(按优先级排序)."""
+        active = [d for d in self._desires if d.active]
+        return sorted(active, key=lambda x: -x.priority)
+    
+    def add_intention(
+        self,
+        description: str,
+        target_agent: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        tool_params: Optional[dict[str, Any]] = None,
+    ) -> Intention:
+        """添加意图."""
+        intention = Intention(
+            description=description,
+            target_agent=target_agent,
+            tool_name=tool_name,
+            tool_params=tool_params,
+            status="pending",
+        )
+        self._intentions.append(intention)
+        logger.debug(f"[{self._name}] Added intention: {intention.intention_id}")
+        return intention
+    
+    def get_pending_intentions(self) -> list[Intention]:
+        """获取待处理意图."""
+        return [i for i in self._intentions if i.status == "pending"]
+    
+    def update_intention_status(self, intention_id: str, status: str) -> bool:
+        """更新意图状态."""
+        for intention in self._intentions:
+            if intention.intention_id == intention_id:
+                intention.status = status
+                return True
+        return False
+    
+    def get_bdi_state(self) -> dict[str, Any]:
+        """获取 BDI 状态摘要."""
+        return {
+            "agent_name": self._name,
+            "beliefs": [
+                {"belief_id": b.belief_id, "source": b.source, "confidence": b.confidence}
+                for b in self._beliefs
+            ],
+            "desires": [
+                {"desire_id": d.desire_id, "description": d.description, "priority": d.priority, "active": d.active}
+                for d in self._desires
+            ],
+            "intentions": [
+                {"intention_id": i.intention_id, "description": i.description, "status": i.status}
+                for i in self._intentions
+            ],
+        }
+    
+    def record_llm_interaction(
+        self,
+        interaction_type: str,
+        system_prompt: str,
+        user_prompt: str,
+        raw_response: str,
+        parsed_output: dict[str, Any],
+        latency_ms: int,
+        tokens_used: int = 0,
+        model: str = "",
+        success: bool = True,
+        error: str | None = None,
+    ) -> None:
+        """记录 LLM 交互."""
+        interaction = {
+            "timestamp_ms": int(time.time() * 1000),
+            "agent_name": self._name,
+            "interaction_type": interaction_type,
+            "system_prompt": system_prompt[:500] if system_prompt else "",
+            "user_prompt": user_prompt[:1000] if user_prompt else "",
+            "raw_response": raw_response[:2000] if raw_response else "",
+            "parsed_output": parsed_output,
+            "latency_ms": latency_ms,
+            "tokens_used": tokens_used,
+            "model": model,
+            "success": success,
+            "error": error,
+        }
+        self._llm_interactions.append(interaction)
+    
+    def get_llm_interactions(self) -> list[dict[str, Any]]:
+        """获取 LLM 交互记录."""
+        return list(self._llm_interactions)
+    
+    def clear_llm_interactions(self) -> None:
+        """清空 LLM 交互记录."""
+        self._llm_interactions.clear()
+
+    async def _maybe_compress_messages(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        task_context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """在 LLM 调用前检查并压缩上下文.
+
+        如果压缩器已配置且消息超过阈值, 自动压缩.
+        压缩失败时返回原始消息, 不中断主流程.
+
+        Args:
+            messages: 原始消息列表
+            task_context: 可选的任务上下文
+
+        Returns:
+            压缩后或原始的消息列表
+        """
+        if not self._context_compressor:
+            return messages
+
+        try:
+            if self._context_compressor.should_compress(messages):
+                result = await self._context_compressor.compress(
+                    messages, task_context=task_context,
+                )
+                if result.compressed:
+                    logger.info(
+                        "[%s] Context compressed: %d -> %d tokens (%.1f%% ratio, %d messages summarized)",
+                        self._name,
+                        result.original_tokens,
+                        result.compressed_tokens,
+                        result.compression_ratio * 100,
+                        result.summarized_count,
+                    )
+                    return result.compressed_messages
+        except Exception as e:
+            logger.warning("[%s] Context compression failed, using original: %s", self._name, e)
+
+        return messages
+    
+    async def start_background_monitor(self) -> None:
+        """启动后台监控(真正的主动性)."""
+        if self._monitor_task is not None:
+            logger.warning(f"[{self._name}] Monitor already running")
+            return
+        
+        self._is_running = True
+        self._monitor_task = asyncio.create_task(self._monitor_loop())
+        logger.info(f"[{self._name}] Background monitor started")
+    
+    async def stop_background_monitor(self) -> None:
+        """停止后台监控."""
+        if self._monitor_task is None:
+            return
+        
+        self._is_running = False
+        self._monitor_task.cancel()
+        try:
+            await self._monitor_task
+        except asyncio.CancelledError:
+            pass
+        self._monitor_task = None
+        logger.info(f"[{self._name}] Background monitor stopped")
+    
+    async def _monitor_loop(self) -> None:
+        """后台监控循环 - 主动感知环境 (P0 - Checkpoint 16.1.2 异常自愈增强)."""
+        logger.info(f"[{self._name}] Monitor loop started")
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+
+        while self._is_running:
+            try:
+                await self._perceive_environment()
+                await self._deliberate()
+                await self._act()
+                consecutive_errors = 0  # 成功则重置计数器
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                consecutive_errors += 1
+                logger.exception(
+                    f"[{self._name}] Monitor loop error ({consecutive_errors}/{max_consecutive_errors}): {e}"
+                )
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(
+                        f"[{self._name}] Too many consecutive errors, backing off 60s"
+                    )
+                    await asyncio.sleep(60)
+                    consecutive_errors = 0  # 重置以继续尝试
+                    continue
+                logger.info(f"[{self._name}] Monitor loop recovered, continuing...")
+
+            await asyncio.sleep(self._monitor_interval)
+
+        logger.info(f"[{self._name}] Monitor loop exited")
+    
+    @property
+    def _filter_engine(self):
+        """感知过滤引擎 (懒加载)."""
+        return _get_filter_engine()
+
+    @property
+    def _escalation_manager(self):
+        """升级管理器 (懒加载)."""
+        return _get_escalation_manager()
+
+    @property
+    def _remediation_manager(self):
+        """处置管理器 (懒加载)."""
+        return _get_remediation_manager()
+
+    def _collect_and_filter(self, data_sources: list) -> list:
+        """采集并过滤信号的共享辅助方法.
+
+        Args:
+            data_sources: 数据源实例列表, 每个 ds 有 collect() -> list[PerceptionSignal]
+
+        Returns:
+            过滤后的信号列表 (仅包含需升级的 WARNING/CRITICAL 信号)
+        """
+        all_signals = []
+        for ds in data_sources:
+            try:
+                signals = ds.collect()
+                all_signals.extend(signals)
+            except Exception as e:
+                logger.warning(f"[{self._name}] 数据源采集失败 {ds.__class__.__name__}: {e}")
+        return self._filter_engine.filter_batch(all_signals)
+
+    async def _perceive_environment(self) -> None:
+        """感知环境 - 更新信念(子类可重写)."""
+        pass
+    
+    async def _deliberate(self) -> None:
+        """思考 - 根据信念和愿望形成意图.
+
+        处理来自感知模块 (_PERCEPTION_SOURCES) 的信念:
+        - escalation 类 belief 带有 severity 字段 (critical/warning)
+        - perception 类 belief 带有 metric/value 字段 (同时携带 severity)
+        severity=critical → priority=high; severity=warning → priority=normal.
+        兼容旧版仅含 metric/value 的 belief: 保留 error_rate>0.1 阈值检查.
+        """
+        # 获取最新的信念
+        recent_beliefs = self.get_beliefs()[-5:]  # 最近 5 个信念
+
+        # 获取活跃的愿望
+        active_desires = self.get_active_desires()
+
+        # 检查是否有需要主动处理的情况
+        for belief in recent_beliefs:
+            # 仅处理来自感知模块的信念 (泛化:不再硬编码 system_metrics)
+            if belief.source not in _PERCEPTION_SOURCES:
+                continue
+
+            content = belief.content if isinstance(belief.content, dict) else {}
+            severity = str(content.get("severity", "")).lower()
+            metric = content.get("metric")
+            value = content.get("value")
+
+            # 优先按 severity 字段判定 (escalation 类 + perception 类均携带 severity)
+            if severity == "critical":
+                priority = "high"
+            elif severity == "warning":
+                priority = "normal"
+            elif metric == "error_rate" and isinstance(value, (int, float)) and value > 0.1:
+                # 兼容旧版 perception 信念:仅有 metric/value,无 severity
+                priority = "high" if value > 0.2 else "normal"
+                severity = "critical" if value > 0.2 else "warning"
+            else:
+                # 其他 metric 的阈值检查由感知过滤层完成,这里不再重复
+                continue
+
+            # 形成主动告警的意图
+            alert_message = (
+                content.get("description")
+                or content.get("message")
+                or f"{belief.source} 信号异常 (metric={metric}, value={value})"
+            )
+            self.add_intention(
+                description=f"主动告警:{belief.source} 信号异常 (severity={severity})",
+                target_agent="orchestrator",
+                tool_name="submit_alerts",
+                tool_params={
+                    "alert_type": "system_error",
+                    "severity": severity,
+                    "priority": priority,
+                    "message": alert_message,
+                    "metric_name": metric,
+                    "metric_value": value,
+                    "source": belief.source,
+                },
+            )
+            logger.info(
+                f"[{self._name}] Created proactive alert intention for {belief.source} "
+                f"severity={severity} metric={metric}"
+            )
+    
+    async def _act(self) -> None:
+        """行动 - 执行意图."""
+        pending_intentions = self.get_pending_intentions()
+        
+        for intention in pending_intentions:
+            # 更新状态为 executing
+            self.update_intention_status(intention.intention_id, "executing")
+            
+            try:
+                # 如果有目标 Agent,发送消息
+                if intention.target_agent:
+                    from riskagent_backend.orchestration.proactive_workflow import get_proactive_workflow
+
+                    proactive_event = self._build_proactive_event(intention=intention)
+
+                    workflow = get_proactive_workflow()
+                    candidate_agents = list(
+                        dict.fromkeys(
+                            [
+                                intention.target_agent,
+                                "critic",
+                                "orchestrator",
+                            ]
+                        )
+                    )
+                    await workflow.start_from_event(
+                        event=proactive_event,
+                        candidate_agents=candidate_agents,
+                    )
+
+                    logger.info(
+                        f"[{self._name}] Sent proactive event to unified workflow via {intention.target_agent}"
+                    )
+                
+                # 更新状态为 completed
+                self.update_intention_status(intention.intention_id, "completed")
+                
+            except Exception as e:
+                logger.exception(f"[{self._name}] Failed to execute intention: {e}")
+                self.update_intention_status(intention.intention_id, "failed")
+
+    def _build_proactive_event(self, *, intention: Intention) -> dict[str, Any]:
+        """把主动意图转换为统一系统事件."""
+        tool_params = dict(intention.tool_params or {})
+        event_type = EventType.TASK_CREATED
+        if tool_params.get("severity") == "critical":
+            event_type = EventType.RISK_BREACH_DETECTED
+
+        task_payload = {
+            "task_id": f"proactive_{intention.intention_id}",
+            "session_id": f"proactive_{self._name}",
+            "content": intention.description,
+            "task": {
+                "task_id": f"proactive_{intention.intention_id}",
+                "session_id": f"proactive_{self._name}",
+                "source": "system_event",
+                "payload": {
+                    "content": intention.description,
+                    "proactive_intention_id": intention.intention_id,
+                    "tool_name": intention.tool_name,
+                    "tool_params": tool_params,
+                },
+            },
+            "trigger_reason": intention.description,
+            "trigger_evidence": {
+                "source_agent": self._name,
+                "tool_name": intention.tool_name,
+                "tool_params": tool_params,
+            },
+            "target_agent": intention.target_agent,
+        }
+        return new_event(
+            event_type=event_type,
+            source_agent=self._name,
+            target_agent=intention.target_agent,
+            payload=task_payload,
+            priority="high" if event_type == EventType.RISK_BREACH_DETECTED else "normal",
+        )
+    
+    async def run_with_react(
+        self,
+        *,
+        task: dict[str, Any],
+        context: dict[str, Any] | None = None,
+        max_tokens: int = 512,
+        max_steps: int = 5,
+    ) -> ProactiveAgentResult:
+        """
+        使用 ReAct 循环执行任务.
+        
+        这是核心方法,每个任务都会走:
+        1. Thought: 生成思考
+        2. Reasoning: 生成推理理由
+        3. Evidence: 生成证据
+        4. Action: 执行行动
+        5. Observation: 观察结果
+        
+        Args:
+            task: 任务定义
+            context: 上下文
+            max_tokens: 最大 Token 数
+            max_steps: 最大步骤数
+            
+        Returns:
+            ProactiveAgentResult 包含执行结果和 ReAct 步骤
+        """
+        start_time = time.time()
+        inc_counter(f"proactive_agent_{self._name}_runs_total")
+        
+        react_steps: list[ReActStep] = []
+        
+        try:
+            for step_idx in range(max_steps):
+                step_id = f"step_{step_idx + 1}"
+                logger.debug(f"[{self._name}] ReAct {step_id}/{max_steps}")
+                
+                thought = await self._generate_thought(task, react_steps, context)
+                
+                reasoning = await self._generate_reasoning(task, react_steps, thought, context)
+                
+                evidence = await self._generate_evidence(task, react_steps, thought, reasoning, context)
+                
+                action_type, action = await self._decide_action(task, react_steps, thought, context)
+                
+                observation = await self._execute_action(action_type, action)
+                
+                step = ReActStep(
+                    step_id=step_id,
+                    thought=thought,
+                    reasoning=reasoning,
+                    evidence=evidence,
+                    action_type=action_type,
+                    action=action,
+                    observation=observation,
+                )
+                react_steps.append(step)
+                
+                if await self._should_terminate(task, react_steps):
+                    logger.debug(f"[{self._name}] ReAct terminated at {step_id}")
+                    break
+            
+            final_output = await self._generate_final_answer(task, react_steps)
+            
+            result = ProactiveAgentResult(
+                ok=True,
+                output=final_output,
+                react_steps=react_steps,
+                bdi_state=self.get_bdi_state(),
+                llm_interactions=self.get_llm_interactions(),
+            )
+            
+            self._last_task_result = result
+            inc_counter(f"proactive_agent_{self._name}_runs_success")
+            
+            latency_ms = (time.time() - start_time) * 1000
+            observe_ms(f"proactive_agent_{self._name}_latency_ms", latency_ms)
+            
+            return result
+            
+        except Exception as e:
+            logger.exception(f"[{self._name}] ReAct execution failed: {e}")
+            inc_counter(f"proactive_agent_{self._name}_runs_error")
+            
+            return ProactiveAgentResult(
+                ok=False,
+                output={"error": str(e)},
+                react_steps=react_steps,
+                bdi_state=self.get_bdi_state(),
+                llm_interactions=self.get_llm_interactions(),
+            )
+    
+    async def _generate_thought(
+        self,
+        task: dict[str, Any],
+        history: list[ReActStep],
+        context: dict[str, Any] | None,
+    ) -> str:
+        """生成思考 - 动态生成,非硬编码."""
+        history_text = self._format_history(history)
+        context_text = self._format_context(context)
+        
+        prompt = f"""You are {self._name}. Generate your next thought about the task.
+
+Task: {task}
+Context: {context_text}
+History: {history_text}
+
+Generate a thought about what you should consider or do next. Be specific and relevant to the task.
+
+Only return the thought text, no JSON format."""
+
+        try:
+            from riskagent_backend.llm import LlmClient
+            
+            start_time = time.time()
+            client = LlmClient()
+            messages = await self._maybe_compress_messages(
+                [
+                    {"role": "system", "content": self._system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                task_context=task,
+            )
+            resp = await client.chat_completions(
+                messages=messages,
+                model=self._model,
+                temperature=0.7,
+                max_tokens=128,
+                use_cache=False,
+            )
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            thought = content.strip() if content.strip() else "继续执行任务"
+            
+            self.record_llm_interaction(
+                interaction_type="thought",
+                system_prompt=self._system_prompt,
+                user_prompt=prompt,
+                raw_response=content,
+                parsed_output={"thought": thought},
+                latency_ms=latency_ms,
+                model=self._model or "",
+                success=True,
+            )
+            
+            return thought
+        except Exception as e:
+            self.record_llm_interaction(
+                interaction_type="thought",
+                system_prompt=self._system_prompt,
+                user_prompt=prompt,
+                raw_response="",
+                parsed_output={},
+                latency_ms=0,
+                model=self._model or "",
+                success=False,
+                error=str(e),
+            )
+            return "继续执行任务"
+    
+    async def _generate_reasoning(
+        self,
+        task: dict[str, Any],
+        history: list[ReActStep],
+        thought: str,
+        context: dict[str, Any] | None,
+    ) -> str:
+        """生成推理理由 - CoT 核心."""
+        history_text = self._format_history(history)
+        
+        prompt = f"""You are {self._name}. Generate reasoning for your thought.
+
+Task: {task}
+Your thought: {thought}
+History: {history_text}
+
+Generate a reasoning that explains why you chose this thought. Consider:
+- What information do you have?
+- What do you need to verify?
+- What are the risks or uncertainties?
+
+Only return the reasoning text, no JSON format."""
+
+        try:
+            from riskagent_backend.llm import LlmClient
+            
+            start_time = time.time()
+            client = LlmClient()
+            messages = await self._maybe_compress_messages(
+                [
+                    {"role": "system", "content": self._system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                task_context=task,
+            )
+            resp = await client.chat_completions(
+                messages=messages,
+                model=self._model,
+                temperature=0.7,
+                max_tokens=256,
+                use_cache=False,
+            )
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            reasoning = content.strip() if content.strip() else "基于任务要求执行"
+            
+            self.record_llm_interaction(
+                interaction_type="reasoning",
+                system_prompt=self._system_prompt,
+                user_prompt=prompt,
+                raw_response=content,
+                parsed_output={"reasoning": reasoning},
+                latency_ms=latency_ms,
+                model=self._model or "",
+                success=True,
+            )
+            
+            return reasoning
+        except Exception as e:
+            self.record_llm_interaction(
+                interaction_type="reasoning",
+                system_prompt=self._system_prompt,
+                user_prompt=prompt,
+                raw_response="",
+                parsed_output={},
+                latency_ms=0,
+                model=self._model or "",
+                success=False,
+                error=str(e),
+            )
+            return "基于任务要求执行"
+    
+    async def _generate_evidence(
+        self,
+        task: dict[str, Any],
+        history: list[ReActStep],
+        thought: str,
+        reasoning: str,
+        context: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """生成证据 - CoT 核心."""
+        beliefs = self.get_beliefs()
+        beliefs_text = "\n".join([
+            f"- {b.source}: {b.content}" 
+            for b in beliefs[-5:]
+        ]) if beliefs else "No beliefs yet"
+        
+        prompt = f"""You are {self._name}. Generate evidence for your reasoning.
+
+Your thought: {thought}
+Your reasoning: {reasoning}
+Current beliefs: {beliefs_text}
+
+Generate evidence that supports your reasoning. Cite specific sources or data.
+
+Evidence (as JSON with keys like "sources", "data", "references"):"""
+
+        start_time = time.time()
+        result = await self._base_agent.ask_json(
+            user_prompt=prompt,
+            fallback={"sources": [], "data": {}},
+            max_tokens=256,
+        )
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        self.record_llm_interaction(
+            interaction_type="evidence",
+            system_prompt=self._system_prompt,
+            user_prompt=prompt,
+            raw_response=str(result.output),
+            parsed_output=result.output,
+            latency_ms=latency_ms,
+            model=self._model or "",
+            success=result.ok,
+        )
+        
+        return result.output
+    
+    async def _decide_action(
+        self,
+        task: dict[str, Any],
+        history: list[ReActStep],
+        thought: str,
+        context: dict[str, Any] | None,
+    ) -> tuple[str, dict[str, Any]]:
+        """决定行动."""
+        prompt = f"""You are {self._name}. Decide your next action.
+
+Task: {task}
+Your thought: {thought}
+History: {self._format_history(history)}
+
+Choose an action type and parameters:
+- "llm_call": Make another LLM call to gather more information
+- "tool_call": Execute a tool (specify tool_name and params)
+- "finalize": Task is complete, generate final answer
+
+Return as JSON with "action_type" and "action" (dict with params)."""
+
+        start_time = time.time()
+        result = await self._base_agent.ask_json(
+            user_prompt=prompt,
+            fallback={"action_type": "finalize", "action": {"answer": "任务已完成"}},
+            max_tokens=256,
+        )
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        output = result.output
+        action_type = output.get("action_type", "finalize")
+        action = output.get("action", {})
+        
+        self.record_llm_interaction(
+            interaction_type="action",
+            system_prompt=self._system_prompt,
+            user_prompt=prompt,
+            raw_response=str(output),
+            parsed_output=output,
+            latency_ms=latency_ms,
+            model=self._model or "",
+            success=result.ok,
+        )
+        
+        return action_type, action
+    
+    async def _execute_action(self, action_type: str, action: dict[str, Any]) -> dict[str, Any]:
+        """执行行动."""
+        if action_type == "llm_call":
+            return {"status": "llm_call_executed", "action": action}
+        elif action_type == "tool_call":
+            return await self._execute_tool_call(action)
+        elif action_type == "finalize":
+            return {"status": "finalized", "result": action}
+        elif action_type == "ask_human":
+            # 真正的 ask_human 实现 - 等待用户回答
+            question = action.get("question", "需要您的帮助")
+            context = action.get("context", {})
+            timeout = action.get("timeout", 300)  # 默认 5 分钟
+            
+            from riskagent_backend.proactive_agents.question_manager import get_question_manager
+            
+            manager = get_question_manager()
+            answer = await manager.ask_user(
+                agent_name=self._name,
+                question=question,
+                context=context,
+                timeout_seconds=timeout,
+            )
+            
+            return {
+                "status": "human_answered",
+                "question": question,
+                "answer": answer,
+                "timeout": answer.startswith("[超时]"),
+            }
+        else:
+            return {"status": "unknown_action", "action": action}
+    
+    async def _execute_tool_call(self, action: dict[str, Any]) -> dict[str, Any]:
+        """执行工具调用(子类可重写)."""
+        return {"status": "tool_call_not_implemented", "action": action}
+    
+    async def _should_terminate(self, task: dict[str, Any], history: list[ReActStep]) -> bool:
+        """检查是否应该终止."""
+        if not history:
+            return False
+        
+        last_step = history[-1]
+        
+        # 如果是 finalize,终止
+        if last_step.action_type == "finalize":
+            return True
+        
+        # 如果是 ask_human 但已超时,终止
+        if last_step.action_type == "ask_human":
+            observation = last_step.observation
+            if observation and observation.get("timeout"):
+                return True  # 超时后终止
+        
+        return False
+    
+    async def _generate_final_answer(
+        self,
+        task: dict[str, Any],
+        history: list[ReActStep],
+    ) -> dict[str, Any]:
+        """生成最终答案."""
+        steps_summary = "\n".join([
+            f"Step {s.step_id}: {s.thought} -> {s.action_type}"
+            for s in history
+        ])
+        
+        prompt = f"""You are {self._name}. Generate final answer based on your reasoning chain.
+
+Task: {task}
+Reasoning chain:
+{steps_summary}
+
+Generate a comprehensive final answer as JSON."""
+
+        result = await self._base_agent.ask_json(
+            user_prompt=prompt,
+            fallback={"summary": "任务已完成", "conclusion": "基于推理链完成"},
+            max_tokens=512,
+        )
+        
+        return result.output
+    
+    def _format_history(self, history: list[ReActStep]) -> str:
+        """格式化历史步骤."""
+        if not history:
+            return "No previous steps"
+        
+        lines = []
+        for step in history[-3:]:
+            thought_str = str(step.thought) if step.thought else ""
+            reasoning_str = str(step.reasoning) if step.reasoning else ""
+            lines.append(f"- {step.step_id}: Thought={thought_str[:50]}... Reason={reasoning_str[:50]}... Action={step.action_type}")
+        
+        return "\n".join(lines)
+    
+    def _format_context(self, context: dict[str, Any] | None) -> str:
+        """格式化上下文."""
+        if not context:
+            return "No context"
+        
+        return str(context)[:500]
+
+    # ------------------------------------------------------------------ #
+    # 三层 prompt 构建器集成 (可选增强)
+    # ------------------------------------------------------------------ #
+    def set_prompt_builder(self, builder: TieredPromptBuilder) -> None:
+        """设置三层 prompt 构建器.
+
+        设置后, 构建 LLM messages 时将使用三层分离策略;
+        未设置时使用现有逻辑.
+
+        Args:
+            builder: TieredPromptBuilder 实例
+        """
+        self._prompt_builder = builder
+        logger.info(f"[{self._name}] TieredPromptBuilder enabled")
+
+    def build_tiered_messages(
+        self,
+        *, 
+        agent_role: str | None = None,
+        tools_index: list[dict] | None = None,
+        behavior_rules: list[str] | None = None,
+        skills: list[dict] | None = None,
+        project_rules: list[str] | None = None,
+        memory_summary: dict[str, Any] | None = None,
+        current_event: dict[str, Any] | None = None,
+        task: dict[str, Any] | None = None,
+        react_history: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, str]]:
+        """使用三层 prompt 构建器组装 messages.
+
+        如果未设置 prompt_builder, 回退到现有的单 system_prompt 方式.
+
+        Returns:
+            messages 列表
+        """
+        if self._prompt_builder is None:
+            # 回退: 使用现有的单 system_prompt 方式
+            return [{"role": "system", "content": self._system_prompt}]
+
+        builder = self._prompt_builder
+        stable = builder.build_stable_tier(
+            agent_role=agent_role or self._system_prompt,
+            tools_index=tools_index or [],
+            behavior_rules=behavior_rules or [],
+        )
+        context = builder.build_context_tier(
+            skills=skills or [],
+            project_rules=project_rules or [],
+            memory_summary=memory_summary,
+        )
+        volatile = builder.build_volatile_tier(
+            current_event=current_event,
+            task=task or {},
+            react_history=react_history,
+        )
+        return builder.assemble_messages(stable, context, volatile)
+
+
+__all__ = [
+    "Belief",
+    "Desire",
+    "Intention",
+    "ReActStep",
+    "ProactiveAgentResult",
+    "BaseProactiveAgent",
+]

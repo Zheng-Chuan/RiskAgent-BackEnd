@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from riskmonitor_multiagent.cli.replay import main as replay_main
-from riskmonitor_multiagent.cli.replay import replay_run
-from riskmonitor_multiagent.observability.run_trace import (
+from riskagent_backend.cli.replay import main as replay_main
+from riskagent_backend.cli.replay import replay_run
+from riskagent_backend.observability.run_trace import (
     RunTraceSnapshot,
     build_run_trace_snapshot,
     get_run_trace_store,

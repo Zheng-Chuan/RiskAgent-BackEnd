@@ -2,10 +2,10 @@ services:
   # MySQL 数据库
   mysql:
     image: mysql:8.0
-    container_name: riskmonitor-mysql
+    container_name: riskagent-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskmonitor}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
       MYSQL_ROOT_HOST: '%'
@@ -33,20 +33,20 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
 
   # Redis - 统一内存存储
   redis:
     image: redis:7-alpine
-    container_name: riskmonitor-redis
+    container_name: riskagent-redis
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes --save 60 1000
     volumes:
       - redis_data:/data
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -57,13 +57,13 @@ services:
   # Chroma - 向量数据库（用于知识检索）
   chroma:
     image: chromadb/chroma:latest
-    container_name: riskmonitor-chroma
+    container_name: riskagent-chroma
     ports:
       - "8001:8000"
     volumes:
       - chroma_data:/chroma/chroma
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
@@ -72,17 +72,17 @@ services:
       retries: 5
       start_period: 15s
 
-  # RiskMonitor MultiAgent MCP 服务
+  # RiskAgent BackEnd MCP 服务
   mcp-server:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: riskmonitor-multiagent
+    container_name: riskagent-backend
     environment:
       # MySQL 配置
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskmonitor}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
       # Redis 配置 (统一内存)
@@ -110,7 +110,7 @@ services:
     ports:
       - "8000:8000"
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
 
   # 测试运行器
@@ -118,11 +118,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: riskmonitor-test
+    container_name: riskagent-test
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskmonitor}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
       REDIS_URL: redis://redis:6379/0
@@ -141,7 +141,7 @@ services:
     volumes:
       - .:/app
     networks:
-      - riskmonitor-network
+      - riskagent-network
     entrypoint: ["bash", "-lc"]
     command: ["pytest tests/unit/ -v"]
     profiles:
@@ -150,7 +150,7 @@ services:
   # phpMyAdmin (数据库管理界面，可选)
   phpmyadmin:
     image: phpmyadmin:latest
-    container_name: riskmonitor-phpmyadmin
+    container_name: riskagent-phpmyadmin
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
@@ -162,7 +162,7 @@ services:
     depends_on:
       - mysql
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
     profiles:
       - tools
@@ -170,7 +170,7 @@ services:
   # Prometheus - 监控和告警 (内存限制 512MB)
   prometheus:
     image: prom/prometheus:v2.48.0
-    container_name: riskmonitor-prometheus
+    container_name: riskagent-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -187,7 +187,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
@@ -200,7 +200,7 @@ services:
   # Grafana - 可视化面板 (内存限制 512MB)
   grafana:
     image: grafana/grafana:10.2.0
-    container_name: riskmonitor-grafana
+    container_name: riskagent-grafana
     ports:
       - "3000:3000"
     environment:
@@ -215,7 +215,7 @@ services:
     depends_on:
       - prometheus
     networks:
-      - riskmonitor-network
+      - riskagent-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
@@ -238,5 +238,5 @@ volumes:
     driver: local
 
 networks:
-  riskmonitor-network:
+  riskagent-network:
     driver: bridge

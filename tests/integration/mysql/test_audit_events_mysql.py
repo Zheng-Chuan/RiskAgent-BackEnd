@@ -13,8 +13,8 @@ if str(_SRC_ROOT) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_audit_event_persistence_and_retrieval():
-    from riskmonitor_multiagent.data_access import audit_repository
-    from riskmonitor_multiagent.data_access.mysql_engine import get_engine
+    from riskagent_backend.data_access import audit_repository
+    from riskagent_backend.data_access.mysql_engine import get_engine
     from sqlalchemy import text
 
     engine = get_engine()

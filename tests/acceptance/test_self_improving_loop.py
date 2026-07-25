@@ -28,7 +28,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.gateway import GatewayAdapter, GatewayMessage
+from riskagent_backend.gateway import GatewayAdapter, GatewayMessage
 
 
 # ==================== Fixture 覆盖 ====================
@@ -239,7 +239,7 @@ def _make_orchestrator_output(**kwargs: Any) -> dict[str, Any]:
 
 def _make_skill_store() -> "SkillStore":
     """创建带有 InMemoryPersistenceBackend 的 SkillStore."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     store._set_persistence(InMemoryPersistenceBackend())
@@ -264,7 +264,7 @@ class TestSelfImprovingLoop:
         - Run 3: 更新已有 Skill (相同模式, 语义去重)
         验证: SkillStore 中有 2 个 Skill, usage_count 正确
         """
-        from riskmonitor_multiagent.skills import SkillProposer
+        from riskagent_backend.skills import SkillProposer
 
         store = _make_skill_store()
         proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -327,7 +327,7 @@ class TestSelfImprovingLoop:
         - skill_on: 规划 prompt 中有 Skill 引用
         验证: skill_on 时 context["skills"] 非空
         """
-        from riskmonitor_multiagent.skills import SkillInjector
+        from riskagent_backend.skills import SkillInjector
 
         store = _make_skill_store()
         await store.create(
@@ -375,7 +375,7 @@ class TestSelfImprovingLoop:
         - 连续失败 → 自动降级
         验证: confidence 变化方向正确, status 转换正确
         """
-        from riskmonitor_multiagent.skills import SkillUsageTracker
+        from riskagent_backend.skills import SkillUsageTracker
 
         store = _make_skill_store()
         created = await store.create(_make_skill(confidence=0.5))
@@ -442,7 +442,7 @@ class TestSelfImprovingLoop:
         - 修订后的 steps 与原 steps 不同
         验证: revision 链路完整
         """
-        from riskmonitor_multiagent.skills import SkillReviser
+        from riskagent_backend.skills import SkillReviser
 
         store = _make_skill_store()
         created = await store.create(_make_skill())
@@ -494,7 +494,7 @@ class TestSelfImprovingLoop:
         - token 预算不超限
         验证: 注入数量受控, 质量受控
         """
-        from riskmonitor_multiagent.skills import (
+        from riskagent_backend.skills import (
             SkillGovernanceConfig,
             SkillGovernor,
             SkillInjector,
@@ -573,7 +573,7 @@ class TestSelfImprovingLoop:
         - 模拟恢复: restore_from_persistence
         验证: 数据一致
         """
-        from riskmonitor_multiagent.memory.persistence_backend import (
+        from riskagent_backend.memory.persistence_backend import (
             _build_memory_row,
             _parse_memory_row,
         )
@@ -608,7 +608,7 @@ class TestSelfImprovingLoop:
 
         # 创建 Skill 并落盘
         skill = _make_skill(confidence=0.85)
-        from riskmonitor_multiagent.skills.skill_contract import validate_skill
+        from riskagent_backend.skills.skill_contract import validate_skill
 
         validated_skill = validate_skill(skill)
         ok = await backend.persist_skill(validated_skill)
@@ -650,7 +650,7 @@ class TestSelfImprovingLoop:
         - permanent: Skill, 永不过期
         验证: 各级别 is_expired 判断正确
         """
-        from riskmonitor_multiagent.memory import TTL_SECONDS, TTLTier, TTLPolicyEngine
+        from riskagent_backend.memory import TTL_SECONDS, TTLTier, TTLPolicyEngine
 
         engine = TTLPolicyEngine()
         now_ms = int(time.time() * 1000)
@@ -731,7 +731,7 @@ class TestSelfImprovingLoop:
         - 头尾消息完整保留
         验证: 压缩有效, 关键信息不丢失
         """
-        from riskmonitor_multiagent.memory import ContextCompressor
+        from riskagent_backend.memory import ContextCompressor
 
         # max_tokens=1000: 中间消息会被截断到 100 字, 压缩后应在限制内
         compressor = ContextCompressor(
@@ -805,7 +805,7 @@ class TestSelfImprovingLoop:
         - 恢复上下文包含前段摘要
         验证: 分段不丢失上下文
         """
-        from riskmonitor_multiagent.memory import SessionSegmenter
+        from riskagent_backend.memory import SessionSegmenter
 
         segmenter = SessionSegmenter(max_steps_per_segment=10)
         run_id = "run-seg-001"
@@ -878,7 +878,7 @@ class TestSelfImprovingLoop:
         - 版本变更 → 缓存失效
         验证: 缓存命中率 > 0, 失效正确
         """
-        from riskmonitor_multiagent.prompts import PromptCacheManager, TieredPromptBuilder
+        from riskagent_backend.prompts import PromptCacheManager, TieredPromptBuilder
 
         builder = TieredPromptBuilder(stable_version="v1", context_date="2026-06-27")
         cache = PromptCacheManager()
@@ -949,7 +949,7 @@ class TestSelfImprovingLoop:
         - 有完整 trace
         验证: Cron 任务不绕过治理
         """
-        from riskmonitor_multiagent.scheduling import CronManager
+        from riskagent_backend.scheduling import CronManager
 
         cron_mgr = CronManager()
 
@@ -1010,7 +1010,7 @@ class TestSelfImprovingLoop:
         - 不同平台的同一请求 → 相同 entry_type
         验证: 平台适配不影响执行内核
         """
-        from riskmonitor_multiagent.gateway import GatewayRouter
+        from riskagent_backend.gateway import GatewayRouter
 
         router = GatewayRouter()
         router.register_adapter(
@@ -1105,7 +1105,7 @@ class TestSelfImprovingLoop:
         - 修订有历史
         - 系统整体表现呈上升趋势
         """
-        from riskmonitor_multiagent.skills import (
+        from riskagent_backend.skills import (
             SkillInjector,
             SkillProposer,
             SkillReviser,

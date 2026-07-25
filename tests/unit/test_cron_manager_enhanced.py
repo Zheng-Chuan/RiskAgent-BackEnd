@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from riskmonitor_multiagent.scheduling.cron_manager import CronManager, CronTask
+from riskagent_backend.scheduling.cron_manager import CronManager, CronTask
 
 
 # ---------------------------------------------------------------------------

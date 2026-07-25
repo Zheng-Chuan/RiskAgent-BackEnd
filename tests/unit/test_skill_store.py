@@ -33,7 +33,7 @@ def _make_skill(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_create_and_get_roundtrip():
     """测试 create + get 往返."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -50,7 +50,7 @@ async def test_create_and_get_roundtrip():
 @pytest.mark.asyncio
 async def test_get_nonexistent_returns_none():
     """测试 get 不存在的 skill_id 返回 None."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     assert await store.get("skill_nonexistent") is None
@@ -59,7 +59,7 @@ async def test_get_nonexistent_returns_none():
 @pytest.mark.asyncio
 async def test_create_invalid_skill_raises():
     """测试 create 非法 skill 抛出异常."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     with pytest.raises(ValueError, match="bad_name"):
@@ -72,7 +72,7 @@ async def test_create_invalid_skill_raises():
 @pytest.mark.asyncio
 async def test_update_partial_fields():
     """测试 update 部分字段."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -89,7 +89,7 @@ async def test_update_partial_fields():
 @pytest.mark.asyncio
 async def test_update_nonexistent_raises():
     """测试 update 不存在的 skill_id 抛出异常."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     with pytest.raises(KeyError):
@@ -99,7 +99,7 @@ async def test_update_nonexistent_raises():
 @pytest.mark.asyncio
 async def test_update_invalid_patch_raises():
     """测试 update 非法 patch 抛出异常."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -113,7 +113,7 @@ async def test_update_invalid_patch_raises():
 @pytest.mark.asyncio
 async def test_delete():
     """测试 delete."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -124,7 +124,7 @@ async def test_delete():
 @pytest.mark.asyncio
 async def test_delete_nonexistent_returns_false():
     """测试 delete 不存在的 skill_id 返回 False."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     assert await store.delete("skill_nonexistent") is False
@@ -136,7 +136,7 @@ async def test_delete_nonexistent_returns_false():
 @pytest.mark.asyncio
 async def test_list_all_with_status_filter():
     """测试 list_all 带 status 过滤."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="skill1"))
@@ -162,7 +162,7 @@ async def test_list_all_with_status_filter():
 @pytest.mark.asyncio
 async def test_list_all_with_tag_filter():
     """测试 list_all 带 tag 过滤."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="skill1", tags=["risk", "trading"]))
@@ -184,7 +184,7 @@ async def test_list_all_with_tag_filter():
 @pytest.mark.asyncio
 async def test_list_all_with_status_and_tag_filter():
     """测试 list_all 同时带 status 和 tag 过滤."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="skill1", tags=["risk"], status="active"))
@@ -201,7 +201,7 @@ async def test_list_all_with_status_and_tag_filter():
 @pytest.mark.asyncio
 async def test_search_semantic():
     """测试 search 语义检索."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(
@@ -233,7 +233,7 @@ async def test_search_semantic():
 @pytest.mark.asyncio
 async def test_search_filters_non_active():
     """测试 search 过滤非 active 的 Skill."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="活跃技能", status="active"))
@@ -248,7 +248,7 @@ async def test_search_filters_non_active():
 @pytest.mark.asyncio
 async def test_search_min_confidence_filter():
     """测试 search min_confidence 过滤."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="低置信度技能", confidence=0.3))
@@ -265,7 +265,7 @@ async def test_search_min_confidence_filter():
 @pytest.mark.asyncio
 async def test_search_empty_query_returns_empty():
     """测试 search 空查询返回空列表."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(_make_skill())
@@ -276,7 +276,7 @@ async def test_search_empty_query_returns_empty():
 @pytest.mark.asyncio
 async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full():
     """测试 search 在语义结果已满时仍会合并关键词兜底命中."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     target = await store.create(
@@ -316,7 +316,7 @@ async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full(
 @pytest.mark.asyncio
 async def test_find_similar_finds_match():
     """测试 find_similar 找到相似 Skill."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(
@@ -342,7 +342,7 @@ async def test_find_similar_finds_match():
 @pytest.mark.asyncio
 async def test_find_similar_excludes_self():
     """测试 find_similar 排除自身."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(name="排查流程"))
@@ -357,7 +357,7 @@ async def test_find_similar_excludes_self():
 @pytest.mark.asyncio
 async def test_find_similar_high_threshold():
     """测试 find_similar 高阈值不匹配不相关 Skill."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     await store.create(
@@ -381,7 +381,7 @@ async def test_find_similar_high_threshold():
 @pytest.mark.asyncio
 async def test_update_confidence_success():
     """测试 update_confidence 成功场景."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -395,7 +395,7 @@ async def test_update_confidence_success():
 @pytest.mark.asyncio
 async def test_update_confidence_failure():
     """测试 update_confidence 失败场景."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -409,7 +409,7 @@ async def test_update_confidence_failure():
 @pytest.mark.asyncio
 async def test_update_confidence_mixed():
     """测试 update_confidence 混合成功失败场景."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -429,7 +429,7 @@ async def test_update_confidence_mixed():
 @pytest.mark.asyncio
 async def test_update_confidence_caps_at_1():
     """测试 update_confidence 上限为 1.0."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.95))
@@ -440,7 +440,7 @@ async def test_update_confidence_caps_at_1():
 @pytest.mark.asyncio
 async def test_update_confidence_floors_at_0():
     """测试 update_confidence 下限为 0.0."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.05))
@@ -451,7 +451,7 @@ async def test_update_confidence_floors_at_0():
 @pytest.mark.asyncio
 async def test_low_confidence_deprecated():
     """测试低置信度自动降级到 deprecated."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.3))
@@ -463,7 +463,7 @@ async def test_low_confidence_deprecated():
 @pytest.mark.asyncio
 async def test_low_confidence_archived():
     """测试极低置信度自动降级到 archived."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.2))
@@ -475,7 +475,7 @@ async def test_low_confidence_archived():
 @pytest.mark.asyncio
 async def test_update_confidence_nonexistent_raises():
     """测试 update_confidence 不存在的 skill_id 抛出异常."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     with pytest.raises(KeyError):
@@ -488,7 +488,7 @@ async def test_update_confidence_nonexistent_raises():
 @pytest.mark.asyncio
 async def test_health_check():
     """测试 health_check."""
-    from riskmonitor_multiagent.skills import SkillStore
+    from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
     assert await store.health_check() is True

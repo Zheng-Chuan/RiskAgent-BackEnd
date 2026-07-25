@@ -8,26 +8,26 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel
-from riskmonitor_multiagent.llm import prompts as prompts_module
-from riskmonitor_multiagent.llm.output_repair import (
+from riskagent_backend.llm import prompts as prompts_module
+from riskagent_backend.llm.output_repair import (
     OutputRepairError,
     build_repair_prompt,
     extract_json_from_text,
     fix_common_json_issues,
     parse_with_retry,
 )
-from riskmonitor_multiagent.llm.prompts import PromptLoader, get_prompt_loader
-from riskmonitor_multiagent.orchestration.observation_tools import (
+from riskagent_backend.llm.prompts import PromptLoader, get_prompt_loader
+from riskagent_backend.orchestration.observation_tools import (
     observe_chroma_health,
     observe_kafka_lag_estimate,
     observe_mysql_health,
     observe_service_metrics,
 )
-from riskmonitor_multiagent.resources.mcp_resources import register_resources
-from riskmonitor_multiagent.services import auth_service
-from riskmonitor_multiagent.utils.json import safe_json_dumps, safe_json_loads
-from riskmonitor_multiagent.utils.text import clean_llm_output, truncate_context, truncate_text
-from riskmonitor_multiagent.utils.time import Timer, elapsed_ms, measure_time, now_ms
+from riskagent_backend.resources.mcp_resources import register_resources
+from riskagent_backend.services import auth_service
+from riskagent_backend.utils.json import safe_json_dumps, safe_json_loads
+from riskagent_backend.utils.text import clean_llm_output, truncate_context, truncate_text
+from riskagent_backend.utils.time import Timer, elapsed_ms, measure_time, now_ms
 
 
 class _OutputModel(BaseModel):
@@ -96,10 +96,10 @@ def test_prompt_loader_supports_multiple_formats_and_singleton(tmp_path: Path, m
 
 
 def test_auth_service_authorization_paths(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("RISKMONITOR_API_TOKEN", raising=False)
+    monkeypatch.delenv("RISKAGENT_API_TOKEN", raising=False)
     assert auth_service.is_authorized({}) is True
 
-    monkeypatch.setenv("RISKMONITOR_API_TOKEN", " secret-token ")
+    monkeypatch.setenv("RISKAGENT_API_TOKEN", " secret-token ")
     assert auth_service._extract_bearer(None) is None
     assert auth_service._extract_bearer("") is None
     assert auth_service._extract_bearer("Basic abc") is None
@@ -154,25 +154,25 @@ def test_json_text_and_time_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert wrapped("ok") == "OK"
     assert calls == ["ok"]
 
-    monkeypatch.setattr("riskmonitor_multiagent.utils.time.time.time", lambda: 1.234)
-    monkeypatch.setattr("riskmonitor_multiagent.utils.time.time.monotonic", lambda: 10.5)
+    monkeypatch.setattr("riskagent_backend.utils.time.time.time", lambda: 1.234)
+    monkeypatch.setattr("riskagent_backend.utils.time.time.monotonic", lambda: 10.5)
     assert now_ms() == 1234
     assert elapsed_ms(10.0) == 500.0
 
 
 def test_observation_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     monotonic_values = iter([1.0, 1.01, 2.0, 2.02, 3.0, 3.03, 4.0, 4.05, 5.0, 5.06])
-    monkeypatch.setattr("riskmonitor_multiagent.orchestration.observation_tools.time.monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr("riskagent_backend.orchestration.observation_tools.time.monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.observation_tools.get_metrics_summary",
+        "riskagent_backend.orchestration.observation_tools.get_metrics_summary",
         lambda: {"requests": 3},
     )
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.observation_tools.check_mysql_ready",
+        "riskagent_backend.orchestration.observation_tools.check_mysql_ready",
         lambda: (False, "mysql_down", SimpleNamespace(code="MYSQL_UNAVAILABLE")),
     )
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.observation_tools.time.time",
+        "riskagent_backend.orchestration.observation_tools.time.time",
         lambda: 10.0,
     )
 
@@ -182,7 +182,7 @@ def test_observation_tools(monkeypatch: pytest.MonkeyPatch) -> None:
             assert top_k == 1
             return [{"id": "ok"}]
 
-    sys.modules["riskmonitor_multiagent.knowledge.chroma_store"] = SimpleNamespace(
+    sys.modules["riskagent_backend.knowledge.chroma_store"] = SimpleNamespace(
         ChromaVectorStore=_GoodStore
     )
     try:
@@ -192,7 +192,7 @@ def test_observation_tools(monkeypatch: pytest.MonkeyPatch) -> None:
         kafka_bad = observe_kafka_lag_estimate(message_ts_ms=None)
         kafka_good = observe_kafka_lag_estimate(message_ts_ms=9000)
     finally:
-        sys.modules.pop("riskmonitor_multiagent.knowledge.chroma_store", None)
+        sys.modules.pop("riskagent_backend.knowledge.chroma_store", None)
 
     assert metrics["ok"] is True and metrics["summary"] == {"requests": 3}
     assert mysql["ok"] is False and mysql["error_code"] == "MYSQL_UNAVAILABLE"
@@ -202,14 +202,14 @@ def test_observation_tools(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_observe_chroma_health_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("riskmonitor_multiagent.orchestration.observation_tools.time.monotonic", lambda: 1.0)
-    sys.modules["riskmonitor_multiagent.knowledge.chroma_store"] = SimpleNamespace(
+    monkeypatch.setattr("riskagent_backend.orchestration.observation_tools.time.monotonic", lambda: 1.0)
+    sys.modules["riskagent_backend.knowledge.chroma_store"] = SimpleNamespace(
         ChromaVectorStore=lambda: (_ for _ in ()).throw(RuntimeError("boom"))
     )
     try:
         result = observe_chroma_health()
     finally:
-        sys.modules.pop("riskmonitor_multiagent.knowledge.chroma_store", None)
+        sys.modules.pop("riskagent_backend.knowledge.chroma_store", None)
     assert result["ok"] is False
     assert result["message"] == "chroma_unavailable"
     assert "boom" in str(result["error"])

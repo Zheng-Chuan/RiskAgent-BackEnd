@@ -1,4 +1,4 @@
--- RiskMonitor 数据库初始化脚本 (MySQL)
+-- RiskAgent 数据库初始化脚本 (MySQL)
 -- 用于创建最小可运行的数据库 schema 与演示数据
 
 -- 创建 positions 表(Phase 1 简化版)

@@ -27,7 +27,7 @@ def _chroma_host_port() -> tuple[str, int]:
 
 
 def _wait_chroma(timeout_s: float = 20.0) -> None:
-    from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
+    from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
 
     started = time.monotonic()
     while time.monotonic() - started < timeout_s:
@@ -44,7 +44,7 @@ def test_chroma_http_client_can_upsert_and_query_alerts(monkeypatch):
     tmp = Path(os.getenv("TMPDIR", "/tmp"))
     monkeypatch.setenv("CHROMA_PERSIST_DIR", str(tmp / f"chroma-it-{uuid.uuid4().hex[:8]}"))
 
-    from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
+    from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
 
     col = f"it-alerts-{uuid.uuid4().hex[:8]}"
     store = ChromaVectorStore(collection=col)

@@ -6,7 +6,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.perception import (
+from riskagent_backend.perception import (
     PerceptionSignal,
     SignalSeverity,
     FilterRule,
@@ -174,7 +174,7 @@ def test_perception_signal_structure():
         value="exited",
         severity=SignalSeverity.CRITICAL,
         message="容器退出",
-        context={"container_name": "riskmonitor-mysql"},
+        context={"container_name": "riskagent-mysql"},
     )
 
     d = signal.to_log_dict()

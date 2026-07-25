@@ -1,4 +1,4 @@
-# RiskMonitor MultiAgent 监控配置
+# RiskAgent BackEnd 监控配置
 
 ## 快速启动
 
@@ -55,7 +55,7 @@ docker-compose --profile monitoring stop prometheus grafana
 在代码中使用 metrics:
 
 ```python
-from riskmonitor_multiagent.observability.metrics import inc_counter, observe_ms
+from riskagent_backend.observability.metrics import inc_counter, observe_ms
 
 # 计数器
 inc_counter("proactive_agent_runs_total")

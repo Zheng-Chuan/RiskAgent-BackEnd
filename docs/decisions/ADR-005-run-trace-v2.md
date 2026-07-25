@@ -2,7 +2,7 @@
 
 **状态**：Decided, Implemented
 **日期**：2026-06-26
-**作者**：RiskMonitor-MultiAgent 项目组
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Context / 问题背景
 
@@ -87,7 +87,7 @@ TraceEntry {
 #### 4. 支持 Replay CLI 回放
 
 ```bash
-python -m riskmonitor_multiagent.cli.replay --run-id <run_id>
+python -m riskagent_backend.cli.replay --run-id <run_id>
 ```
 
 输出：

@@ -1,4 +1,4 @@
-# RiskMonitor-MultiAgent Architecture
+# RiskAgent-BackEnd Architecture
 
 ## 目录
 
@@ -114,7 +114,7 @@
     
     |
     v
-[ProactiveMultiAgentWorkflow.run]
+[ProactiveBackEndWorkflow.run]
     | 检查 memory_enabled baseline_mode benchmark_config
     | 组装 task_with_context
     | 生成统一 run_id 和 run_context
@@ -224,7 +224,7 @@ while remaining_nodes:
     → 回到 ①
 ```
 
-核心代码位于 [task_graph_executor.py:61 `execute()`](../src/riskmonitor_multiagent/orchestration/task_graph_executor.py)，单节点执行位于 [node_executors.py:109 `execute_node()`](../src/riskmonitor_multiagent/orchestration/node_executors.py)。
+核心代码位于 [task_graph_executor.py:61 `execute()`](../src/riskagent_backend/orchestration/task_graph_executor.py)，单节点执行位于 [node_executors.py:109 `execute_node()`](../src/riskagent_backend/orchestration/node_executors.py)。
 
 <a id="section-2-2"></a>
 ## 2.2 关键执行步骤
@@ -310,7 +310,7 @@ results = await asyncio.gather(
 )
 ```
 
-`execute_with_retry()` 的重试逻辑（[node_executors.py:47-78](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+`execute_with_retry()` 的重试逻辑（[node_executors.py:47-78](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 ```python
 # node_executors.py:47-78
@@ -401,7 +401,7 @@ return {
 <a id="section-2-3"></a>
 ## 2.3 节点类型与执行分发
 
-`execute_node()` 根据 `node.kind` 分发到不同执行路径（[node_executors.py:109-137](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+`execute_node()` 根据 `node.kind` 分发到不同执行路径（[node_executors.py:109-137](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 | kind | 执行逻辑 | 输出 |
 |------|---------|------|
@@ -416,7 +416,7 @@ return {
 <a id="section-2-4"></a>
 ## 2.4 审批拦截机制
 
-在执行节点前，`execute_node()` 先调用 `_check_step_approval()` 检查节点级审批（[node_executors.py:292-309](../src/riskmonitor_multiagent/orchestration/node_executors.py)）：
+在执行节点前，`execute_node()` 先调用 `_check_step_approval()` 检查节点级审批（[node_executors.py:292-309](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 ```python
 step_approval_result = self._check_step_approval(node=node)
@@ -577,7 +577,7 @@ if should_replan(critic_result.output):
     )
 ```
 
-`append_replan_subgraph()` 的挂接逻辑（[task_graph.py:309-426](../src/riskmonitor_multiagent/contracts/task_graph.py)）：
+`append_replan_subgraph()` 的挂接逻辑（[task_graph.py:309-426](../src/riskagent_backend/contracts/task_graph.py)）：
 
 ```
 原 TaskGraph:                      重规划后:
@@ -628,14 +628,14 @@ if runtime_replan is not None:
 
 | 组件 | 文件 | 方法/类 |
 |------|------|--------|
-| 执行器主类 | [task_graph_executor.py](../src/riskmonitor_multiagent/orchestration/task_graph_executor.py) | `TaskGraphExecutor.execute()` |
-| 节点执行器 | [node_executors.py](../src/riskmonitor_multiagent/orchestration/node_executors.py) | `NodeExecutor.execute_node()` / `execute_with_retry()` |
-| 重规划子图挂接 | [task_graph.py](../src/riskmonitor_multiagent/contracts/task_graph.py) | `append_replan_subgraph()` |
-| 图归一化 | [task_graph.py](../src/riskmonitor_multiagent/contracts/task_graph.py) | `normalize_task_graph()` / `build_task_graph_from_plan_steps()` |
-| 工具命令执行 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `execute_agent_command()` |
-| 主链接入点 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `ProactiveMultiAgentWorkflow.run()` Step 4 |
-| 运行时重规划 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `_maybe_runtime_replan()` |
-| 恢复请求处理 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `run()` resume 路径 |
+| 执行器主类 | [task_graph_executor.py](../src/riskagent_backend/orchestration/task_graph_executor.py) | `TaskGraphExecutor.execute()` |
+| 节点执行器 | [node_executors.py](../src/riskagent_backend/orchestration/node_executors.py) | `NodeExecutor.execute_node()` / `execute_with_retry()` |
+| 重规划子图挂接 | [task_graph.py](../src/riskagent_backend/contracts/task_graph.py) | `append_replan_subgraph()` |
+| 图归一化 | [task_graph.py](../src/riskagent_backend/contracts/task_graph.py) | `normalize_task_graph()` / `build_task_graph_from_plan_steps()` |
+| 工具命令执行 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `execute_agent_command()` |
+| 主链接入点 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `ProactiveBackEndWorkflow.run()` Step 4 |
+| 运行时重规划 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `_maybe_runtime_replan()` |
+| 恢复请求处理 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `run()` resume 路径 |
 
 <a id="section-3"></a>
 # 3. Agent BDI 心智架构
@@ -716,7 +716,7 @@ ProactiveAgentResult(
 <a id="section-3-2"></a>
 ## 3.2 数据结构
 
-三个心智状态定义在 [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py):
+三个心智状态定义在 [base_models.py](../src/riskagent_backend/proactive_agents/base_models.py):
 
 ```python
 @dataclass
@@ -745,7 +745,7 @@ class Intention:     # 意图：Agent 承诺要执行的行动
     created_timestamp_ms: int  # 创建时间戳
 ```
 
-**关键设计**：三个心智池都是**进程内 list**（[base.py:143-145](../src/riskmonitor_multiagent/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
+**关键设计**：三个心智池都是**进程内 list**（[base.py:143-145](../src/riskagent_backend/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
 
 ### 五种 Agent 的愿望与感知配置
 
@@ -805,7 +805,7 @@ Belief(
 
 ### `_PERCEPTION_SOURCES` 白名单
 
-`_deliberate()` 只处理以下 6 种 source 的信念（[base.py:68-75](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+`_deliberate()` 只处理以下 6 种 source 的信念（[base.py:68-75](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 _PERCEPTION_SOURCES = frozenset({
@@ -823,7 +823,7 @@ _PERCEPTION_SOURCES = frozenset({
 <a id="section-3-3"></a>
 ## 3.3 状态流转：Perceive → Deliberate → Act
 
-后台监控循环（[base.py:353 `_monitor_loop`](../src/riskmonitor_multiagent/proactive_agents/base.py)）实现 BDI 经典循环：
+后台监控循环（[base.py:353 `_monitor_loop`](../src/riskagent_backend/proactive_agents/base.py)）实现 BDI 经典循环：
 
 ```
 [后台监控循环 _monitor_loop]
@@ -855,7 +855,7 @@ _PERCEPTION_SOURCES = frozenset({
 <a id="section-3-4"></a>
 ## 3.4 意图状态机
 
-意图状态流转（[base.py:486-525](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+意图状态流转（[base.py:486-525](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```
 pending → executing → completed
@@ -869,10 +869,10 @@ pending → executing → completed
 
 **关键约束**：主动意图不直接执行工具，而是转成统一系统事件投递回 `proactive_workflow.start_from_event`，走和用户任务**完全相同**的主链（intent → plan → task_graph → receipt）。
 
-接入点代码（[base.py:497-514](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+接入点代码（[base.py:497-514](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
-from riskmonitor_multiagent.orchestration.proactive_workflow import get_proactive_workflow
+from riskagent_backend.orchestration.proactive_workflow import get_proactive_workflow
 
 workflow = get_proactive_workflow()
 await workflow.start_from_event(
@@ -888,18 +888,18 @@ await workflow.start_from_event(
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| 数据结构定义 | [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py) | `Belief` / `Desire` / `Intention` |
-| 心智池初始化 | [base.py:143-145](../src/riskmonitor_multiagent/proactive_agents/base.py) | `__init__` |
-| 后台监控循环 | [base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
-| 感知环境 | [base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
-| 信念→意图 | [base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
-| 意图→行动 | [base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
-| 意图状态机 | [base.py:224](../src/riskmonitor_multiagent/proactive_agents/base.py) | `update_intention_status` |
-| 状态快照导出 | [base.py:232](../src/riskmonitor_multiagent/proactive_agents/base.py) | `get_bdi_state` |
-| 意图→事件 | [base.py:527](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
-| ReAct 主循环 | [base.py:565](../src/riskmonitor_multiagent/proactive_agents/base.py) | `run_with_react` |
-| CoT 推理步 | [base.py:727](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning` |
-| CoT 证据步 | [base.py:800](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence` |
+| 数据结构定义 | [base_models.py](../src/riskagent_backend/proactive_agents/base_models.py) | `Belief` / `Desire` / `Intention` |
+| 心智池初始化 | [base.py:143-145](../src/riskagent_backend/proactive_agents/base.py) | `__init__` |
+| 后台监控循环 | [base.py:353](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
+| 感知环境 | [base.py:418](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
+| 信念→意图 | [base.py:422](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
+| 意图→行动 | [base.py:486](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
+| 意图状态机 | [base.py:224](../src/riskagent_backend/proactive_agents/base.py) | `update_intention_status` |
+| 状态快照导出 | [base.py:232](../src/riskagent_backend/proactive_agents/base.py) | `get_bdi_state` |
+| 意图→事件 | [base.py:527](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
+| ReAct 主循环 | [base.py:565](../src/riskagent_backend/proactive_agents/base.py) | `run_with_react` |
+| CoT 推理步 | [base.py:727](../src/riskagent_backend/proactive_agents/base.py) | `_generate_reasoning` |
+| CoT 证据步 | [base.py:800](../src/riskagent_backend/proactive_agents/base.py) | `_generate_evidence` |
 
 <a id="section-4"></a>
 # 4. ReAct / CoT 推理循环
@@ -911,7 +911,7 @@ await workflow.start_from_event(
 
 ### ReActStep
 
-ReAct 循环的每个步骤都用 [ReActStep](../src/riskmonitor_multiagent/proactive_agents/base_models.py) 表示：
+ReAct 循环的每个步骤都用 [ReActStep](../src/riskagent_backend/proactive_agents/base_models.py) 表示：
 
 ```python
 @dataclass
@@ -948,7 +948,7 @@ class ProactiveAgentResult:
 <a id="section-4-2"></a>
 ## 4.2 ReAct 循环主流程
 
-核心方法 [run_with_react()](../src/riskmonitor_multiagent/proactive_agents/base.py) 定义在 `BaseProactiveAgent` 基类中，所有 5 个主动 Agent 共享同一套循环骨架：
+核心方法 [run_with_react()](../src/riskagent_backend/proactive_agents/base.py) 定义在 `BaseProactiveAgent` 基类中，所有 5 个主动 Agent 共享同一套循环骨架：
 
 ```python
 async def run_with_react(self, *, task, context=None, max_tokens=512, max_steps=5):
@@ -1000,7 +1000,7 @@ async def run_with_react(self, *, task, context=None, max_tokens=512, max_steps=
 └──────────────────────────────────────────────────────────┘
 ```
 
-**终止条件** ([_should_terminate()](../src/riskmonitor_multiagent/proactive_agents/base.py))：
+**终止条件** ([_should_terminate()](../src/riskagent_backend/proactive_agents/base.py))：
 - `action_type == "finalize"` → 终止
 - `action_type == "ask_human"` 且 observation.timeout == True → 终止
 - 达到 `max_steps` 上限 → 自然终止
@@ -1319,17 +1319,17 @@ steps_summary = "\n".join([
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| ReAct 循环主方法 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `BaseProactiveAgent.run_with_react()` |
-| Thought 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_thought()` |
-| Reasoning 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_reasoning()` |
-| Evidence 生成 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_evidence()` |
-| Action 决策 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_decide_action()` |
-| Action 执行 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_execute_action()` |
-| 终止判断 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_should_terminate()` |
-| 最终答案 | [base.py](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_generate_final_answer()` |
-| ReActStep 数据结构 | [base_models.py](../src/riskmonitor_multiagent/proactive_agents/base_models.py) | `ReActStep` / `ProactiveAgentResult` |
-| 5 种角色实现 | [roles.py](../src/riskmonitor_multiagent/proactive_agents/roles.py) | `ProactiveIntentAgent` / `ProactiveOrchestratorAgent` / `ProactiveCriticAgent` / `ProactiveSystemEngineerAgent` / `ProactiveRiskAnalystAgent` |
-| 推理结果汇聚 | [workflow_result_builder.py](../src/riskmonitor_multiagent/orchestration/workflow_result_builder.py) | `all_react_steps` 汇聚逻辑 |
+| ReAct 循环主方法 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `BaseProactiveAgent.run_with_react()` |
+| Thought 生成 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_thought()` |
+| Reasoning 生成 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_reasoning()` |
+| Evidence 生成 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_evidence()` |
+| Action 决策 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_decide_action()` |
+| Action 执行 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_execute_action()` |
+| 终止判断 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_should_terminate()` |
+| 最终答案 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_final_answer()` |
+| ReActStep 数据结构 | [base_models.py](../src/riskagent_backend/proactive_agents/base_models.py) | `ReActStep` / `ProactiveAgentResult` |
+| 5 种角色实现 | [roles.py](../src/riskagent_backend/proactive_agents/roles.py) | `ProactiveIntentAgent` / `ProactiveOrchestratorAgent` / `ProactiveCriticAgent` / `ProactiveSystemEngineerAgent` / `ProactiveRiskAnalystAgent` |
+| 推理结果汇聚 | [workflow_result_builder.py](../src/riskagent_backend/orchestration/workflow_result_builder.py) | `all_react_steps` 汇聚逻辑 |
 | LLMJudge 推理评估 | [llm_judge.py](../eval/core/llm_judge.py) | `evaluate_reasoning_quality()` |
 | 评估指标消费 | [evaluator.py](../eval/core/evaluator.py) | `_compute_reasoning()` / `_compute_evidence_coverage()` |
 | 推理质量指标 | [metrics.py](../eval/core/metrics.py) | `ReasoningMetrics` / `EvidenceCoverage` |
@@ -1367,7 +1367,7 @@ steps_summary = "\n".join([
 <a id="section-5-2"></a>
 ## 5.2 数据结构：memory_entry.v1
 
-所有记忆条目都符合统一 schema([contracts/memory_entry.py](../src/riskmonitor_multiagent/contracts/memory_entry.py))：
+所有记忆条目都符合统一 schema([contracts/memory_entry.py](../src/riskagent_backend/contracts/memory_entry.py))：
 
 ```json
 {
@@ -1432,7 +1432,7 @@ steps_summary = "\n".join([
 
 **① `plan` — 编排计划记忆**
 
-写入时机：OrchestratorAgent 生成 `plan_steps` 后立即写入。写入逻辑在 [workflow_memory.py:12-43](../src/riskmonitor_multiagent/orchestration/workflow_memory.py)，将 `plan_steps` 列表的 `reason/instruction/kind` 拼接为 `plan_text`，连同完整 `plan_steps` 结构体一起存储。
+写入时机：OrchestratorAgent 生成 `plan_steps` 后立即写入。写入逻辑在 [workflow_memory.py:12-43](../src/riskagent_backend/orchestration/workflow_memory.py)，将 `plan_steps` 列表的 `reason/instruction/kind` 拼接为 `plan_text`，连同完整 `plan_steps` 结构体一起存储。
 
 ```json
 {
@@ -1461,7 +1461,7 @@ steps_summary = "\n".join([
 
 **② `working_memory` — 执行过程记忆**
 
-写入时机：TaskGraphExecutor 每完成一个 node 后写入。写入逻辑在 [memory_operations.py:32-126](../src/riskmonitor_multiagent/memory/memory_operations.py)，记录 `step_id`、`kind`（tool_call/delegate/...）、`status`（completed/failed）、`tool_name`、`target_agent`、`error` 等执行上下文。同步写入 shared 和 private 两条（私有条目 `kind="private_task_state"`）。
+写入时机：TaskGraphExecutor 每完成一个 node 后写入。写入逻辑在 [memory_operations.py:32-126](../src/riskagent_backend/memory/memory_operations.py)，记录 `step_id`、`kind`（tool_call/delegate/...）、`status`（completed/failed）、`tool_name`、`target_agent`、`error` 等执行上下文。同步写入 shared 和 private 两条（私有条目 `kind="private_task_state"`）。
 
 ```json
 {
@@ -1492,7 +1492,7 @@ steps_summary = "\n".join([
 
 **③ `final` — 运行总结记忆**
 
-写入时机：CriticAgent 完成 `final_review` 后写入。写入逻辑在 [memory_operations.py:155-169](../src/riskmonitor_multiagent/memory/memory_operations.py)，保存 `run_summary.text`、`key_points` 和 `receipt_command_ids`。是 run 级别的最终产出快照。
+写入时机：CriticAgent 完成 `final_review` 后写入。写入逻辑在 [memory_operations.py:155-169](../src/riskagent_backend/memory/memory_operations.py)，保存 `run_summary.text`、`key_points` 和 `receipt_command_ids`。是 run 级别的最终产出快照。
 
 ```json
 {
@@ -1516,7 +1516,7 @@ steps_summary = "\n".join([
 
 **④ `lesson` — 过程性经验记忆**
 
-写入时机：与 `final` 同阶段，紧随其后写入。写入逻辑在 [memory_operations.py:171-191](../src/riskmonitor_multiagent/memory/memory_operations.py)，`memory_type="procedural"`（过程性记忆），由 `derive_lesson_text()` 从 `final_output` 和 `run_summary` 提炼一句话教训。通过 `should_persist` 判定后立即异步落盘到 MySQL。
+写入时机：与 `final` 同阶段，紧随其后写入。写入逻辑在 [memory_operations.py:171-191](../src/riskagent_backend/memory/memory_operations.py)，`memory_type="procedural"`（过程性记忆），由 `derive_lesson_text()` 从 `final_output` 和 `run_summary` 提炼一句话教训。通过 `should_persist` 判定后立即异步落盘到 MySQL。
 
 ```json
 {
@@ -1539,7 +1539,7 @@ steps_summary = "\n".join([
 
 **⑤ `approval` — 审批记忆**
 
-写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 [memory_operations.py:207-245](../src/riskmonitor_multiagent/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
+写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 [memory_operations.py:207-245](../src/riskagent_backend/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
 
 ```json
 {
@@ -1573,7 +1573,7 @@ steps_summary = "\n".join([
 
 **⑥ `semantic_case` — 长期经验案例记忆**
 
-写入时机：CriticAgent 在 `final_review` 阶段，经 `build_experience_policy()` 策略筛选后，`confidence` 达标的 run 才写入。写入逻辑在 [memory_operations.py:287-308](../src/riskmonitor_multiagent/memory/memory_operations.py)，`memory_type="semantic"`（语义记忆），是唯一一种长期 few-shot 经验。未通过筛选的 run 写入 `kind="experience_rejection"`。SkillStore 也用此 kind 将 Skill 索引到 SemanticIndexer（[skill_store.py:80-91](../src/riskmonitor_multiagent/skills/skill_store.py)）。通过 `should_persist` 判定后立即异步落盘。
+写入时机：CriticAgent 在 `final_review` 阶段，经 `build_experience_policy()` 策略筛选后，`confidence` 达标的 run 才写入。写入逻辑在 [memory_operations.py:287-308](../src/riskagent_backend/memory/memory_operations.py)，`memory_type="semantic"`（语义记忆），是唯一一种长期 few-shot 经验。未通过筛选的 run 写入 `kind="experience_rejection"`。SkillStore 也用此 kind 将 Skill 索引到 SemanticIndexer（[skill_store.py:80-91](../src/riskagent_backend/skills/skill_store.py)）。通过 `should_persist` 判定后立即异步落盘。
 
 ```json
 {
@@ -1708,15 +1708,15 @@ steps_summary = "\n".join([
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| 统一门面 | [memory_store.py](../src/riskmonitor_multiagent/memory/memory_store.py) | `MemoryStore` |
-| Redis 后端 | [redis_backend.py](../src/riskmonitor_multiagent/memory/redis_backend.py) | `RedisBackend` |
-| 语义索引 | [semantic_indexer.py](../src/riskmonitor_multiagent/memory/semantic_indexer.py) | `SemanticIndexer` |
-| 记忆写入编排 | [memory_operations.py](../src/riskmonitor_multiagent/memory/memory_operations.py) | 记忆写入逻辑 |
-| 记忆 schema | [memory_entry.py](../src/riskmonitor_multiagent/contracts/memory_entry.py) | `MemoryEntry` |
-| planning 链接入 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `retrieve_for_planning()` |
-| execution 链接入 | [task_graph_executor.py](../src/riskmonitor_multiagent/orchestration/task_graph_executor.py) | `record_working_memory()` |
-| finalize 链接入 | [workflow_memory.py](../src/riskmonitor_multiagent/orchestration/workflow_memory.py) | `persist_run_artifacts()` |
-| resume 链接入 | [workflow_resume.py](../src/riskmonitor_multiagent/orchestration/workflow_resume.py) | `build_resume_payload()` |
+| 统一门面 | [memory_store.py](../src/riskagent_backend/memory/memory_store.py) | `MemoryStore` |
+| Redis 后端 | [redis_backend.py](../src/riskagent_backend/memory/redis_backend.py) | `RedisBackend` |
+| 语义索引 | [semantic_indexer.py](../src/riskagent_backend/memory/semantic_indexer.py) | `SemanticIndexer` |
+| 记忆写入编排 | [memory_operations.py](../src/riskagent_backend/memory/memory_operations.py) | 记忆写入逻辑 |
+| 记忆 schema | [memory_entry.py](../src/riskagent_backend/contracts/memory_entry.py) | `MemoryEntry` |
+| planning 链接入 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `retrieve_for_planning()` |
+| execution 链接入 | [task_graph_executor.py](../src/riskagent_backend/orchestration/task_graph_executor.py) | `record_working_memory()` |
+| finalize 链接入 | [workflow_memory.py](../src/riskagent_backend/orchestration/workflow_memory.py) | `persist_run_artifacts()` |
+| resume 链接入 | [workflow_resume.py](../src/riskagent_backend/orchestration/workflow_resume.py) | `build_resume_payload()` |
 
 <a id="section-6"></a>
 # 6. Skill 自创闭环生命周期
@@ -1783,7 +1783,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 <a id="section-6-2"></a>
 ## 6.2 数据结构：skill.v1
 
-所有 Skill 都符合统一 schema([skill_contract.py](../src/riskmonitor_multiagent/skills/skill_contract.py))：
+所有 Skill 都符合统一 schema([skill_contract.py](../src/riskagent_backend/skills/skill_contract.py))：
 
 ```json
 {
@@ -1859,7 +1859,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 
 **触发时机**：CriticAgent 评审之后,ok=True 且 confidence >= 0.85
 
-**流程**([skill_proposer.py](../src/riskmonitor_multiagent/skills/skill_proposer.py))：
+**流程**([skill_proposer.py](../src/riskagent_backend/skills/skill_proposer.py))：
 
 ```python
 async def propose(self, *, run_id, task, critic_final, orchestrator_output, receipts):
@@ -1894,7 +1894,7 @@ async def propose(self, *, run_id, task, critic_final, orchestrator_output, rece
 
 **触发时机**：planning 阶段,OrchestratorAgent 规划之前
 
-**流程**([skill_injector.py](../src/riskmonitor_multiagent/skills/skill_injector.py))：
+**流程**([skill_injector.py](../src/riskagent_backend/skills/skill_injector.py))：
 
 ```python
 async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
@@ -1944,7 +1944,7 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 
 **触发时机**：Skill 被使用后,根据执行结果更新置信度
 
-**流程**([skill_usage_tracker.py](../src/riskmonitor_multiagent/skills/skill_usage_tracker.py))：
+**流程**([skill_usage_tracker.py](../src/riskagent_backend/skills/skill_usage_tracker.py))：
 
 ```python
 async def record_usage(self, *, skill_id, success):
@@ -1971,7 +1971,7 @@ async def record_usage(self, *, skill_id, success):
 
 **触发时机**：Skill 被使用但产生次优结果(critic ok=False 或有 issues)
 
-**流程**([skill_reviser.py](../src/riskmonitor_multiagent/skills/skill_reviser.py))：
+**流程**([skill_reviser.py](../src/riskagent_backend/skills/skill_reviser.py))：
 
 ```python
 async def check_and_propose_revision(self, *, skill_id, run_id, execution_result, critic_final):
@@ -2064,14 +2064,14 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| Skill 契约 | [skill_contract.py](../src/riskmonitor_multiagent/skills/skill_contract.py) | `Skill` / `validate_skill()` |
-| Skill 存储 | [skill_store.py](../src/riskmonitor_multiagent/skills/skill_store.py) | `SkillStore` |
-| Skill 创建 | [skill_proposer.py](../src/riskmonitor_multiagent/skills/skill_proposer.py) | `SkillProposer.propose()` |
-| Skill 检索注入 | [skill_injector.py](../src/riskmonitor_multiagent/skills/skill_injector.py) | `SkillInjector.retrieve_applicable_skills()` |
-| Skill 使用跟踪 | [skill_usage_tracker.py](../src/riskmonitor_multiagent/skills/skill_usage_tracker.py) | `SkillUsageTracker.record_usage()` |
-| Skill 修订 | [skill_reviser.py](../src/riskmonitor_multiagent/skills/skill_reviser.py) | `SkillReviser.check_and_propose_revision()` |
-| Skill 治理 | [skill_governor.py](../src/riskmonitor_multiagent/skills/skill_governor.py) | `SkillGovernor.enforce_injection_limits()` |
-| workflow 接入 | [proactive_workflow.py](../src/riskmonitor_multiagent/orchestration/proactive_workflow.py) | `SkillStore` / `SkillInjector` / `SkillProposer` / `SkillReviser` 初始化 |
+| Skill 契约 | [skill_contract.py](../src/riskagent_backend/skills/skill_contract.py) | `Skill` / `validate_skill()` |
+| Skill 存储 | [skill_store.py](../src/riskagent_backend/skills/skill_store.py) | `SkillStore` |
+| Skill 创建 | [skill_proposer.py](../src/riskagent_backend/skills/skill_proposer.py) | `SkillProposer.propose()` |
+| Skill 检索注入 | [skill_injector.py](../src/riskagent_backend/skills/skill_injector.py) | `SkillInjector.retrieve_applicable_skills()` |
+| Skill 使用跟踪 | [skill_usage_tracker.py](../src/riskagent_backend/skills/skill_usage_tracker.py) | `SkillUsageTracker.record_usage()` |
+| Skill 修订 | [skill_reviser.py](../src/riskagent_backend/skills/skill_reviser.py) | `SkillReviser.check_and_propose_revision()` |
+| Skill 治理 | [skill_governor.py](../src/riskagent_backend/skills/skill_governor.py) | `SkillGovernor.enforce_injection_limits()` |
+| workflow 接入 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `SkillStore` / `SkillInjector` / `SkillProposer` / `SkillReviser` 初始化 |
 
 <a id="section-7"></a>
 # 7. MCP 工具调用与治理
@@ -2153,11 +2153,11 @@ if transport is None or not transport.strip():
 
 ### 第一层：HTTP Bearer Token（外部访问）
 
-[auth_service.py](../src/riskmonitor_multiagent/services/auth_service.py) 实现基于 Bearer Token 的最小鉴权：
+[auth_service.py](../src/riskagent_backend/services/auth_service.py) 实现基于 Bearer Token 的最小鉴权：
 
 ```python
 def is_authorized(headers: Mapping[str, Any]) -> bool:
-    expected = os.getenv("RISKMONITOR_API_TOKEN")
+    expected = os.getenv("RISKAGENT_API_TOKEN")
     if expected is None:
         return True  # 未配置 token 则跳过鉴权（开发环境）
     auth = headers.get("authorization") or headers.get("Authorization")
@@ -2173,7 +2173,7 @@ def is_authorized(headers: Mapping[str, Any]) -> bool:
 
 ### 第二层：RBAC 角色权限（内部执行）
 
-[tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) 在执行工具前进行 RBAC 校验：
+[tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) 在执行工具前进行 RBAC 校验：
 
 ```python
 def _is_allowed_by_role(*, meta: ToolMeta, target_agent: str) -> bool:
@@ -2194,7 +2194,7 @@ def _is_allowed_by_role(*, meta: ToolMeta, target_agent: str) -> bool:
 
 ### ToolRegistry：工具元数据注册表
 
-[tool_registry.py](../src/riskmonitor_multiagent/orchestration/tool_registry.py) 维护全局工具元数据：
+[tool_registry.py](../src/riskagent_backend/orchestration/tool_registry.py) 维护全局工具元数据：
 
 ```python
 @dataclass(frozen=True)
@@ -2229,7 +2229,7 @@ class ToolMeta:
 
 ### ToolExecutor：角色隔离的执行白名单
 
-[tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) 维护三个角色白名单：
+[tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) 维护三个角色白名单：
 
 ```python
 _ENGINEER_ALLOWLIST = {
@@ -2263,7 +2263,7 @@ _MANAGER_ALLOWLIST = {
 
 Agent 通过 **TieredPromptBuilder 的 tools_index** 获知可用工具：
 
-[tiered_prompt_builder.py](../src/riskmonitor_multiagent/prompts/tiered_prompt_builder.py) 在构建 system prompt 的稳定层时注入工具索引：
+[tiered_prompt_builder.py](../src/riskagent_backend/prompts/tiered_prompt_builder.py) 在构建 system prompt 的稳定层时注入工具索引：
 
 ```python
 def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
@@ -2359,7 +2359,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 
 除工具外，MCP Server 还暴露 **Resources** 和 **Prompts**：
 
-### Resources（[mcp_resources.py](../src/riskmonitor_multiagent/resources/mcp_resources.py)）
+### Resources（[mcp_resources.py](../src/riskagent_backend/resources/mcp_resources.py)）
 
 | URI | 名称 | 描述 |
 |---|---|---|
@@ -2367,7 +2367,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 | `risk://limits/global` | global_limits | 全局风控限额 |
 | `market://snapshot/latest` | market_snapshot_latest | 最新行情快照 |
 
-### Prompts（[mcp_prompts.py](../src/riskmonitor_multiagent/prompts/mcp_prompts.py)）
+### Prompts（[mcp_prompts.py](../src/riskagent_backend/prompts/mcp_prompts.py)）
 
 | 名称 | 描述 |
 |---|---|
@@ -2382,26 +2382,26 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| MCP 服务启动 | [server.py](../src/riskmonitor_multiagent/server.py) | `mcp = FastMCP(...)` |
+| MCP 服务启动 | [server.py](../src/riskagent_backend/server.py) | `mcp = FastMCP(...)` |
 | 传输模式选择 | [main.py](../main.py) | `main()` |
-| 工具注册（MCP 层） | [mcp_tools.py](../src/riskmonitor_multiagent/tools/mcp_tools.py) | `register_tools()` |
-| 工具执行（MCP 层） | [mcp_tools.py](../src/riskmonitor_multiagent/tools/mcp_tools.py) | `_execute_mcp_tool()` |
-| 工具注册表 | [tool_registry.py](../src/riskmonitor_multiagent/orchestration/tool_registry.py) | `ToolMeta` / `_TOOL_REGISTRY` |
-| 工具执行（核心） | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `execute_agent_command()` |
-| 角色白名单 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_ENGINEER_ALLOWLIST` / `_ANALYST_ALLOWLIST` / `_MANAGER_ALLOWLIST` |
-| RBAC 校验 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_is_allowed_by_role()` / `_is_allowed_by_meta()` |
-| 审批状态机 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_build_approval_trace()` |
-| 预算检查 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_reserve_budget()` |
-| 超时执行 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_execute_handler_with_timeout()` |
-| 回执构造 | [tool_executor.py](../src/riskmonitor_multiagent/orchestration/tool_executor.py) | `_build_receipt()` |
-| HTTP 鉴权 | [auth_service.py](../src/riskmonitor_multiagent/services/auth_service.py) | `is_authorized()` |
-| Context headers 提取 | [auth_service.py](../src/riskmonitor_multiagent/services/auth_service.py) | `get_headers_from_ctx()` |
-| 工具索引注入 | [tiered_prompt_builder.py](../src/riskmonitor_multiagent/prompts/tiered_prompt_builder.py) | `build_stable_tier(tools_index=...)` |
-| 节点工具调用 | [node_executors.py](../src/riskmonitor_multiagent/orchestration/node_executors.py) | `NodeExecutor._execute_tool_call_node()` |
-| MCP Resources | [mcp_resources.py](../src/riskmonitor_multiagent/resources/mcp_resources.py) | `register_resources()` |
-| MCP Prompts | [mcp_prompts.py](../src/riskmonitor_multiagent/prompts/mcp_prompts.py) | `register_prompts()` |
+| 工具注册（MCP 层） | [mcp_tools.py](../src/riskagent_backend/tools/mcp_tools.py) | `register_tools()` |
+| 工具执行（MCP 层） | [mcp_tools.py](../src/riskagent_backend/tools/mcp_tools.py) | `_execute_mcp_tool()` |
+| 工具注册表 | [tool_registry.py](../src/riskagent_backend/orchestration/tool_registry.py) | `ToolMeta` / `_TOOL_REGISTRY` |
+| 工具执行（核心） | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `execute_agent_command()` |
+| 角色白名单 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_ENGINEER_ALLOWLIST` / `_ANALYST_ALLOWLIST` / `_MANAGER_ALLOWLIST` |
+| RBAC 校验 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_is_allowed_by_role()` / `_is_allowed_by_meta()` |
+| 审批状态机 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_build_approval_trace()` |
+| 预算检查 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_reserve_budget()` |
+| 超时执行 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_execute_handler_with_timeout()` |
+| 回执构造 | [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) | `_build_receipt()` |
+| HTTP 鉴权 | [auth_service.py](../src/riskagent_backend/services/auth_service.py) | `is_authorized()` |
+| Context headers 提取 | [auth_service.py](../src/riskagent_backend/services/auth_service.py) | `get_headers_from_ctx()` |
+| 工具索引注入 | [tiered_prompt_builder.py](../src/riskagent_backend/prompts/tiered_prompt_builder.py) | `build_stable_tier(tools_index=...)` |
+| 节点工具调用 | [node_executors.py](../src/riskagent_backend/orchestration/node_executors.py) | `NodeExecutor._execute_tool_call_node()` |
+| MCP Resources | [mcp_resources.py](../src/riskagent_backend/resources/mcp_resources.py) | `register_resources()` |
+| MCP Prompts | [mcp_prompts.py](../src/riskagent_backend/prompts/mcp_prompts.py) | `register_prompts()` |
 | K8s 部署 | [mcp-server-deployment.yaml](../deploy/k8s/templates/mcp-server-deployment.yaml) | Deployment + Service |
-| 错误响应 | [errors.py](../src/riskmonitor_multiagent/tools/errors.py) | `error_payload()` |
+| 错误响应 | [errors.py](../src/riskagent_backend/tools/errors.py) | `error_payload()` |
 | 治理决策 | [ADR-004](../docs/decisions/ADR-004-tool-governance.md) | 零信任工具治理体系 |
 
 <a id="section-8"></a>
@@ -2412,7 +2412,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 <a id="section-8-1"></a>
 ## 8.1 启动与停止
 
-**启动**（[base.py:329](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**启动**（[base.py:329](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def start_background_monitor(self) -> None:
@@ -2422,7 +2422,7 @@ async def start_background_monitor(self) -> None:
     self._monitor_task = asyncio.create_task(self._monitor_loop())
 ```
 
-**停止**（[base.py:339](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**停止**（[base.py:339](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def stop_background_monitor(self) -> None:
@@ -2439,7 +2439,7 @@ async def stop_background_monitor(self) -> None:
 <a id="section-8-2"></a>
 ## 8.2 监控循环
 
-**核心循环**（[base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**核心循环**（[base.py:353](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _monitor_loop(self):
@@ -2459,7 +2459,7 @@ async def _monitor_loop(self):
 <a id="section-8-3"></a>
 ## 8.3 感知层：数据源采集与过滤
 
-**数据采集**（[base.py:400](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**数据采集**（[base.py:400](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _collect_and_filter(self, data_sources: list) -> list:
@@ -2483,7 +2483,7 @@ async def _collect_and_filter(self, data_sources: list) -> list:
 <a id="section-8-4"></a>
 ## 8.4 信念更新
 
-**感知环境**（[base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**感知环境**（[base.py:418](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _perceive_environment(self) -> None:
@@ -2492,7 +2492,7 @@ async def _perceive_environment(self) -> None:
     pass
 ```
 
-**信念写入**（[base.py:172](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**信念写入**（[base.py:172](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Belief:
@@ -2509,7 +2509,7 @@ def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Beli
 <a id="section-8-5"></a>
 ## 8.5 意图形成
 
-**思考过程**（[base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**思考过程**（[base.py:422](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _deliberate(self) -> None:
@@ -2570,7 +2570,7 @@ async def _deliberate(self) -> None:
 <a id="section-8-6"></a>
 ## 8.6 意图执行与事件投递
 
-**行动过程**（[base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py)）：
+**行动过程**（[base.py:486](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _act(self) -> None:
@@ -2645,19 +2645,19 @@ proactive_event → workflow.start_from_event()
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| 启动监控 | [base.py:329](../src/riskmonitor_multiagent/proactive_agents/base.py) | `start_background_monitor` |
-| 停止监控 | [base.py:339](../src/riskmonitor_multiagent/proactive_agents/base.py) | `stop_background_monitor` |
-| 监控循环 | [base.py:353](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_monitor_loop` |
-| 数据采集 | [base.py:400](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_collect_and_filter` |
-| 感知环境 | [base.py:418](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_perceive_environment` |
-| 信念写入 | [base.py:172](../src/riskmonitor_multiagent/proactive_agents/base.py) | `add_belief` |
-| 意图形成 | [base.py:422](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_deliberate` |
-| 意图执行 | [base.py:486](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_act` |
-| 意图→事件 | [base.py:527](../src/riskmonitor_multiagent/proactive_agents/base.py) | `_build_proactive_event` |
-| 事件投递 | [base.py:497](../src/riskmonitor_multiagent/proactive_agents/base.py) | `workflow.start_from_event` |
-| 感知过滤引擎 | [perception/](../src/riskmonitor_multiagent/perception/) | `PerceptionFilterEngine` |
-| 升级管理 | [perception/](../src/riskmonitor_multiagent/perception/) | `EscalationManager` |
-| 预算熔断 | [scheduling/](../src/riskmonitor_multiagent/scheduling/) | `ProactiveBudgetManager` |
+| 启动监控 | [base.py:329](../src/riskagent_backend/proactive_agents/base.py) | `start_background_monitor` |
+| 停止监控 | [base.py:339](../src/riskagent_backend/proactive_agents/base.py) | `stop_background_monitor` |
+| 监控循环 | [base.py:353](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
+| 数据采集 | [base.py:400](../src/riskagent_backend/proactive_agents/base.py) | `_collect_and_filter` |
+| 感知环境 | [base.py:418](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
+| 信念写入 | [base.py:172](../src/riskagent_backend/proactive_agents/base.py) | `add_belief` |
+| 意图形成 | [base.py:422](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
+| 意图执行 | [base.py:486](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
+| 意图→事件 | [base.py:527](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
+| 事件投递 | [base.py:497](../src/riskagent_backend/proactive_agents/base.py) | `workflow.start_from_event` |
+| 感知过滤引擎 | [perception/](../src/riskagent_backend/perception/) | `PerceptionFilterEngine` |
+| 升级管理 | [perception/](../src/riskagent_backend/perception/) | `EscalationManager` |
+| 预算熔断 | [scheduling/](../src/riskagent_backend/scheduling/) | `ProactiveBudgetManager` |
 
 <a id="section-9"></a>
 # 9. 评估体系
@@ -2672,7 +2672,7 @@ proactive_event → workflow.start_from_event()
 | 框架 | 来源 | 参考内容 |
 |---|---|---|
 | **GAIA** | Meta AI | General AI Assistant Benchmark，任务准确度维度 |
-| **MultiAgentBench** | 学术界 | Multi-Agent Collaboration Benchmark，协作深度维度 |
+| **BackEndBench** | 学术界 | Multi-Agent Collaboration Benchmark，协作深度维度 |
 | **PlanBench** | 学术界 | Planning and Execution Benchmark，计划正确性维度 |
 | **GEMMAS** | 学术界 | Graph-based Evaluation Metrics for Multi-Agent Systems，信息多样性 |
 | **CoT Benchmarks** | 学术界 | Chain-of-Thought 推理质量评估 |

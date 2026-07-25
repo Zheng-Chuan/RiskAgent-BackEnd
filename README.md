@@ -1,4 +1,4 @@
-# RiskMonitor-MultiAgent
+# RiskAgent-BackEnd
 
 ## 项目概述
 
@@ -70,12 +70,12 @@
 
 ## 代码入口
 
-- 编排入口: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
-- 主工作流: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
-- 任务图执行: `src/riskmonitor_multiagent/orchestration/task_graph_executor.py` + `node_executors.py`
-- 工具治理: `src/riskmonitor_multiagent/orchestration/tool_executor.py`
-- 统一记忆: `src/riskmonitor_multiagent/memory/memory_store.py`
-- 统一 trace: `src/riskmonitor_multiagent/observability/run_trace.py`
+- 编排入口: `src/riskagent_backend/orchestration/proactive_workflow.py`
+- 主工作流: `src/riskagent_backend/orchestration/proactive_workflow.py`
+- 任务图执行: `src/riskagent_backend/orchestration/task_graph_executor.py` + `node_executors.py`
+- 工具治理: `src/riskagent_backend/orchestration/tool_executor.py`
+- 统一记忆: `src/riskagent_backend/memory/memory_store.py`
+- 统一 trace: `src/riskagent_backend/observability/run_trace.py`
 - 评测入口: `eval/cli.py`
 
 ## 文档
@@ -106,7 +106,7 @@ make up
 
 ```bash
 # 创建 Secret（首次部署）
-kubectl create secret generic riskmonitor-secrets \
+kubectl create secret generic riskagent-secrets \
   --from-literal=MYSQL_ROOT_PASSWORD=root \
   --from-literal=MYSQL_PASSWORD=change_me \
   --from-literal=MYSQL_USER=admin \

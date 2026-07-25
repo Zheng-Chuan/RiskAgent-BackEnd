@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.contracts.event import EventType
-from riskmonitor_multiagent.proactive_agents.base import BaseProactiveAgent
+from riskagent_backend.contracts.event import EventType
+from riskagent_backend.proactive_agents.base import BaseProactiveAgent
 
 
 def _make_agent() -> BaseProactiveAgent:
@@ -134,7 +134,7 @@ async def test_chain_perceive_to_act(monkeypatch: pytest.MonkeyPatch) -> None:
             return {"status": "completed"}
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.proactive_workflow.get_proactive_workflow",
+        "riskagent_backend.orchestration.proactive_workflow.get_proactive_workflow",
         lambda: _FakeWorkflow(),
     )
 

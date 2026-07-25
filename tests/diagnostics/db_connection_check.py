@@ -25,7 +25,7 @@ def test_connection():
     db_config = {
         'host': os.getenv('MYSQL_HOST', 'localhost'),
         'port': int(os.getenv('MYSQL_PORT', '3306')),
-        'database': os.getenv('MYSQL_DATABASE', 'riskmonitor'),
+        'database': os.getenv('MYSQL_DATABASE', 'riskagent'),
         'user': os.getenv('MYSQL_USER', 'admin'),
         'password': os.getenv('MYSQL_PASSWORD'),
         'charset': 'utf8mb4'

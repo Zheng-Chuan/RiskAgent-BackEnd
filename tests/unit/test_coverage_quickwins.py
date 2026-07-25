@@ -8,9 +8,9 @@ import httpx
 import pymysql
 import pytest
 
-import riskmonitor_multiagent.orchestration as orchestration
-from riskmonitor_multiagent import config
-from riskmonitor_multiagent.contracts.approval import (
+import riskagent_backend.orchestration as orchestration
+from riskagent_backend import config
+from riskagent_backend.contracts.approval import (
     build_approval_summary_text,
     ensure_approval_transition,
     normalize_approval_record,
@@ -19,49 +19,49 @@ from riskmonitor_multiagent.contracts.approval import (
     validate_approval_request,
     validate_approval_transition,
 )
-from riskmonitor_multiagent.contracts.event import (
+from riskagent_backend.contracts.event import (
     EVENT_SCHEMA_VERSION,
     EventType,
     new_event,
     normalize_event,
     validate_event,
 )
-from riskmonitor_multiagent.contracts.message import (
+from riskagent_backend.contracts.message import (
     MESSAGE_SCHEMA_VERSION,
     MessageType,
     normalize_message,
     validate_message,
 )
-from riskmonitor_multiagent.contracts.run_context import (
+from riskagent_backend.contracts.run_context import (
     RUN_CONTEXT_SCHEMA_VERSION,
     new_run_context,
     normalize_run_context,
     validate_run_context,
 )
-from riskmonitor_multiagent.contracts.task_graph import (
+from riskagent_backend.contracts.task_graph import (
     append_replan_subgraph,
     build_task_graph_from_plan_steps,
     normalize_task_graph,
     validate_task_graph,
 )
-from riskmonitor_multiagent.data_access.errors import map_http_error, map_mysql_error
-from riskmonitor_multiagent.data_access.health_checks import check_mysql_ready
-from riskmonitor_multiagent.data_access import mysql_engine
-from riskmonitor_multiagent.orchestration.intent_heuristics import (
+from riskagent_backend.data_access.errors import map_http_error, map_mysql_error
+from riskagent_backend.data_access.health_checks import check_mysql_ready
+from riskagent_backend.data_access import mysql_engine
+from riskagent_backend.orchestration.intent_heuristics import (
     build_intent_metadata,
     guess_risk_level,
     guess_side_effects,
 )
-from riskmonitor_multiagent.services import logging_service
-from riskmonitor_multiagent.services.prometheus_metrics_service import (
+from riskagent_backend.services import logging_service
+from riskagent_backend.services.prometheus_metrics_service import (
     generate_prometheus_metrics,
     get_metrics_summary,
     record_request,
     reset_metrics,
 )
-from riskmonitor_multiagent.tools.errors import error_payload
-from riskmonitor_multiagent.tools import mcp_tools
-from riskmonitor_multiagent.utils.validation import has_evidence_refs, is_non_empty_str, is_valid_list
+from riskagent_backend.tools.errors import error_payload
+from riskagent_backend.tools import mcp_tools
+from riskagent_backend.utils.validation import has_evidence_refs, is_non_empty_str, is_valid_list
 
 
 def test_approval_contract_quick_paths() -> None:
@@ -212,9 +212,9 @@ async def test_orchestration_wrappers_delegate(monkeypatch: pytest.MonkeyPatch) 
     async def fake_event(*, event, candidate_agents=None):
         return {"kind": "event", "event_id": event["event_id"], "agents": list(candidate_agents or [])}
 
-    monkeypatch.setattr("riskmonitor_multiagent.orchestration.proactive_workflow.run_proactive_workflow", fake_run)
-    monkeypatch.setattr("riskmonitor_multiagent.orchestration.multiagent_workflow.run_user_task", fake_user)
-    monkeypatch.setattr("riskmonitor_multiagent.orchestration.multiagent_workflow.start_from_event", fake_event)
+    monkeypatch.setattr("riskagent_backend.orchestration.proactive_workflow.run_proactive_workflow", fake_run)
+    monkeypatch.setattr("riskagent_backend.orchestration.backend_workflow.run_user_task", fake_user)
+    monkeypatch.setattr("riskagent_backend.orchestration.backend_workflow.start_from_event", fake_event)
 
     assert (await orchestration.run_proactive_workflow(task={"task_id": "t1"}))["kind"] == "proactive"
     assert (await orchestration.run_user_task(task={"task_id": "t2"}))["kind"] == "user"
@@ -230,7 +230,7 @@ def test_logging_helpers_and_error_payload(monkeypatch: pytest.MonkeyPatch) -> N
         "error": {"code": "BAD", "message": "oops", "request_id": "req-1"},
     }
 
-    record = logging.LogRecord("riskmonitor", logging.INFO, __file__, 1, "hello %s", ("world",), None)
+    record = logging.LogRecord("riskagent", logging.INFO, __file__, 1, "hello %s", ("world",), None)
     assert logging_service._RequestIdFilter().filter(record) is True
     assert record.request_id == "-"
 
@@ -280,7 +280,7 @@ def test_config_getters_cover_defaults_and_errors(monkeypatch: pytest.MonkeyPatc
         llm_base_url=" https://api.example.com/v1/ ",
         llm_model="  ",
         llm_http_referer=" https://app.example.com ",
-        llm_app_title=" RiskMonitor ",
+        llm_app_title=" RiskAgent ",
         llm_resolve_ip=" 1.1.1.1 ",
         knowledge_db_path="",
         chroma_host="",
@@ -293,7 +293,7 @@ def test_config_getters_cover_defaults_and_errors(monkeypatch: pytest.MonkeyPatc
 
     assert config.get_mysql_host() == "localhost"
     assert config.get_mysql_port() == 3306
-    assert config.get_mysql_database() == "riskmonitor"
+    assert config.get_mysql_database() == "riskagent"
     assert config.get_mysql_user() == "admin"
     with pytest.raises(ValueError, match="MYSQL_PASSWORD is not set"):
         config.get_mysql_password()
@@ -302,12 +302,12 @@ def test_config_getters_cover_defaults_and_errors(monkeypatch: pytest.MonkeyPatc
     assert config.get_llm_base_url() == "https://api.example.com/v1"
     assert config.get_llm_model() == "deepseek/deepseek-v4-pro"
     assert config.get_llm_http_referer() == "https://app.example.com"
-    assert config.get_llm_app_title() == "RiskMonitor"
+    assert config.get_llm_app_title() == "RiskAgent"
     assert config.get_llm_resolve_ip() == "1.1.1.1"
     assert config.get_chroma_host() == "localhost"
     assert config.get_chroma_port() == 8001
-    assert config.get_chroma_collection() == "riskmonitor-alerts"
-    assert config.get_chroma_memory_collection() == "riskmonitor-memory"
+    assert config.get_chroma_collection() == "riskagent-alerts"
+    assert config.get_chroma_memory_collection() == "riskagent-memory"
     assert config.get_chroma_persist_dir() == "/tmp/chroma"
     assert config.get_knowledge_db_path().endswith("data/knowledge.sqlite")
 
@@ -433,28 +433,28 @@ def test_health_check_covers_success_and_failures(monkeypatch: pytest.MonkeyPatc
             return self.action
 
     success_conn = _Conn({"ok": 1})
-    monkeypatch.setattr("riskmonitor_multiagent.data_access.health_checks.get_engine", lambda: _Engine(success_conn))
+    monkeypatch.setattr("riskagent_backend.data_access.health_checks.get_engine", lambda: _Engine(success_conn))
     assert check_mysql_ready() == (True, "ok", None)
     assert success_conn.cursor_obj.closed is True
     assert success_conn.closed is True
 
     unexpected_conn = _Conn({"ok": 0})
-    monkeypatch.setattr("riskmonitor_multiagent.data_access.health_checks.get_engine", lambda: _Engine(unexpected_conn))
+    monkeypatch.setattr("riskagent_backend.data_access.health_checks.get_engine", lambda: _Engine(unexpected_conn))
     assert check_mysql_ready() == (False, "unexpected_result", None)
 
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "yes")
     monkeypatch.setenv("MYSQL_HEALTHCHECK_IN_TESTS", "0")
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.health_checks.get_engine",
+        "riskagent_backend.data_access.health_checks.get_engine",
         lambda: _Engine(pymysql.err.OperationalError(2003, "down")),
     )
     assert check_mysql_ready() == (True, "skipped_pytest", None)
 
-    monkeypatch.setattr("riskmonitor_multiagent.data_access.health_checks.get_engine", lambda: _Engine(ValueError("missing")))
+    monkeypatch.setattr("riskagent_backend.data_access.health_checks.get_engine", lambda: _Engine(ValueError("missing")))
     assert check_mysql_ready() == (True, "skipped_missing_config", None)
 
     monkeypatch.setenv("MYSQL_HEALTHCHECK_IN_TESTS", "1")
-    monkeypatch.setattr("riskmonitor_multiagent.data_access.health_checks.get_engine", lambda: _Engine(RuntimeError("boom")))
+    monkeypatch.setattr("riskagent_backend.data_access.health_checks.get_engine", lambda: _Engine(RuntimeError("boom")))
     ok, message, error = check_mysql_ready()
     assert ok is False
     assert message == "mysql error op=check_mysql_ready"

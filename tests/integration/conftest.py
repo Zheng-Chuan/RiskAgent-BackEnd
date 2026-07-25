@@ -27,7 +27,7 @@ def _require_mysql_for_integration_tests():
     if _get_env("MYSQL_PORT") is None:
         os.environ["MYSQL_PORT"] = "3307"
     if _get_env("MYSQL_DATABASE") is None:
-        os.environ["MYSQL_DATABASE"] = "riskmonitor"
+        os.environ["MYSQL_DATABASE"] = "riskagent"
     if _get_env("MYSQL_USER") is None:
         os.environ["MYSQL_USER"] = "admin"
 
@@ -71,7 +71,7 @@ def verify_infrastructure():
     try:
         host = _get_env("MYSQL_HOST") or "127.0.0.1"
         port = int(_get_env("MYSQL_PORT") or "3307")
-        database = _get_env("MYSQL_DATABASE") or "riskmonitor"
+        database = _get_env("MYSQL_DATABASE") or "riskagent"
         user = _get_env("MYSQL_USER") or "admin"
         password = _get_env("MYSQL_PASSWORD") or ""
         conn = pymysql.connect(
@@ -86,7 +86,7 @@ def verify_infrastructure():
     # Check Redis
     try:
         import redis as _redis
-        from riskmonitor_multiagent.config_pydantic import get_settings
+        from riskagent_backend.config_pydantic import get_settings
         r = _redis.from_url(get_settings().redis_url)
         r.ping()
         r.close()
@@ -99,7 +99,7 @@ def verify_infrastructure():
         with _w.catch_warnings():
             _w.filterwarnings("ignore", category=DeprecationWarning)
             import chromadb
-        from riskmonitor_multiagent.config import get_chroma_host, get_chroma_port
+        from riskagent_backend.config import get_chroma_host, get_chroma_port
         client = chromadb.HttpClient(host=get_chroma_host(), port=get_chroma_port())
         client.heartbeat()
     except Exception as e:
@@ -117,7 +117,7 @@ def verify_infrastructure():
 @pytest.fixture(scope="session")
 def real_db_engine():
     """真实MySQL引擎 - session级别复用."""
-    from riskmonitor_multiagent.data_access.mysql_engine import get_engine
+    from riskagent_backend.data_access.mysql_engine import get_engine
     engine = get_engine()
     yield engine
 
@@ -147,7 +147,7 @@ def real_db_cursor(real_db_connection):
 @pytest.fixture(scope="session")
 def real_chroma_store():
     """真实ChromaDB连接 - 使用独立的测试collection."""
-    from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
+    from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
     store = ChromaVectorStore(collection="test-integration")
     yield store
     # 清理测试collection
@@ -165,7 +165,7 @@ def real_chroma_store():
 @pytest.fixture(scope="session")
 def real_llm_client():
     """真实OpenRouterLLM客户端."""
-    from riskmonitor_multiagent.llm.llm_client import LlmClient
+    from riskagent_backend.llm.llm_client import LlmClient
     client = LlmClient()
     yield client
 
@@ -178,7 +178,7 @@ def real_llm_client():
 def real_redis():
     """真实Redis连接."""
     import redis as _redis
-    from riskmonitor_multiagent.config_pydantic import get_settings
+    from riskagent_backend.config_pydantic import get_settings
     r = _redis.from_url(get_settings().redis_url)
     yield r
     r.close()

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from riskmonitor_multiagent.memory.redis_backend import RedisBackend
+from riskagent_backend.memory.redis_backend import RedisBackend
 
 
 class _FakePipeline:
@@ -36,7 +36,7 @@ async def test_redis_backend_ensure_connected_and_list_ops(monkeypatch: pytest.M
     redis_obj.lrange = AsyncMock(return_value=["a", "b"])
 
     from_url = AsyncMock(return_value=redis_obj)
-    monkeypatch.setattr("riskmonitor_multiagent.memory.redis_backend.redis.from_url", from_url)
+    monkeypatch.setattr("riskagent_backend.memory.redis_backend.redis.from_url", from_url)
 
     backend = RedisBackend("redis://demo")
     first = await backend.ensure_connected()

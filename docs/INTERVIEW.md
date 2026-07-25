@@ -1,6 +1,6 @@
 # INTERVIEW - 面试问答集
 
-本文件整理了针对 RiskMonitor-MultiAgent 项目的高压面试问题与参考答案.
+本文件整理了针对 RiskAgent-BackEnd 项目的高压面试问题与参考答案.
 
 关联架构文档: [ARCHITECTURE.md](../ARCHITECTURE.md)
 
@@ -13,7 +13,7 @@
 
 ## 目录
 
-- [项目定位与 Why MultiAgent](#project)
+- [项目定位与 Why BackEnd](#project)
 - [核心 Workflow 与执行内核](#workflow)
 - [TaskGraph 与调度系统](#taskgraph)
 - [工具调用与安全治理](#tooling)
@@ -26,7 +26,7 @@
 ---
 
 <a id="project"></a>
-## 项目定位与 Why MultiAgent
+## 项目定位与 Why BackEnd
 
 ### 面试官: 项目定位拷问
 
@@ -34,13 +34,13 @@
 
 ### 一. 为什么不是单 Agent
 
-#### Q1: "你为什么要做 MultiAgent. 单个强模型加工具调用不行吗. 你这个系统是不是过度设计了"
+#### Q1: "你为什么要做 BackEnd. 单个强模型加工具调用不行吗. 你这个系统是不是过度设计了"
 
 **参考答案**:
 
 "这是这个项目最应该先回答的问题.
 
-我不是为了追热点才做 MultiAgent, 而是因为这个项目要解决的是金融风控里的长链路任务, 它天然有 4 个困难:
+我不是为了追热点才做 BackEnd, 而是因为这个项目要解决的是金融风控里的长链路任务, 它天然有 4 个困难:
 
 1. 任务长链路:
    - 不是一次回答就结束
@@ -63,7 +63,7 @@
 
 所以我不是简单把一个任务拆给多个模型聊天, 而是把系统拆成多个有明确输入 输出 失败模式和治理边界的角色.
 
-如果任务只是一次性 FAQ, 我不会上 MultiAgent.
+如果任务只是一次性 FAQ, 我不会上 BackEnd.
 但这个项目是风控执行系统, 不是聊天机器人, 所以需要 programmatic controller 加角色化协作."
 
 ---

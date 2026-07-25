@@ -5,9 +5,9 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.perception.data_sources.redis_source import RedisDataSource
-from riskmonitor_multiagent.perception.signals import PerceptionSignal
-from riskmonitor_multiagent.perception import PerceptionFilterEngine, get_default_rules
+from riskagent_backend.perception.data_sources.redis_source import RedisDataSource
+from riskagent_backend.perception.signals import PerceptionSignal
+from riskagent_backend.perception import PerceptionFilterEngine, get_default_rules
 
 
 def test_redis_data_source_collect():

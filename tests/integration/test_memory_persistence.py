@@ -33,7 +33,7 @@ if str(_SRC_ROOT) not in sys.path:
 @pytest.fixture
 def persistence_backend(real_db_engine):
     """创建使用真实 MySQL 的 PersistenceBackend."""
-    from riskmonitor_multiagent.memory.persistence_backend import PersistenceBackend
+    from riskagent_backend.memory.persistence_backend import PersistenceBackend
     backend = PersistenceBackend(engine=real_db_engine)
     yield backend
     # 清理测试数据
@@ -48,8 +48,8 @@ def persistence_backend(real_db_engine):
 @pytest.fixture
 async def memory_store_with_persistence(real_db_engine):
     """创建集成了真实持久化后端的 MemoryStore."""
-    from riskmonitor_multiagent.memory import MemoryConfig, MemoryStore
-    from riskmonitor_multiagent.memory.persistence_backend import PersistenceBackend
+    from riskagent_backend.memory import MemoryConfig, MemoryStore
+    from riskagent_backend.memory.persistence_backend import PersistenceBackend
 
     store = MemoryStore(config=MemoryConfig(redis_url="redis://localhost:6379/0"))
     backend = PersistenceBackend(engine=real_db_engine)
@@ -87,8 +87,8 @@ async def memory_store_with_persistence(real_db_engine):
 @pytest.fixture
 async def skill_store_with_persistence(real_db_engine):
     """创建集成了真实持久化后端的 SkillStore."""
-    from riskmonitor_multiagent.skills import SkillStore
-    from riskmonitor_multiagent.memory.persistence_backend import PersistenceBackend
+    from riskagent_backend.skills import SkillStore
+    from riskagent_backend.memory.persistence_backend import PersistenceBackend
 
     store = SkillStore()
     backend = PersistenceBackend(engine=real_db_engine)
@@ -243,8 +243,8 @@ async def test_skill_recovery(skill_store_with_persistence, real_db_engine):
         assert len(rows) == 1
 
     # 4. 重建 SkillStore (模拟重启)
-    from riskmonitor_multiagent.skills import SkillStore
-    from riskmonitor_multiagent.memory.persistence_backend import PersistenceBackend
+    from riskagent_backend.skills import SkillStore
+    from riskagent_backend.memory.persistence_backend import PersistenceBackend
     new_store = SkillStore()
     new_store._set_persistence(PersistenceBackend(engine=real_db_engine))
 
@@ -341,8 +341,8 @@ async def test_persist_run_artifacts_persists_lesson_and_experience(
     memory_store_with_persistence, real_db_engine,
 ):
     """persist_run_artifacts 中的 lesson 和 long_term_experience 触发立即落盘."""
-    from riskmonitor_multiagent.memory import MemoryConfig, MemoryStore
-    from riskmonitor_multiagent.memory.persistence_backend import PersistenceBackend
+    from riskagent_backend.memory import MemoryConfig, MemoryStore
+    from riskagent_backend.memory.persistence_backend import PersistenceBackend
 
     store = memory_store_with_persistence
     run_id = "test_integ_artifacts_001"

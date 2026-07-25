@@ -1,10 +1,10 @@
-# RiskMonitor-MultiAgent 产品战略
+# RiskAgent-BackEnd 产品战略
 
 ## Press Release
 
 ### 标题
 
-RiskMonitor-MultiAgent：金融风控的自学习多智能体系统
+RiskAgent-BackEnd：金融风控的自学习多智能体系统
 
 ### 副标题
 
@@ -12,9 +12,9 @@ RiskMonitor-MultiAgent：金融风控的自学习多智能体系统
 
 ### 概述
 
-2026 年 6 月 — RiskMonitor-MultiAgent 是一个面向金融风控团队的 Proactive Multi-Agent 系统。它将传统风控工作中的意图理解、任务规划、工具执行、审批治理和经验沉淀整合为一个完整闭环，让风控团队从被动响应告警转变为主动感知风险、精密执行处置、持续积累组织智慧。
+2026 年 6 月 — RiskAgent-BackEnd 是一个面向金融风控团队的 Proactive Multi-Agent 系统。它将传统风控工作中的意图理解、任务规划、工具执行、审批治理和经验沉淀整合为一个完整闭环，让风控团队从被动响应告警转变为主动感知风险、精密执行处置、持续积累组织智慧。
 
-与传统规则引擎或单一 LLM 方案不同，RiskMonitor-MultiAgent 采用多角色专业化 Agent 协作架构——每个 Agent 承担明确职责（意图识别、规划调度、风险分析、系统排查、评审治理），通过消息驱动和事件触发实现动态协作。系统支持任务图级并行执行、自动重规划、step 级审批恢复、语义记忆驱动的 few-shot 经验复用，以及全链路可追溯回放。
+与传统规则引擎或单一 LLM 方案不同，RiskAgent-BackEnd 采用多角色专业化 Agent 协作架构——每个 Agent 承担明确职责（意图识别、规划调度、风险分析、系统排查、评审治理），通过消息驱动和事件触发实现动态协作。系统支持任务图级并行执行、自动重规划、step 级审批恢复、语义记忆驱动的 few-shot 经验复用，以及全链路可追溯回放。
 
 本系统专为金融风控场景设计，服务于 Risk Manager、Desk Head、风控运营人员和平台研发团队。
 
@@ -30,7 +30,7 @@ RiskMonitor-MultiAgent：金融风控的自学习多智能体系统
 
 ### 差异化
 
-与市面现有方案相比，RiskMonitor-MultiAgent 具备 5 个核心差异：
+与市面现有方案相比，RiskAgent-BackEnd 具备 5 个核心差异：
 
 1. **真实闭环，非演示流水线**：`plan → execute → observe → replan → finalize` 每一步都有真实工具回执、真实数据观测和真实重规划决策，不是预设脚本式的工作流编排。
 
@@ -68,11 +68,11 @@ make replay RUN_ID=<run_id>
 
 ## External FAQ（面向客户/用户）
 
-### Q: RiskMonitor-MultiAgent 与传统风控工具有什么不同？
+### Q: RiskAgent-BackEnd 与传统风控工具有什么不同？
 
 A: 传统风控工具主要有三类方案，各自存在明显局限：
 
-| 方案类型 | 局限性 | RiskMonitor-MultiAgent 的优势 |
+| 方案类型 | 局限性 | RiskAgent-BackEnd 的优势 |
 |---------|--------|------|
 | 规则引擎 | 只能处理预定义场景，无法应对复杂、动态的风险组合 | 任务图级规划支持动态分支、并行、重规划，适应非预设场景 |
 | 单一 LLM 方案 | 缺乏执行闭环，生成建议但无法驱动行动和验证 | 真实工具调用 + receipt 回灌 + 多步观测，形成行动闭环 |
@@ -195,7 +195,7 @@ Phase 8 → 提示词优化 + 自我改进闭环（token 成本降 20%+ + 系统
 
 A: 多 Agent 架构在实际运营中具备成本优势：
 
-| 对比维度 | 单一 LLM Agent | 规则引擎 | RiskMonitor-MultiAgent |
+| 对比维度 | 单一 LLM Agent | 规则引擎 | RiskAgent-BackEnd |
 |---------|--------------|---------|----------------------|
 | 推理成本 | 全量任务使用大模型，高 | 无 LLM 成本，低 | 按角色选模型，中等 |
 | 开发维护 | 单 prompt 膨胀难以维护 | 规则爆炸式增长 | 角色独立演进，可控 |

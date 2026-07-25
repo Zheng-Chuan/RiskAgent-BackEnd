@@ -1,6 +1,6 @@
-RiskMonitor MultiAgent 已部署!
+RiskAgent BackEnd 已部署!
 
-提示: 后续部署/升级请使用 -n riskmonitor --create-namespace 标志，namespace 不存在时由 Helm 自动创建（无需独立 namespace 资源）。
+提示: 后续部署/升级请使用 -n riskagent --create-namespace 标志，namespace 不存在时由 Helm 自动创建（无需独立 namespace 资源）。
 
 === 验证 ===
 kubectl get pods -n {{ .Release.Namespace }}

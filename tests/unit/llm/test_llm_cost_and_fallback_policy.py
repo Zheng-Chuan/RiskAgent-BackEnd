@@ -18,8 +18,8 @@ async def test_rate_limit_blocks_llm_call(monkeypatch):
     monkeypatch.setenv("LLM_RATE_LIMIT_TOKENS_PER_MIN_NON_CRITICAL", "1")
     monkeypatch.setenv("LLM_RATE_LIMIT_BURST_TOKENS_NON_CRITICAL", "1")
 
-    from riskmonitor_multiagent.agents.base import BaseAgent
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.agents.base import BaseAgent
+    from riskagent_backend.llm import llm_client
 
     async def _boom(*args, **kwargs):
         raise AssertionError("should not call upstream when rate limited")
@@ -44,9 +44,9 @@ async def test_cost_accounting_emits_user_metrics(monkeypatch):
     monkeypatch.setenv("LLM_RATE_LIMIT_TOKENS_PER_MIN_DEFAULT", "1000000")
     monkeypatch.setenv("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", "1000000")
 
-    from riskmonitor_multiagent.agents.base import BaseAgent
-    from riskmonitor_multiagent.llm import llm_client
-    from riskmonitor_multiagent.observability.metrics import render_prometheus_metrics, reset_observability_metrics
+    from riskagent_backend.agents.base import BaseAgent
+    from riskagent_backend.llm import llm_client
+    from riskagent_backend.observability.metrics import render_prometheus_metrics, reset_observability_metrics
 
     reset_observability_metrics()
 
@@ -81,9 +81,9 @@ async def test_ask_json_falls_back_when_json_mode_is_unsupported(monkeypatch):
     monkeypatch.setenv("LLM_RATE_LIMIT_TOKENS_PER_MIN_DEFAULT", "1000000")
     monkeypatch.setenv("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", "1000000")
 
-    from riskmonitor_multiagent.agents.base import BaseAgent
-    from riskmonitor_multiagent.llm import LLMError
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.agents.base import BaseAgent
+    from riskagent_backend.llm import LLMError
+    from riskagent_backend.llm import llm_client
 
     calls = []
 
@@ -124,8 +124,8 @@ async def test_ask_json_returns_fallback_on_bad_json_output(monkeypatch):
     monkeypatch.setenv("LLM_RATE_LIMIT_TOKENS_PER_MIN_DEFAULT", "1000000")
     monkeypatch.setenv("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", "1000000")
 
-    from riskmonitor_multiagent.agents.base import BaseAgent
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.agents.base import BaseAgent
+    from riskagent_backend.llm import llm_client
 
     async def _mock_chat_completions(*args, **kwargs):
         return {

@@ -8,7 +8,7 @@ import time
 # 确保 src 在路径中
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.server import (
+from riskagent_backend.server import (
     start_proactive_monitors,
     stop_proactive_monitors,
     get_proactive_monitors,
@@ -65,7 +65,7 @@ async def test_p0_exception_self_healing():
     print("P0 验收测试: 异常自愈 (Checkpoint 16.1.2)")
     print("=" * 60)
 
-    from riskmonitor_multiagent.proactive_agents import ProactiveIntentAgent
+    from riskagent_backend.proactive_agents import ProactiveIntentAgent
 
     # 使用 ProactiveIntentAgent 但覆盖监控间隔为 1 秒，加速测试
     agent = ProactiveIntentAgent()

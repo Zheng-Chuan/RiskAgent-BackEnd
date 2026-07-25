@@ -4,7 +4,7 @@
 |------|-----|
 | Status | Accepted |
 | Date | 2026-07-18 |
-| Author | RiskMonitor Team |
+| Author | RiskAgent Team |
 
 ## 背景
 当前所有中间件通过 docker-compose.yml 部署，包含 8 个服务。docker-compose 适合本地开发，但生产环境需要 K8s 的弹性伸缩、滚动更新和自愈能力。

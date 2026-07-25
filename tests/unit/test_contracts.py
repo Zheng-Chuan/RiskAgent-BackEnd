@@ -6,7 +6,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.contracts.agent_outputs import (
+from riskagent_backend.contracts.agent_outputs import (
     ORCHESTRATOR_OUTPUT_SCHEMA_VERSION,
     RISK_ANALYST_OUTPUT_SCHEMA_VERSION,
     SYSTEM_ENGINEER_OUTPUT_SCHEMA_VERSION,
@@ -15,13 +15,13 @@ from riskmonitor_multiagent.contracts.agent_outputs import (
     validate_risk_analyst_output,
     validate_system_engineer_output,
 )
-from riskmonitor_multiagent.contracts.agent_messages import (
+from riskagent_backend.contracts.agent_messages import (
     AGENT_COMMAND_SCHEMA_VERSION,
     AGENT_RECEIPT_SCHEMA_VERSION,
     validate_agent_command,
     validate_agent_receipt,
 )
-from riskmonitor_multiagent.contracts.task_graph import (
+from riskagent_backend.contracts.task_graph import (
     TASK_GRAPH_SCHEMA_VERSION,
     append_replan_subgraph,
     build_task_graph_from_plan_steps,

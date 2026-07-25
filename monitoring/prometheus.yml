@@ -1,9 +1,9 @@
-# Prometheus 配置文件 - RiskMonitor MultiAgent 监控系统
+# Prometheus 配置文件 - RiskAgent BackEnd 监控系统
 global:
   scrape_interval: 15s  # 抓取间隔 - 生产环境可以增大到 30s 或 60s
   evaluation_interval: 15s
   external_labels:
-    monitor: 'riskmonitor-multiagent'
+    monitor: 'riskagent-backend'
 
 # 告警规则 (可选)
 rule_files:
@@ -18,8 +18,8 @@ scrape_configs:
     metrics_path: /metrics
     scheme: http
 
-  # 2. 监控 RiskMonitor MultiAgent 应用
-  - job_name: "riskmonitor-app"
+  # 2. 监控 RiskAgent BackEnd 应用
+  - job_name: "riskagent-app"
     static_configs:
       - targets: ["host.docker.internal:8000"]  # Mac Docker 访问宿主机
     metrics_path: /metrics

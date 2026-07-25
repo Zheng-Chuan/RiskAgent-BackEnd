@@ -20,7 +20,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.prompts.trend_tracker import (
+from riskagent_backend.prompts.trend_tracker import (
     TREND_DOWN,
     TREND_STABLE,
     TREND_UP,

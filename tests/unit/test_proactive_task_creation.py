@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.proactive_agents.roles import ProactiveSystemEngineerAgent
+from riskagent_backend.proactive_agents.roles import ProactiveSystemEngineerAgent
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_proactive_agent_emits_event_and_runs_followup_task(
                 "run_context": {"entry_type": "system_event", "run_id": "run_001"},
             }
 
-    import riskmonitor_multiagent.orchestration.proactive_workflow as workflow_module
+    import riskagent_backend.orchestration.proactive_workflow as workflow_module
 
     monkeypatch.setattr(workflow_module, "get_proactive_workflow", lambda: FakeWorkflow(), raising=True)
 

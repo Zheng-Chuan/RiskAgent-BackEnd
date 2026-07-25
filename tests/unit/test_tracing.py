@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.observability.tracing import (
+from riskagent_backend.observability.tracing import (
     Span,
     Trace,
     TraceStore,

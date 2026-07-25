@@ -8,7 +8,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.orchestration.tool_executor import execute_agent_command, new_agent_command
+from riskagent_backend.orchestration.tool_executor import execute_agent_command, new_agent_command
 
 
 def _dummy_alert(alert_id: str) -> dict:
@@ -33,7 +33,7 @@ def _dummy_alert(alert_id: str) -> dict:
 
 def test_engineer_cannot_call_side_effect_tool(monkeypatch):
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )
@@ -54,7 +54,7 @@ def test_engineer_cannot_call_side_effect_tool(monkeypatch):
 
 def test_manager_requires_approval_for_side_effect_tool(monkeypatch):
     monkeypatch.setattr(
-        "riskmonitor_multiagent.data_access.alerts_repository.save_alert",
+        "riskagent_backend.data_access.alerts_repository.save_alert",
         lambda alert: None,
         raising=True,
     )
@@ -82,7 +82,7 @@ def test_manager_can_execute_side_effect_tool_after_approval(monkeypatch):
     def _save(alert):
         calls["n"] += 1
 
-    monkeypatch.setattr("riskmonitor_multiagent.data_access.alerts_repository.save_alert", _save, raising=True)
+    monkeypatch.setattr("riskagent_backend.data_access.alerts_repository.save_alert", _save, raising=True)
     cmd = new_agent_command(
         run_id="run-1",
         command_id="cmd-3",

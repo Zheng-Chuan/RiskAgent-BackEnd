@@ -78,7 +78,7 @@ def _make_execution_result(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_check_and_propose_no_revision_when_ok():
     """critic ok=True 且无 issues → 不提议修订."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -100,7 +100,7 @@ async def test_check_and_propose_no_revision_when_ok():
 @pytest.mark.asyncio
 async def test_check_and_propose_revision_when_fail():
     """critic ok=False → 提议修订."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -125,7 +125,7 @@ async def test_check_and_propose_revision_when_fail():
 @pytest.mark.asyncio
 async def test_check_and_propose_revision_skill_not_found():
     """skill_id 不存在 → 返回 None."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     reviser = SkillReviser(store)
@@ -143,7 +143,7 @@ async def test_check_and_propose_revision_skill_not_found():
 @pytest.mark.asyncio
 async def test_check_and_propose_with_issues_but_ok_true():
     """critic ok=True 但有 issues → 仍然提议修订."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -169,7 +169,7 @@ async def test_check_and_propose_with_issues_but_ok_true():
 @pytest.mark.asyncio
 async def test_apply_revision_updates_skill():
     """apply_revision → revision_history 追加, steps 和 failure_boundary 更新."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -212,7 +212,7 @@ async def test_apply_revision_updates_skill():
 @pytest.mark.asyncio
 async def test_apply_revision_skill_not_found_raises():
     """apply_revision 对不存在的 skill_id → 抛出 KeyError."""
-    from riskmonitor_multiagent.skills import RevisionProposal, SkillReviser, SkillStore
+    from riskagent_backend.skills import RevisionProposal, SkillReviser, SkillStore
 
     store = SkillStore()
     reviser = SkillReviser(store)
@@ -239,7 +239,7 @@ async def test_apply_revision_skill_not_found_raises():
 @pytest.mark.asyncio
 async def test_ab_compare_revised_better_than_original():
     """revised steps 优于 original → passed=True."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -285,7 +285,7 @@ async def test_ab_compare_revised_better_than_original():
 @pytest.mark.asyncio
 async def test_ab_compare_revised_worse_than_original():
     """revised steps 劣于 original → passed=False."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -325,7 +325,7 @@ async def test_ab_compare_revised_worse_than_original():
 @pytest.mark.asyncio
 async def test_ab_compare_empty_test_cases():
     """空 test_cases → passed=True (revised_score >= original_score, 均为 0)."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -349,7 +349,7 @@ async def test_ab_compare_empty_test_cases():
 
 def test_extract_failure_reason_from_issues():
     """从 critic issues 列表提取失败原因."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -370,7 +370,7 @@ def test_extract_failure_reason_from_issues():
 
 def test_extract_failure_reason_from_issues_string():
     """issues 为字符串列表时也能提取."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -386,7 +386,7 @@ def test_extract_failure_reason_from_issues_string():
 
 def test_extract_failure_reason_from_risk_level():
     """无 issues 时从 risk_level 提取."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -402,7 +402,7 @@ def test_extract_failure_reason_from_risk_level():
 
 def test_extract_failure_reason_fallback():
     """无 issues 和 risk_level 时回退到默认."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -414,7 +414,7 @@ def test_extract_failure_reason_fallback():
 
 def test_extract_failure_reason_from_summary():
     """有 summary 时作为回退."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -433,7 +433,7 @@ def test_extract_failure_reason_from_summary():
 
 def test_generate_revised_steps_preserves_successful_steps():
     """_generate_revised_steps 保留成功的步骤, 对失败步骤添加 failure_note."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -472,7 +472,7 @@ def test_generate_revised_steps_preserves_successful_steps():
 
 def test_generate_revised_steps_adds_recovery():
     """_generate_revised_steps 总是添加 recovery 步骤."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -493,7 +493,7 @@ def test_generate_revised_steps_adds_recovery():
 
 def test_generate_revised_steps_empty_original():
     """original_steps 为空时仍添加 recovery 步骤."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -509,7 +509,7 @@ def test_generate_revised_steps_empty_original():
 
 def test_generate_revised_steps_from_receipts():
     """从 receipts 中提取失败步骤."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -543,7 +543,7 @@ def test_generate_revised_steps_from_receipts():
 @pytest.mark.asyncio
 async def test_multiple_revisions_accumulate_history():
     """连续多次修订 → revision_history 累积."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -583,7 +583,7 @@ async def test_multiple_revisions_accumulate_history():
 @pytest.mark.asyncio
 async def test_ab_compare_after_proposal():
     """先提议修订, 再做 A/B 对比, 验证 revised 不劣于 original."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -621,7 +621,7 @@ async def test_ab_compare_after_proposal():
 @pytest.mark.asyncio
 async def test_proposed_by_auto_when_ok_but_has_issues():
     """critic ok=True 但有 issues → proposed_by='auto' (非 critic 触发)."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -644,7 +644,7 @@ async def test_proposed_by_auto_when_ok_but_has_issues():
 @pytest.mark.asyncio
 async def test_proposed_by_critic_when_not_ok():
     """critic ok=False → proposed_by='critic'."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -666,7 +666,7 @@ async def test_proposed_by_critic_when_not_ok():
 
 def test_generate_revised_failure_boundary_appends():
     """failure_boundary 追加新的失败原因."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -680,7 +680,7 @@ def test_generate_revised_failure_boundary_appends():
 
 def test_generate_revised_failure_boundary_empty_original():
     """原 failure_boundary 为空时直接使用 failure_reason."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -693,7 +693,7 @@ def test_generate_revised_failure_boundary_empty_original():
 
 def test_generate_revised_failure_boundary_duplicate():
     """failure_reason 已在 original 中时不重复添加."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     reviser = SkillReviser(SkillStore())
 
@@ -710,7 +710,7 @@ def test_generate_revised_failure_boundary_duplicate():
 @pytest.mark.asyncio
 async def test_revision_history_can_rollback():
     """apply_revision 后可以通过 revision_history 回滚到原始 steps."""
-    from riskmonitor_multiagent.skills import SkillReviser, SkillStore
+    from riskagent_backend.skills import SkillReviser, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill())

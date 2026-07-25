@@ -17,8 +17,8 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from eval.core.evaluator import Evaluator, TestCase
-from riskmonitor_multiagent.llm.token_tracker import TokenTracker
-from riskmonitor_multiagent.prompts import (
+from riskagent_backend.llm.token_tracker import TokenTracker
+from riskagent_backend.prompts import (
     CostReportGenerator,
     PromptCacheManager,
     TieredPromptBuilder,

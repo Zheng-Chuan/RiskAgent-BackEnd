@@ -8,8 +8,8 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.orchestration.tool_executor import execute_agent_command, new_agent_command
-from riskmonitor_multiagent.orchestration.tool_registry import SideEffectPolicy, ToolMeta
+from riskagent_backend.orchestration.tool_executor import execute_agent_command, new_agent_command
+from riskagent_backend.orchestration.tool_registry import SideEffectPolicy, ToolMeta
 
 
 def _dummy_alert(alert_id: str) -> dict:
@@ -52,7 +52,7 @@ def test_side_effect_require_reason_enforced_when_approved(monkeypatch):
 
 
 def test_side_effect_min_severity_enforced(monkeypatch):
-    import riskmonitor_multiagent.orchestration.tool_executor as te
+    import riskagent_backend.orchestration.tool_executor as te
 
     def _patched_meta(action: str) -> ToolMeta | None:
         if action == "write_alert":

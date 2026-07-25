@@ -14,8 +14,8 @@ from decimal import Decimal
 import pymysql
 import pytest
 
-from riskmonitor_multiagent.data_access import alerts_repository, audit_repository, positions_repository
-from riskmonitor_multiagent.data_access.mysql_engine import get_engine
+from riskagent_backend.data_access import alerts_repository, audit_repository, positions_repository
+from riskagent_backend.data_access.mysql_engine import get_engine
 from tests.integration.factories import AlertFactory, AuditEventFactory, PositionFactory
 
 

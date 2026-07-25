@@ -7,13 +7,13 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}-mcp-server
   labels:
-{{- include "riskmonitor.labels" . | nindent 4 }}
+{{- include "riskagent.labels" . | nindent 4 }}
     component: mcp-server
 spec:
   replicas: {{ .Values.mcp.replicas | default 1 }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: riskmonitor
+      app.kubernetes.io/name: riskagent
       component: mcp-server
   template:
     metadata:
@@ -21,7 +21,7 @@ spec:
         checksum/app-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
       labels:
-{{- include "riskmonitor.labels" . | nindent 8 }}
+{{- include "riskagent.labels" . | nindent 8 }}
         component: mcp-server
     spec:
       {{- if .Values.serviceAccount }}
@@ -102,7 +102,7 @@ kind: Service
 metadata:
   name: mcp-server
   labels:
-{{- include "riskmonitor.labels" . | nindent 4 }}
+{{- include "riskagent.labels" . | nindent 4 }}
     component: mcp-server
 spec:
   type: ClusterIP
@@ -112,5 +112,5 @@ spec:
       targetPort: 8000
       protocol: TCP
   selector:
-    app.kubernetes.io/name: riskmonitor
+    app.kubernetes.io/name: riskagent
     component: mcp-server

@@ -1,6 +1,6 @@
 # Changelog
 
-本文件记录 RiskMonitor-MultiAgent 项目的所有重要变更.
+本文件记录 RiskAgent-BackEnd 项目的所有重要变更.
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 

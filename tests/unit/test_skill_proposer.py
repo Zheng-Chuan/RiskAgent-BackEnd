@@ -93,7 +93,7 @@ def _make_receipts() -> list[dict]:
 @pytest.mark.asyncio
 async def test_high_quality_produces_proposal():
     """confidence >= 0.85, ok=True -> 生成 Skill 提案 (action=created)."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -118,7 +118,7 @@ async def test_high_quality_produces_proposal():
 @pytest.mark.asyncio
 async def test_low_quality_skips_proposal():
     """confidence < 0.85, ok=False -> action=skipped."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -139,7 +139,7 @@ async def test_low_quality_skips_proposal():
 @pytest.mark.asyncio
 async def test_ok_false_with_high_confidence_still_skips():
     """ok=False 但 confidence 高 -> 仍然 skipped (ok 检查优先)."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -158,7 +158,7 @@ async def test_ok_false_with_high_confidence_still_skips():
 @pytest.mark.asyncio
 async def test_confidence_defaults_when_missing():
     """critic_final 没有 confidence 字段时, ok=True 默认 0.9, ok=False 默认 0.4."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -188,7 +188,7 @@ async def test_confidence_defaults_when_missing():
 @pytest.mark.asyncio
 async def test_first_proposal_creates_skill():
     """首次创建 -> action=created."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -217,7 +217,7 @@ async def test_first_proposal_creates_skill():
 @pytest.mark.asyncio
 async def test_duplicate_proposal_updates_skill():
     """相似 Skill 已存在 -> action=updated."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -260,7 +260,7 @@ async def test_duplicate_proposal_updates_skill():
 @pytest.mark.asyncio
 async def test_proposal_content_correctness():
     """检查 name, tags, steps, failure_boundary 等."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -305,7 +305,7 @@ async def test_proposal_content_correctness():
 @pytest.mark.asyncio
 async def test_proposal_name_truncation():
     """name 截断到 50 字符并去掉特殊字符."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -330,7 +330,7 @@ async def test_proposal_name_truncation():
 @pytest.mark.asyncio
 async def test_proposal_tags_default_general():
     """没有 category 时 tags 默认 ["general"]."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -353,7 +353,7 @@ async def test_proposal_tags_default_general():
 @pytest.mark.asyncio
 async def test_steps_extracted_from_plan_steps():
     """验证 steps 列表正确生成."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -408,7 +408,7 @@ async def test_steps_extracted_from_plan_steps():
 @pytest.mark.asyncio
 async def test_steps_empty_plan_steps_fallback():
     """plan_steps 为空时使用默认步骤."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -429,7 +429,7 @@ async def test_steps_empty_plan_steps_fallback():
 @pytest.mark.asyncio
 async def test_steps_missing_plan_steps_fallback():
     """orchestrator_output 没有 plan_steps 时使用默认步骤."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -453,7 +453,7 @@ async def test_steps_missing_plan_steps_fallback():
 @pytest.mark.asyncio
 async def test_skill_store_failure_does_not_crash():
     """SkillStore 操作失败时不崩溃."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -477,7 +477,7 @@ async def test_skill_store_failure_does_not_crash():
 @pytest.mark.asyncio
 async def test_create_failure_returns_skipped():
     """skill_store.create 失败时返回 skipped."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -500,7 +500,7 @@ async def test_create_failure_returns_skipped():
 @pytest.mark.asyncio
 async def test_update_failure_returns_skipped():
     """skill_store.update 失败时返回 skipped."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -535,7 +535,7 @@ async def test_update_failure_returns_skipped():
 @pytest.mark.asyncio
 async def test_failure_boundary_from_issues():
     """failure_boundary 从 issues 推导."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -563,7 +563,7 @@ async def test_failure_boundary_from_issues():
 @pytest.mark.asyncio
 async def test_failure_boundary_from_risk_level():
     """没有 issues 时 failure_boundary 从 risk_level 推导."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -588,7 +588,7 @@ async def test_failure_boundary_from_risk_level():
 @pytest.mark.asyncio
 async def test_failure_boundary_default():
     """没有 issues 和 risk_level 时使用默认值."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -611,7 +611,7 @@ async def test_failure_boundary_default():
 @pytest.mark.asyncio
 async def test_payload_style_task():
     """兼容 payload.content 风格的 task."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)

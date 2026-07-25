@@ -21,7 +21,7 @@ def _require_mysql_for_acceptance_tests():
     if _get_env("MYSQL_PORT") is None:
         os.environ["MYSQL_PORT"] = "3307"
     if _get_env("MYSQL_DATABASE") is None:
-        os.environ["MYSQL_DATABASE"] = "riskmonitor"
+        os.environ["MYSQL_DATABASE"] = "riskagent"
     if _get_env("MYSQL_USER") is None:
         os.environ["MYSQL_USER"] = "admin"
 

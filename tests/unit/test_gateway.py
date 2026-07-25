@@ -12,15 +12,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from riskmonitor_multiagent.gateway import (
+from riskagent_backend.gateway import (
     GatewayAdapter,
     GatewayMessage,
     GatewayRouter,
 )
 
 # [REMOVED - 2026-06-27] Slack 和企业微信适配器已删除
-# from riskmonitor_multiagent.gateway.slack_adapter import SlackAdapter
-# from riskmonitor_multiagent.gateway.wechat_work_adapter import WeChatWorkAdapter
+# from riskagent_backend.gateway.slack_adapter import SlackAdapter
+# from riskagent_backend.gateway.wechat_work_adapter import WeChatWorkAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -323,7 +323,7 @@ def test_gateway_adapter_is_abstract() -> None:
 
 def test_gateway_public_api_only_exposes_core_contracts() -> None:
     """gateway 包公开 API 只保留核心抽象层."""
-    gateway_module = importlib.import_module("riskmonitor_multiagent.gateway")
+    gateway_module = importlib.import_module("riskagent_backend.gateway")
     assert gateway_module.__all__ == [
         "GatewayAdapter",
         "GatewayMessage",

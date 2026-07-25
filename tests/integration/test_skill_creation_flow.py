@@ -87,7 +87,7 @@ def _build_mock_run(
 @pytest.mark.asyncio
 async def test_end_to_end_create_then_update():
     """端到端: 第一次创建 Skill, 第二次相同模式去重更新."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store, confidence_threshold=0.85)
@@ -147,7 +147,7 @@ async def test_end_to_end_create_then_update():
 @pytest.mark.asyncio
 async def test_end_to_end_different_patterns_create_separate():
     """不同模式创建不同的 Skill."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -207,7 +207,7 @@ async def test_end_to_end_different_patterns_create_separate():
 @pytest.mark.asyncio
 async def test_end_to_end_low_quality_skipped():
     """低质量 run 不创建 Skill."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)
@@ -239,7 +239,7 @@ async def test_end_to_end_low_quality_skipped():
 @pytest.mark.asyncio
 async def test_end_to_end_multiple_updates_accumulate_revisions():
     """多次更新累积 revision_history."""
-    from riskmonitor_multiagent.skills import SkillProposer, SkillStore
+    from riskagent_backend.skills import SkillProposer, SkillStore
 
     store = SkillStore()
     proposer = SkillProposer(store)

@@ -50,7 +50,7 @@ def test_build_eval_task_normalizes_content_shape_for_workflow():
 def test_bootstrap_eval_memory_adds_seed_for_memory_category():
     fake_store = type("FakeStore", (), {"append": AsyncMock(return_value={"entry_id": "seed-1"})})()
 
-    with patch("riskmonitor_multiagent.memory.get_memory_store", return_value=fake_store):
+    with patch("riskagent_backend.memory.get_memory_store", return_value=fake_store):
         import asyncio
 
         asyncio.run(
@@ -71,7 +71,7 @@ def test_bootstrap_eval_memory_adds_seed_for_memory_category():
 def test_bootstrap_eval_memory_falls_back_to_top_level_content():
     fake_store = type("FakeStore", (), {"append": AsyncMock(return_value={"entry_id": "seed-2"})})()
 
-    with patch("riskmonitor_multiagent.memory.get_memory_store", return_value=fake_store):
+    with patch("riskagent_backend.memory.get_memory_store", return_value=fake_store):
         import asyncio
 
         asyncio.run(

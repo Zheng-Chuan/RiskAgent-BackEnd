@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from riskmonitor_multiagent.contracts.run_trace import (
+from riskagent_backend.contracts.run_trace import (
     RUN_TRACE_SCHEMA_VERSION,
     normalize_run_trace,
     validate_run_trace,

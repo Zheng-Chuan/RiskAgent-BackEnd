@@ -18,8 +18,8 @@ for p in (_PROJECT_ROOT, _SRC_ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
-from riskmonitor_multiagent import config
+from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
+from riskagent_backend import config
 
 # 与 Equities desk 相关的知识数据
 KNOWLEDGE_DOCUMENTS = [

@@ -90,7 +90,7 @@
 
 - [x] Checkpoint 7.4.A 双入口统一运行模型
   - 目标: 让 `user_task` 和 `system_event` 共享统一 `run_id` `run_context` `entry_type` `trace_ref`.
-  - 主要文件: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py` `src/riskmonitor_multiagent/contracts/event.py` 新增 `src/riskmonitor_multiagent/contracts/run_context.py`
+  - 主要文件: `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/contracts/event.py` 新增 `src/riskagent_backend/contracts/run_context.py`
   - 关键实现: 定义 `RunTrigger` 和 `RunContext`; 明确 `entry_type in {user_task, system_event}`; 所有 run 在入口阶段就生成统一 `run_id`; `user_task` 保持 `intent -> orchestrator -> task_graph` 主链; `system_event` 先不直接执行, 统一交给 `ModeratorAgent`
   - 对应总 checkpoint: `7.4.1` 以及 `7.4.2` 的入口约束部分
   - 测试: 新增 `tests/unit/test_run_context.py`; 新增 `tests/integration/test_dual_entry_runs.py`
@@ -98,15 +98,15 @@
 
 - [x] Checkpoint 7.4.B Event Facade 和 Moderator 汇流层
   - 目标: 把 `system_event -> moderator -> next hop -> unified execution` 变成真实主链, 不再停留在兼容壳子.
-  - 主要文件: `src/riskmonitor_multiagent/orchestration/multiagent_workflow.py` `src/riskmonitor_multiagent/proactive_agents/moderator.py` `src/riskmonitor_multiagent/orchestration/message_bus.py` `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
-  - 关键实现: 将 `multiagent_workflow` 从兼容骨架升级为 facade; 所有 `system_event` 默认都先过 `ModeratorAgent`; moderator 输出结构化路由决策, 决定进入 `intent` `orchestrator` `critic` `human` 或局部处理; facade 最终调用统一执行函数, 不允许旁路 `TaskGraphExecutor`
+  - 主要文件: `src/riskagent_backend/orchestration/backend_workflow.py` `src/riskagent_backend/proactive_agents/moderator.py` `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/proactive_workflow.py`
+  - 关键实现: 将 `backend_workflow` 从兼容骨架升级为 facade; 所有 `system_event` 默认都先过 `ModeratorAgent`; moderator 输出结构化路由决策, 决定进入 `intent` `orchestrator` `critic` `human` 或局部处理; facade 最终调用统一执行函数, 不允许旁路 `TaskGraphExecutor`
   - 对应总 checkpoint: `7.4.1` `7.4.2` 以及 `7.4.4` 的仲裁入口部分
-  - 测试: 扩展 `tests/unit/test_multiagent.py`; 新增 `tests/integration/test_event_routing.py`
+  - 测试: 扩展 `tests/unit/test_backend.py`; 新增 `tests/integration/test_event_routing.py`
   - 验收证据: `system_event` 进入后 trace 中先出现 moderator decision; 规则可决定时 tie breaker 调用次数为 0; routed case 最终进入 `TaskGraphExecutor`
 
 - [x] Checkpoint 7.4.C 主动任务创建协议
   - 目标: 让 agent 真正基于事件主动创建任务, 而不是只记录事件.
-  - 主要文件: `src/riskmonitor_multiagent/proactive_agents/base.py` `src/riskmonitor_multiagent/orchestration/proactive_workflow.py` `src/riskmonitor_multiagent/contracts/event.py` `src/riskmonitor_multiagent/memory/memory_store.py`
+  - 主要文件: `src/riskagent_backend/proactive_agents/base.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/contracts/event.py` `src/riskagent_backend/memory/memory_store.py`
   - 关键实现: 主动创建的任务必须带 `trigger_event_id` `trigger_reason` `trigger_evidence`; `RISK_BREACH_DETECTED` 和 `TOOL_FINISHED` 等事件可以生成 follow-up task; follow-up task 不单独走新执行器, 继续复用统一主链; 任务创建时写入 memory 和 trace 关联字段
   - 对应总 checkpoint: `7.4.3` 以及 `7.4.6` 的证据链基础
   - 测试: 新增 `tests/integration/test_proactive_task_creation.py`; 扩展 `tests/unit/test_memory.py`
@@ -114,7 +114,7 @@
 
 - [x] Checkpoint 7.4.D 冲突仲裁并入统一执行内核
   - 目标: 把当前冲突检测和仲裁骨架从局部能力升级为系统级能力.
-  - 主要文件: `src/riskmonitor_multiagent/orchestration/iterative_refinement.py` `src/riskmonitor_multiagent/proactive_agents/moderator.py` `src/riskmonitor_multiagent/orchestration/proactive_workflow.py` `src/riskmonitor_multiagent/orchestration/message_bus.py`
+  - 主要文件: `src/riskagent_backend/orchestration/iterative_refinement.py` `src/riskagent_backend/proactive_agents/moderator.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/orchestration/message_bus.py`
   - 关键实现: 冲突检测输出结构化 `conflict trace`; 仲裁输出结构化 `arbitration result`; 记录被放弃路径和原因; 仲裁结果要能回流为 task graph patch 或下一跳 agent 决策
   - 对应总 checkpoint: `7.4.4` 以及 `7.4.6` 的回放要素
   - 测试: 扩展 `tests/unit/test_iterative_refinement.py`; 新增 `tests/integration/test_conflict_arbitration_flow.py`
@@ -122,7 +122,7 @@
 
 - [x] Checkpoint 7.4.E 统一 Trace 和 Replay 底座
   - 目标: 把 event trace moderator decision task graph trace receipt memory 全部挂到同一套 run 视角上.
-  - 主要文件: `src/riskmonitor_multiagent/orchestration/message_bus.py` `src/riskmonitor_multiagent/orchestration/proactive_workflow.py` `src/riskmonitor_multiagent/memory/memory_store.py` 新增 `src/riskmonitor_multiagent/observability/run_trace.py` 新增 `src/riskmonitor_multiagent/cli/replay.py`
+  - 主要文件: `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/memory/memory_store.py` 新增 `src/riskagent_backend/observability/run_trace.py` 新增 `src/riskagent_backend/cli/replay.py`
   - 关键实现: 统一 trace entry schema; 所有 event moderator node receipt memory 写入都带 `run_id`; replay 直接按 `run_id` 输出双入口时间线
   - 对应总 checkpoint: `7.4.6` 并为 `7.5` `7.6` 做底座
   - 测试: 新增 `tests/unit/test_run_trace.py`; 新增 `tests/integration/test_replay_cli.py`
@@ -130,7 +130,7 @@
 
 - [x] Checkpoint 7.4.F 主动性预算和熔断
   - 目标: 为 `system_event` 触发的主动协作加治理, 同时不误伤用户显式任务.
-  - 主要文件: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py` `src/riskmonitor_multiagent/orchestration/message_bus.py` `src/riskmonitor_multiagent/orchestration/tool_executor.py` 新增 `src/riskmonitor_multiagent/governance/proactive_budget.py`
+  - 主要文件: `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/tool_executor.py` 新增 `src/riskagent_backend/governance/proactive_budget.py`
   - 关键实现: `event burst limit`; `max concurrent proactive runs`; `token budget`; `circuit breaker`; 用户显式任务走独立豁免规则
   - 对应总 checkpoint: `7.4.5`
   - 测试: 新增 `tests/unit/test_proactive_budget.py`; 新增 `tests/integration/test_event_storm_guardrail.py`
@@ -148,7 +148,7 @@
 
 - 不新建第二套 `event_executor`
 - 不让 `system_event` 绕过 `TaskGraphExecutor`
-- 不把 `multiagent_workflow.py` 继续堆成与 `proactive_workflow.py` 平行的第二套主流程
+- 不把 `backend_workflow.py` 继续堆成与 `proactive_workflow.py` 平行的第二套主流程
 - 不先做 replay CLI 再补统一 trace
 - 不先做 budget 再补双入口 run model
 

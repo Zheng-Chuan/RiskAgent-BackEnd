@@ -15,11 +15,11 @@ if str(_SRC_ROOT) not in sys.path:
 async def test_ingest_recent_alerts_then_search_similar_alerts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from riskmonitor_multiagent.data_access import alerts_repository
-    from riskmonitor_multiagent.knowledge.ingest import ingest_recent_alerts
-    from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
-    from riskmonitor_multiagent.services import alert_rules_service
-    from riskmonitor_multiagent.tools.mcp_tools import search_similar_alerts
+    from riskagent_backend.data_access import alerts_repository
+    from riskagent_backend.knowledge.ingest import ingest_recent_alerts
+    from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
+    from riskagent_backend.services import alert_rules_service
+    from riskagent_backend.tools.mcp_tools import search_similar_alerts
 
     monkeypatch.setenv("CHROMA_PERSIST_DIR", str(tmp_path / "chroma"))
     monkeypatch.setenv("CHROMA_COLLECTION", "test-knowledge-integration")

@@ -10,8 +10,8 @@ import uuid
 
 import pytest
 
-from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore, SimilarDoc
-from riskmonitor_multiagent.llm.llm_client import LlmClient, extract_first_text
+from riskagent_backend.knowledge.chroma_store import ChromaVectorStore, SimilarDoc
+from riskagent_backend.llm.llm_client import LlmClient, extract_first_text
 
 
 def _extract_any_text(response: dict) -> str:

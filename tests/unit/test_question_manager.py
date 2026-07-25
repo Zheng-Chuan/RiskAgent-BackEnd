@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from riskmonitor_multiagent.proactive_agents.question_manager import (
+from riskagent_backend.proactive_agents.question_manager import (
     QuestionManager,
     answer_user_question,
     ask_user_question,

@@ -34,7 +34,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 def test_kind_to_tier_mapping_ephemeral():
     """测试工作态 kind 映射到 EPHEMERAL."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     ephemeral_kinds = ["working", "plan", "step", "command", "receipt", "approval", "message"]
@@ -45,7 +45,7 @@ def test_kind_to_tier_mapping_ephemeral():
 
 def test_kind_to_tier_mapping_short_term():
     """测试任务记忆 kind 映射到 SHORT_TERM."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     short_term_kinds = ["final", "analysis", "task", "experience_rejection"]
@@ -56,7 +56,7 @@ def test_kind_to_tier_mapping_short_term():
 
 def test_kind_to_tier_mapping_long_term():
     """测试经验 kind 映射到 LONG_TERM."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     long_term_kinds = ["lesson", "semantic_case", "few_shot"]
@@ -67,7 +67,7 @@ def test_kind_to_tier_mapping_long_term():
 
 def test_kind_to_tier_mapping_permanent():
     """测试 Skill 和配置 kind 映射到 PERMANENT."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     permanent_kinds = ["skill", "policy", "config"]
@@ -81,7 +81,7 @@ def test_kind_to_tier_mapping_permanent():
 
 def test_ttl_seconds_values():
     """测试各层级的 TTL 秒数."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTL_SECONDS, TTLTier
+    from riskagent_backend.memory.ttl_policy import TTL_SECONDS, TTLTier
 
     assert TTL_SECONDS[TTLTier.EPHEMERAL] == 86400       # 24h
     assert TTL_SECONDS[TTLTier.SHORT_TERM] == 604800     # 7d
@@ -91,7 +91,7 @@ def test_ttl_seconds_values():
 
 def test_get_ttl_seconds_for_ephemeral():
     """测试 ephemeral entry 返回 86400."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "working", "memory_type": "episodic", "ts_ms": 1000}
@@ -100,7 +100,7 @@ def test_get_ttl_seconds_for_ephemeral():
 
 def test_get_ttl_seconds_for_short_term():
     """测试 short_term entry 返回 604800."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "final", "memory_type": "episodic", "ts_ms": 1000}
@@ -109,7 +109,7 @@ def test_get_ttl_seconds_for_short_term():
 
 def test_get_ttl_seconds_for_long_term():
     """测试 long_term entry 返回 None (永不过期)."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
@@ -118,7 +118,7 @@ def test_get_ttl_seconds_for_long_term():
 
 def test_get_ttl_seconds_for_permanent():
     """测试 permanent entry 返回 None (永不过期)."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "skill", "ts_ms": 1000}
@@ -130,7 +130,7 @@ def test_get_ttl_seconds_for_permanent():
 
 def test_should_persist_ephemeral_false():
     """测试 ephemeral 不落盘."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "working", "memory_type": "episodic", "ts_ms": 1000}
@@ -139,7 +139,7 @@ def test_should_persist_ephemeral_false():
 
 def test_should_persist_short_term_false():
     """测试 short_term 不落盘."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "final", "memory_type": "episodic", "ts_ms": 1000}
@@ -148,7 +148,7 @@ def test_should_persist_short_term_false():
 
 def test_should_persist_long_term_true():
     """测试 long_term 需要落盘."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
@@ -157,7 +157,7 @@ def test_should_persist_long_term_true():
 
 def test_should_persist_permanent_true():
     """测试 permanent 需要落盘."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "skill", "ts_ms": 1000}
@@ -169,7 +169,7 @@ def test_should_persist_permanent_true():
 
 def test_is_expired_permanent_never_expires():
     """测试永久级别永不过期."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     # lesson 是 LONG_TERM
@@ -185,7 +185,7 @@ def test_is_expired_permanent_never_expires():
 
 def test_is_expired_ephemeral_after_25h():
     """测试 ephemeral 25h 后过期."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     ts_ms = 1_000_000_000_000  # 某个时间点
@@ -202,7 +202,7 @@ def test_is_expired_ephemeral_after_25h():
 
 def test_is_expired_short_term_after_8d():
     """测试 short_term 8d 后过期."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     ts_ms = 1_000_000_000_000
@@ -219,7 +219,7 @@ def test_is_expired_short_term_after_8d():
 
 def test_is_expired_no_ts_ms():
     """测试无 ts_ms 时返回 False (不报错)."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "working", "memory_type": "episodic"}
@@ -231,7 +231,7 @@ def test_is_expired_no_ts_ms():
 
 def test_get_cleanup_candidates_only_returns_expired():
     """测试 get_cleanup_candidates 只返回已过期的 entry."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     base_ts = 1_000_000_000_000
@@ -264,7 +264,7 @@ def test_get_cleanup_candidates_only_returns_expired():
 
 def test_get_cleanup_candidates_empty_list():
     """测试空列表返回空."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     candidates = engine.get_cleanup_candidates([], now_ms=1000)
@@ -273,7 +273,7 @@ def test_get_cleanup_candidates_empty_list():
 
 def test_get_cleanup_candidates_all_permanent():
     """测试全是永久条目时返回空."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entries = [
@@ -289,7 +289,7 @@ def test_get_cleanup_candidates_all_permanent():
 
 def test_custom_overrides_override_default_mapping():
     """测试 custom_overrides 覆盖默认 kind 映射."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     # 默认 "working" → EPHEMERAL, 覆盖为 PERMANENT
     engine = TTLPolicyEngine(custom_overrides={"working": TTLTier.PERMANENT})
@@ -301,7 +301,7 @@ def test_custom_overrides_override_default_mapping():
 
 def test_custom_overrides_do_not_affect_other_kinds():
     """测试 custom_overrides 不影响其他 kind 的映射."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine(custom_overrides={"working": TTLTier.PERMANENT})
     # "lesson" 仍然映射到 LONG_TERM
@@ -311,7 +311,7 @@ def test_custom_overrides_do_not_affect_other_kinds():
 
 def test_custom_overrides_empty_dict():
     """测试空 overrides 使用默认映射."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine(custom_overrides={})
     entry = {"kind": "working", "memory_type": "episodic", "ts_ms": 1000}
@@ -323,7 +323,7 @@ def test_custom_overrides_empty_dict():
 
 def test_fallback_by_memory_type_procedural():
     """测试未知 kind 根据 memory_type=procedural 推断为 LONG_TERM."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "unknown_kind", "memory_type": "procedural", "ts_ms": 1000}
@@ -332,7 +332,7 @@ def test_fallback_by_memory_type_procedural():
 
 def test_fallback_by_memory_type_semantic():
     """测试未知 kind 根据 memory_type=semantic 推断为 LONG_TERM."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "unknown_kind", "memory_type": "semantic", "ts_ms": 1000}
@@ -341,7 +341,7 @@ def test_fallback_by_memory_type_semantic():
 
 def test_fallback_by_memory_type_episodic():
     """测试未知 kind 根据 memory_type=episodic 推断为 SHORT_TERM."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "unknown_kind", "memory_type": "episodic", "ts_ms": 1000}
@@ -350,7 +350,7 @@ def test_fallback_by_memory_type_episodic():
 
 def test_fallback_final_ephemeral():
     """测试完全未知的 kind 和 memory_type 兜底为 EPHEMERAL."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "totally_unknown", "memory_type": "unknown_type", "ts_ms": 1000}
@@ -359,7 +359,7 @@ def test_fallback_final_ephemeral():
 
 def test_fallback_no_kind_no_memory_type():
     """测试无 kind 和 memory_type 兜底为 EPHEMERAL."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry: dict[str, Any] = {}
@@ -371,7 +371,7 @@ def test_fallback_no_kind_no_memory_type():
 
 def test_existing_ttl_tier_field_used_directly():
     """测试 entry 含 ttl_tier 字段时直接使用."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     # kind=working 默认是 EPHEMERAL, 但 ttl_tier 字段指定为 PERMANENT
@@ -382,7 +382,7 @@ def test_existing_ttl_tier_field_used_directly():
 
 def test_existing_ttl_tier_long_term():
     """测试 ttl_tier=long_term 直接使用."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "plan", "memory_type": "episodic", "ts_ms": 1000, "ttl_tier": "long_term"}
@@ -392,7 +392,7 @@ def test_existing_ttl_tier_long_term():
 
 def test_existing_ttl_tier_ephemeral():
     """测试 ttl_tier=ephemeral 直接使用."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000, "ttl_tier": "ephemeral"}
@@ -402,7 +402,7 @@ def test_existing_ttl_tier_ephemeral():
 
 def test_existing_ttl_tier_enum_object():
     """测试 ttl_tier 为 TTLTier 枚举对象时也能正确解析."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "plan", "memory_type": "episodic", "ts_ms": 1000, "ttl_tier": TTLTier.PERMANENT}
@@ -411,7 +411,7 @@ def test_existing_ttl_tier_enum_object():
 
 def test_existing_ttl_tier_invalid_falls_back():
     """测试无效的 ttl_tier 字段值回退到默认映射."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "working", "memory_type": "episodic", "ts_ms": 1000, "ttl_tier": "invalid_value"}
@@ -424,7 +424,7 @@ def test_existing_ttl_tier_invalid_falls_back():
 
 def test_cleanup_does_not_affect_non_expired():
     """测试过期条目不影响未过期条目."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     base_ts = 1_000_000_000_000
@@ -464,7 +464,7 @@ def test_cleanup_does_not_affect_non_expired():
 
 def test_working_memory_kind_maps_to_ephemeral():
     """测试 working_memory kind 映射到 EPHEMERAL."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "working_memory", "memory_type": "episodic", "ts_ms": 1000}
@@ -473,7 +473,7 @@ def test_working_memory_kind_maps_to_ephemeral():
 
 def test_private_task_state_kind_maps_to_ephemeral():
     """测试 private_task_state kind 映射到 EPHEMERAL."""
-    from riskmonitor_multiagent.memory.ttl_policy import TTLTier, TTLPolicyEngine
+    from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
     entry = {"kind": "private_task_state", "memory_type": "episodic", "ts_ms": 1000}

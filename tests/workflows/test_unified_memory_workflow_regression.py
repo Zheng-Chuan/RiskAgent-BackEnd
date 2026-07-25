@@ -12,7 +12,7 @@ if str(src_root) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_unified_memory_workflow_reuses_shared_plan_and_semantic_case() -> None:
-    from riskmonitor_multiagent.memory import MemoryStore
+    from riskagent_backend.memory import MemoryStore
 
     store_data: dict[str, list[str]] = {}
     mock_redis = MagicMock()

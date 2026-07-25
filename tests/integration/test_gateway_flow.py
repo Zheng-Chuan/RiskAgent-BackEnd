@@ -18,15 +18,15 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.gateway import (
+from riskagent_backend.gateway import (
     GatewayAdapter,
     GatewayMessage,
     GatewayRouter,
 )
 
 # [REMOVED - 2026-06-27] Slack 和企业微信适配器已删除
-# from riskmonitor_multiagent.gateway.slack_adapter import SlackAdapter
-# from riskmonitor_multiagent.gateway.wechat_work_adapter import WeChatWorkAdapter
+# from riskagent_backend.gateway.slack_adapter import SlackAdapter
+# from riskagent_backend.gateway.wechat_work_adapter import WeChatWorkAdapter
 
 
 class _FakeAdapter(GatewayAdapter):

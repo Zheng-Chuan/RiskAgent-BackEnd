@@ -16,7 +16,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 def test_validate_skill_normal_input():
     """测试 validate_skill 正常输入."""
-    from riskmonitor_multiagent.skills.skill_contract import (
+    from riskagent_backend.skills.skill_contract import (
         SKILL_SCHEMA_VERSION,
         validate_skill,
     )
@@ -51,7 +51,7 @@ def test_validate_skill_normal_input():
 
 def test_validate_skill_missing_name():
     """测试 validate_skill 缺少 name 字段."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="bad_name"):
         validate_skill({"tags": ["x"]})
@@ -59,7 +59,7 @@ def test_validate_skill_missing_name():
 
 def test_validate_skill_empty_name():
     """测试 validate_skill 空 name."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="bad_name"):
         validate_skill({"name": ""})
@@ -67,7 +67,7 @@ def test_validate_skill_empty_name():
 
 def test_validate_skill_invalid_status():
     """测试 validate_skill 非法 status."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="unsupported_status"):
         validate_skill({"name": "test", "status": "unknown"})
@@ -75,7 +75,7 @@ def test_validate_skill_invalid_status():
 
 def test_validate_skill_invalid_write_origin():
     """测试 validate_skill 非法 write_origin."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="unsupported_write_origin"):
         validate_skill({"name": "test", "write_origin": "unknown"})
@@ -83,7 +83,7 @@ def test_validate_skill_invalid_write_origin():
 
 def test_validate_skill_non_dict_raises():
     """测试 validate_skill 非 dict 输入."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="must be a dict"):
         validate_skill("not a dict")  # type: ignore[arg-type]
@@ -91,7 +91,7 @@ def test_validate_skill_non_dict_raises():
 
 def test_validate_skill_step_without_description():
     """测试 validate_skill 步骤缺少 description."""
-    from riskmonitor_multiagent.skills.skill_contract import validate_skill
+    from riskagent_backend.skills.skill_contract import validate_skill
 
     with pytest.raises(ValueError, match="bad_step_0"):
         validate_skill(
@@ -104,7 +104,7 @@ def test_validate_skill_step_without_description():
 
 def test_normalize_skill_defaults():
     """测试 normalize_skill 默认值填充."""
-    from riskmonitor_multiagent.skills.skill_contract import (
+    from riskagent_backend.skills.skill_contract import (
         SKILL_SCHEMA_VERSION,
         normalize_skill,
     )
@@ -131,7 +131,7 @@ def test_normalize_skill_defaults():
 
 def test_normalize_skill_type_conversion():
     """测试 normalize_skill 类型转换."""
-    from riskmonitor_multiagent.skills.skill_contract import normalize_skill
+    from riskagent_backend.skills.skill_contract import normalize_skill
 
     nd = normalize_skill(
         {
@@ -151,7 +151,7 @@ def test_normalize_skill_type_conversion():
 
 def test_normalize_skill_confidence_clamp():
     """测试 normalize_skill confidence 钳制到 [0, 1]."""
-    from riskmonitor_multiagent.skills.skill_contract import normalize_skill
+    from riskagent_backend.skills.skill_contract import normalize_skill
 
     nd_high = normalize_skill({"name": "t", "confidence": 1.5})
     assert nd_high["confidence"] == 1.0
@@ -165,7 +165,7 @@ def test_normalize_skill_confidence_clamp():
 
 def test_skill_from_dict_to_dict_roundtrip():
     """测试 Skill.from_dict / to_dict 往返."""
-    from riskmonitor_multiagent.skills.skill_contract import Skill
+    from riskagent_backend.skills.skill_contract import Skill
 
     original = {
         "name": "风险排查技能",
@@ -201,7 +201,7 @@ def test_skill_from_dict_to_dict_roundtrip():
 
 def test_skill_frozen():
     """测试 Skill 是 frozen dataclass."""
-    from riskmonitor_multiagent.skills.skill_contract import Skill
+    from riskagent_backend.skills.skill_contract import Skill
 
     skill = Skill.from_dict({"name": "test"})
     with pytest.raises((AttributeError, Exception)):
@@ -213,7 +213,7 @@ def test_skill_frozen():
 
 def test_new_skill_id_format():
     """测试 new_skill_id 格式."""
-    from riskmonitor_multiagent.skills.skill_contract import new_skill_id
+    from riskagent_backend.skills.skill_contract import new_skill_id
 
     sid = new_skill_id()
     assert sid.startswith("skill_")

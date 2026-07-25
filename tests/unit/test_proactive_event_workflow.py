@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from riskmonitor_multiagent.contracts.event import EventType, new_event
-from riskmonitor_multiagent.orchestration.multiagent_workflow import (
+from riskagent_backend.contracts.event import EventType, new_event
+from riskagent_backend.orchestration.backend_workflow import (
     run_user_task,
     start_from_event,
 )
-from riskmonitor_multiagent.orchestration.proactive_workflow import (
-    ProactiveMultiAgentWorkflow,
+from riskagent_backend.orchestration.proactive_workflow import (
+    ProactiveBackEndWorkflow,
     reset_proactive_workflow,
 )
 
@@ -18,7 +18,7 @@ async def test_start_from_event_builds_system_event_run_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reset_proactive_workflow()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     captured: dict[str, object] = {}
 
     async def fake_run_internal(
@@ -41,7 +41,7 @@ async def test_start_from_event_builds_system_event_run_context(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,
@@ -71,7 +71,7 @@ async def test_start_from_event_builds_system_event_run_context(
 @pytest.mark.asyncio
 async def test_start_from_event_rejects_invalid_event() -> None:
     reset_proactive_workflow()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     result = await workflow.start_from_event(
         event={
@@ -88,7 +88,7 @@ async def test_start_from_event_rejects_invalid_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_multiagent_workflow_facade_routes_user_task(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_backend_workflow_facade_routes_user_task(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     async def fake_run(*, task: dict) -> dict:
@@ -96,7 +96,7 @@ async def test_multiagent_workflow_facade_routes_user_task(monkeypatch: pytest.M
         return {"status": "completed", "task_id": task.get("task_id")}
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.proactive_workflow.run_proactive_workflow",
+        "riskagent_backend.orchestration.proactive_workflow.run_proactive_workflow",
         fake_run,
     )
     result = await run_user_task(task={"task_id": "facade-user-1", "payload": {"content": "分析任务"}})
@@ -106,7 +106,7 @@ async def test_multiagent_workflow_facade_routes_user_task(monkeypatch: pytest.M
 
 
 @pytest.mark.asyncio
-async def test_multiagent_workflow_facade_routes_system_event(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_backend_workflow_facade_routes_system_event(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeWorkflow:
         async def start_from_event(self, *, event: dict, candidate_agents=None) -> dict:
             return {
@@ -116,7 +116,7 @@ async def test_multiagent_workflow_facade_routes_system_event(monkeypatch: pytes
             }
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.orchestration.proactive_workflow.get_proactive_workflow",
+        "riskagent_backend.orchestration.proactive_workflow.get_proactive_workflow",
         lambda: _FakeWorkflow(),
     )
     event = new_event(

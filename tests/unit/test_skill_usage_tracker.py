@@ -37,7 +37,7 @@ def _make_skill(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_track_usage_records_skill_id():
     """调用 track_usage → get_tracked_skills 返回正确的 skill_id."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -52,7 +52,7 @@ async def test_track_usage_records_skill_id():
 @pytest.mark.asyncio
 async def test_track_usage_dedup_same_skill():
     """同一 run 中同一 skill_id 只记录一次."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -69,7 +69,7 @@ async def test_track_usage_dedup_same_skill():
 @pytest.mark.asyncio
 async def test_track_usage_separate_runs():
     """不同 run 的跟踪记录相互独立."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -89,7 +89,7 @@ async def test_track_usage_separate_runs():
 @pytest.mark.asyncio
 async def test_success_execution_increases_confidence():
     """update_after_execution(success=True, ok=True) → confidence 增加."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -119,7 +119,7 @@ async def test_success_execution_increases_confidence():
 @pytest.mark.asyncio
 async def test_failure_execution_decreases_confidence():
     """update_after_execution(success=False) → confidence 减少."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -146,7 +146,7 @@ async def test_failure_execution_decreases_confidence():
 @pytest.mark.asyncio
 async def test_multiple_successes_accumulate_confidence():
     """连续 3 次成功 → confidence 持续上升."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -173,7 +173,7 @@ async def test_multiple_successes_accumulate_confidence():
 @pytest.mark.asyncio
 async def test_consecutive_failures_deprecate():
     """confidence 降到 0.3 以下 → status 变为 deprecated."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.35))
@@ -203,7 +203,7 @@ async def test_consecutive_failures_deprecate():
 @pytest.mark.asyncio
 async def test_extreme_failures_archive():
     """confidence 降到 0.15 以下 → status 变为 archived."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.2))
@@ -233,7 +233,7 @@ async def test_extreme_failures_archive():
 @pytest.mark.asyncio
 async def test_clear_tracking_empties_records():
     """clear_tracking 后 get_tracked_skills 返回空."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -249,7 +249,7 @@ async def test_clear_tracking_empties_records():
 @pytest.mark.asyncio
 async def test_clear_tracking_nonexistent_run_safe():
     """clear_tracking 不存在的 run_id 不报错."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     tracker = SkillUsageTracker(store)
@@ -263,7 +263,7 @@ async def test_clear_tracking_nonexistent_run_safe():
 @pytest.mark.asyncio
 async def test_multiple_skills_updated_at_once():
     """跟踪 3 个 Skill → 一次执行后全部更新."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     tracker = SkillUsageTracker(store)
@@ -298,7 +298,7 @@ async def test_multiple_skills_updated_at_once():
 @pytest.mark.asyncio
 async def test_combination_success_true_ok_true():
     """success=True, ok=True → delta=+0.05 (success)."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -316,7 +316,7 @@ async def test_combination_success_true_ok_true():
 @pytest.mark.asyncio
 async def test_combination_success_true_ok_false():
     """success=True, ok=False → delta=-0.05 (failure)."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -334,7 +334,7 @@ async def test_combination_success_true_ok_false():
 @pytest.mark.asyncio
 async def test_combination_success_false_ok_true():
     """success=False, ok=True → delta=-0.05 (failure)."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -352,7 +352,7 @@ async def test_combination_success_false_ok_true():
 @pytest.mark.asyncio
 async def test_combination_success_false_ok_false():
     """success=False, ok=False → delta=-0.05 (failure)."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -373,7 +373,7 @@ async def test_combination_success_false_ok_false():
 @pytest.mark.asyncio
 async def test_no_tracked_skills_returns_empty():
     """无跟踪记录 → update_after_execution 返回空列表."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     tracker = SkillUsageTracker(store)
@@ -392,7 +392,7 @@ async def test_no_tracked_skills_returns_empty():
 @pytest.mark.asyncio
 async def test_custom_success_delta():
     """自定义 success_delta=0.1 → 成功时 confidence 增加 0.1."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -409,7 +409,7 @@ async def test_custom_success_delta():
 @pytest.mark.asyncio
 async def test_custom_fail_delta():
     """自定义 fail_delta=0.1 → 失败时 confidence 减少 0.1."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.5))
@@ -429,7 +429,7 @@ async def test_custom_fail_delta():
 @pytest.mark.asyncio
 async def test_update_confidence_exception_does_not_crash():
     """skill_store.update_confidence 抛异常时不崩溃, 返回空结果."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     created = await store.create(_make_skill())
@@ -450,7 +450,7 @@ async def test_update_confidence_exception_does_not_crash():
 @pytest.mark.asyncio
 async def test_skill_not_found_skipped():
     """skill_id 在 store 中不存在时跳过, 不崩溃."""
-    from riskmonitor_multiagent.skills import SkillStore, SkillUsageTracker
+    from riskagent_backend.skills import SkillStore, SkillUsageTracker
 
     store = SkillStore()
     tracker = SkillUsageTracker(store)

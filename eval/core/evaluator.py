@@ -34,8 +34,8 @@ from eval.core.metrics import (
     get_metric_definitions,
 )
 from eval.core.llm_judge import LLMJudge
-from riskmonitor_multiagent.contracts.run_trace import validate_run_trace
-from riskmonitor_multiagent.observability.run_trace import get_run_trace_store
+from riskagent_backend.contracts.run_trace import validate_run_trace
+from riskagent_backend.observability.run_trace import get_run_trace_store
 
 logger = logging.getLogger(__name__)
 

@@ -48,7 +48,7 @@
   - 通过标准: 版本变更时正确失效. 日内多次调用共享同一 context_tier 缓存. 预期 token 成本降低 20%+.
 
 - [x] Checkpoint 14.7.3 token 成本追踪与优化报告
-  - 实现项: 扩展现有 TokenTracker, 增加 `cache_hit_rate` `prefix_cache_savings` `tier_breakdown` 指标. 实现 `CostReportGenerator` (位于 `src/riskmonitor_multiagent/prompts/cost_report.py`), 支持生成分层前后 token 成本对比报告, 包含各 Agent 各层 token 用量明细和缓存节省统计. 支持 tiktoken 精确计算 (可选依赖, 不可用时回退到启发式估算).
+  - 实现项: 扩展现有 TokenTracker, 增加 `cache_hit_rate` `prefix_cache_savings` `tier_breakdown` 指标. 实现 `CostReportGenerator` (位于 `src/riskagent_backend/prompts/cost_report.py`), 支持生成分层前后 token 成本对比报告, 包含各 Agent 各层 token 用量明细和缓存节省统计. 支持 tiktoken 精确计算 (可选依赖, 不可用时回退到启发式估算).
   - 验收方法: 运行完整 benchmark 后检查成本报告.
   - 验收证据: 成本报告样例. 分层前后对比. cache_hit_rate 指标.
   - 通过标准: 成本报告可生成. 分层优化后 token 总消耗下降可量化. token 成本下降 20%+ 可通过报告验证.

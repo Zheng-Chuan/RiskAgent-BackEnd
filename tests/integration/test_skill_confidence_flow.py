@@ -1,7 +1,7 @@
 """Skill 置信度动态更新端到端集成测试.
 
 测试从 Skill 创建 → 注入跟踪 → 执行后置信度更新的完整流程.
-使用真实 SkillStore (内存存储) 和 ProactiveMultiAgentWorkflow, 不依赖外部 LLM.
+使用真实 SkillStore (内存存储) 和 ProactiveBackEndWorkflow, 不依赖外部 LLM.
 
 测试场景:
 1. 完整流程: 创建 Skill → 注入 → 执行成功 → 置信度上升
@@ -66,11 +66,11 @@ def _make_intent_output(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_full_flow_success_increases_confidence():
     """创建 Skill → 注入 → 执行成功 → 置信度上升."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     # 1. 创建 Skill
     created = await workflow._skill_store.create(
@@ -134,11 +134,11 @@ async def test_full_flow_success_increases_confidence():
 @pytest.mark.asyncio
 async def test_full_flow_failure_decreases_confidence():
     """创建 Skill → 注入 → 执行失败 → 置信度下降."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     created = await workflow._skill_store.create(
         _make_skill(confidence=0.5)
@@ -180,11 +180,11 @@ async def test_full_flow_failure_decreases_confidence():
 @pytest.mark.asyncio
 async def test_multiple_uses_accumulate_confidence():
     """同一 Skill 被使用 3 次 → 置信度正确累积."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     created = await workflow._skill_store.create(
         _make_skill(confidence=0.5)
@@ -223,11 +223,11 @@ async def test_multiple_uses_accumulate_confidence():
 @pytest.mark.asyncio
 async def test_no_run_id_no_tracking():
     """_build_orchestrator_context 不传 run_id → 不跟踪."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     await workflow._skill_store.create(_make_skill(confidence=0.5))
 
@@ -252,11 +252,11 @@ async def test_no_run_id_no_tracking():
 @pytest.mark.asyncio
 async def test_clear_tracking_does_not_affect_store():
     """clear_tracking 只清理跟踪记录, 不影响 SkillStore 中的数据."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     created = await workflow._skill_store.create(
         _make_skill(confidence=0.5)
@@ -294,7 +294,7 @@ async def test_clear_tracking_does_not_affect_store():
 @pytest.mark.asyncio
 async def test_injector_returns_injected_skill_ids():
     """SkillInjector.retrieve_applicable_skills 返回 injected_skill_ids 列表."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     created = await store.create(_make_skill(confidence=0.9))
@@ -315,7 +315,7 @@ async def test_injector_returns_injected_skill_ids():
 @pytest.mark.asyncio
 async def test_injector_last_injected_skill_ids_empty_when_no_match():
     """无匹配 Skill 时 last_injected_skill_ids 为空."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     injector = SkillInjector(store)
@@ -332,7 +332,7 @@ async def test_injector_last_injected_skill_ids_empty_when_no_match():
 @pytest.mark.asyncio
 async def test_injector_last_injected_skill_ids_empty_when_disabled():
     """skill_enabled=False 时 last_injected_skill_ids 为空."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(confidence=0.9))
@@ -353,11 +353,11 @@ async def test_injector_last_injected_skill_ids_empty_when_disabled():
 @pytest.mark.asyncio
 async def test_critic_not_ok_treated_as_failure():
     """execution_success=True 但 critic_ok=False → 置信度下降."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     created = await workflow._skill_store.create(
         _make_skill(confidence=0.5)
@@ -391,11 +391,11 @@ async def test_critic_not_ok_treated_as_failure():
 @pytest.mark.asyncio
 async def test_consecutive_failures_degrade_in_workflow():
     """连续失败 → Skill 自动降级为 deprecated 再到 archived."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     created = await workflow._skill_store.create(
         _make_skill(confidence=0.35)

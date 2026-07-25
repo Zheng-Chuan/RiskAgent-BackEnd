@@ -14,7 +14,7 @@ import json
 import logging
 from typing import Any
 
-from riskmonitor_multiagent.agents.base import BaseAgent
+from riskagent_backend.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 

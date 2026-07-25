@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""RiskMonitor-MultiAgent 入口.
+"""RiskAgent-BackEnd 入口.
 
 此文件保持为薄入口, 便于:
 - 兼容历史导入: 测试仍可从 main 导入工具函数
 - Docker 与本地运行统一入口
 
-业务实现位于 src/riskmonitor_multiagent/server.py.
+业务实现位于 src/riskagent_backend/server.py.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import threading
 # 确保 src 在 Python 路径中
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
-from riskmonitor_multiagent import server as _server  # pylint: disable=wrong-import-position
+from riskagent_backend import server as _server  # pylint: disable=wrong-import-position
 
 # 对外暴露工具函数, 便于测试继续从 main 导入.
 mcp = _server.mcp

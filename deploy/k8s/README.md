@@ -1,4 +1,4 @@
-# RiskMonitor K8s 部署指南
+# RiskAgent K8s 部署指南
 
 ## 前置条件
 - kubectl 已安装并配置好集群
@@ -13,18 +13,18 @@
 
 生产环境：
 ```bash
-helm upgrade --install riskmonitor deploy/k8s/ \
+helm upgrade --install riskagent deploy/k8s/ \
   -f deploy/k8s/values-prod.yaml \
   --set image.repository=<your-image-repo> \
   --set image.tag=<immutable-tag> \
-  -n riskmonitor --create-namespace
+  -n riskagent --create-namespace
 ```
 
 开发环境：
 ```bash
-helm upgrade --install riskmonitor deploy/k8s/ \
+helm upgrade --install riskagent deploy/k8s/ \
   -f deploy/k8s/values-dev.yaml \
-  -n riskmonitor --create-namespace
+  -n riskagent --create-namespace
 ```
 
 或使用 Makefile 快捷命令：
@@ -42,25 +42,25 @@ kubectl create secret docker-registry volc-cr-secret \
   --docker-server=<your-cr-registry> \
   --docker-username=<your-cr-username> \
   --docker-password=<your-cr-password> \
-  -n riskmonitor
+  -n riskagent
 
-helm upgrade --install riskmonitor deploy/k8s/ \
+helm upgrade --install riskagent deploy/k8s/ \
   -f deploy/k8s/values-prod.yaml \
   --set image.repository=<your-image-repo> \
   --set image.tag=<immutable-tag> \
   --set global.imagePullSecrets[0].name=volc-cr-secret \
   --set ingress.enabled=true \
   --set ingress.host=<your-host> \
-  -n riskmonitor --create-namespace
+  -n riskagent --create-namespace
 ```
 
 ### 2. 验证
-kubectl get pods -n riskmonitor
-kubectl get svc -n riskmonitor
+kubectl get pods -n riskagent
+kubectl get svc -n riskagent
 
 ### 3. 访问服务
-kubectl port-forward svc/mcp-server 8000:8000 -n riskmonitor
-kubectl port-forward svc/grafana 3000:3000 -n riskmonitor
+kubectl port-forward svc/mcp-server 8000:8000 -n riskagent
+kubectl port-forward svc/grafana 3000:3000 -n riskagent
 
 ## 卸载
 make k8s-uninstall

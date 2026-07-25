@@ -3,12 +3,12 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from riskmonitor_multiagent.perception import (
+from riskagent_backend.perception import (
     PerceptionSignal, SignalSeverity,
     PerceptionFilterEngine, get_default_rules,
     EscalationManager, RemediationManager, RemediationAction,
 )
-from riskmonitor_multiagent.perception.data_sources import (
+from riskagent_backend.perception.data_sources import (
     MySQLDataSource, PrometheusDataSource,
 )
 
@@ -98,7 +98,7 @@ def test_p9_skill():
 
 def test_e2e():
     print("\n" + "=" * 60); print("E2E: 感知→过滤→升级→处置→沉淀"); print("=" * 60)
-    from riskmonitor_multiagent.perception.data_sources import DockerDataSource
+    from riskagent_backend.perception.data_sources import DockerDataSource
     ds = DockerDataSource(); signals = ds.collect()
     print(f"[1] 采集: {len(signals)} 信号")
     engine = PerceptionFilterEngine(get_default_rules())

@@ -4,7 +4,7 @@
 由于 venv 缺少 aiohttp 等依赖, 无法直接导入 eval.core.evaluator
 (导入链: evaluator -> llm_judge -> agents.base -> llm_client -> aiohttp).
 
-本脚本绕过该导入链, 仅依赖 riskmonitor_multiagent.prompts 模块
+本脚本绕过该导入链, 仅依赖 riskagent_backend.prompts 模块
 (TieredPromptBuilder / PromptCacheManager / CostReportGenerator),
 重新实现 TokenTracker 的 summary 逻辑, 直接读取 JSONL case 文件,
 完成成本模拟与报告生成.
@@ -38,7 +38,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 # 仅导入 prompts 模块 (不触发 llm/__init__.py -> aiohttp 链)
-from riskmonitor_multiagent.prompts import (  # noqa: E402
+from riskagent_backend.prompts import (  # noqa: E402
     CostReportGenerator,
     PromptCacheManager,
     TieredPromptBuilder,

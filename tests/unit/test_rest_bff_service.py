@@ -16,8 +16,8 @@ if str(_SRC_ROOT) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_submit_task_exposes_runtime_and_final_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
-    from riskmonitor_multiagent.services.runtime_task_store import RuntimeTaskStore
+    from riskagent_backend.services.rest_bff_service import RestBffService
+    from riskagent_backend.services.runtime_task_store import RuntimeTaskStore
 
     runtime_store = RuntimeTaskStore()
     release_execution = asyncio.Event()
@@ -28,6 +28,18 @@ async def test_submit_task_exposes_runtime_and_final_state(monkeypatch: pytest.M
             "status": "completed",
             "run_id": task["task_id"],
             "final_output": {"summary": "任务已经完成"},
+            "task_graph": {
+                "schema_version": "task_graph.v1",
+                "nodes": [
+                    {
+                        "step_id": "step_1",
+                        "kind": "delegate",
+                        "status": "completed",
+                        "target_agent": "system_engineer",
+                    }
+                ],
+                "edges": [],
+            },
             "task_graph_execution": {
                 "trace": [
                     {
@@ -44,11 +56,11 @@ async def test_submit_task_exposes_runtime_and_final_state(monkeypatch: pytest.M
         }
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_runtime_task_store",
+        "riskagent_backend.services.rest_bff_service.get_runtime_task_store",
         lambda: runtime_store,
     )
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.run_proactive_workflow",
+        "riskagent_backend.services.rest_bff_service.run_proactive_workflow",
         fake_run_proactive_workflow,
     )
 
@@ -68,14 +80,67 @@ async def test_submit_task_exposes_runtime_and_final_state(monkeypatch: pytest.M
     completed_detail = await service.get_task_detail(task_id=created["task_id"])
     assert completed_detail["status"] == "completed"
     assert completed_detail["result"]["summary"] == "任务已经完成"
-    assert completed_detail["steps"][0]["id"] == "step_1"
-    assert completed_detail["steps"][0]["status"] == "completed"
+    assert completed_detail["graph"]["nodes"][0]["id"] == "step_1"
+    assert completed_detail["graph"]["nodes"][0]["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_get_task_graph_reads_runtime_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    from riskagent_backend.services.rest_bff_service import RestBffService
+    from riskagent_backend.services.runtime_task_store import RuntimeTaskStore
+
+    runtime_store = RuntimeTaskStore()
+    await runtime_store.create_task(
+        task_id="task_graph_1",
+        session_id="session_graph_1",
+        description="检查风险暴露",
+    )
+    await runtime_store.mark_running(task_id="task_graph_1", run_id="task_graph_1")
+    await runtime_store.sync_task_graph(
+        task_id="task_graph_1",
+        task_graph={
+            "schema_version": "task_graph.v1",
+            "nodes": [
+                {
+                    "step_id": "step_1",
+                    "kind": "delegate",
+                    "status": "pending",
+                    "target_agent": "system_engineer",
+                },
+                {
+                    "step_id": "step_2",
+                    "kind": "finalize",
+                    "status": "pending",
+                },
+            ],
+            "edges": [
+                {
+                    "from_step_id": "step_1",
+                    "to_step_id": "step_2",
+                    "condition": "always",
+                }
+            ],
+        },
+    )
+
+    monkeypatch.setattr(
+        "riskagent_backend.services.rest_bff_service.get_runtime_task_store",
+        lambda: runtime_store,
+    )
+
+    service = RestBffService()
+    snapshot = await service.get_task_graph(task_id="task_graph_1")
+
+    assert snapshot["task_id"] == "task_graph_1"
+    assert snapshot["nodes"][0]["label"] == "delegate system_engineer"
+    assert snapshot["edges"][0]["id"] == "step_1__step_2"
+    assert snapshot["summary"]["nodeCount"] == 2
 
 
 @pytest.mark.asyncio
 async def test_get_agents_snapshot_derives_working_agent(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
-    from riskmonitor_multiagent.services.runtime_task_store import RuntimeTaskStore
+    from riskagent_backend.services.rest_bff_service import RestBffService
+    from riskagent_backend.services.runtime_task_store import RuntimeTaskStore
 
     runtime_store = RuntimeTaskStore()
     await runtime_store.create_task(
@@ -95,11 +160,11 @@ async def test_get_agents_snapshot_derives_working_agent(monkeypatch: pytest.Mon
     )
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_runtime_task_store",
+        "riskagent_backend.services.rest_bff_service.get_runtime_task_store",
         lambda: runtime_store,
     )
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_proactive_workflow",
+        "riskagent_backend.services.rest_bff_service.get_proactive_workflow",
         lambda: fake_workflow,
     )
 
@@ -115,7 +180,7 @@ async def test_get_agents_snapshot_derives_working_agent(monkeypatch: pytest.Mon
 
 @pytest.mark.asyncio
 async def test_get_memory_snapshot_returns_structured_sanitized_items(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
+    from riskagent_backend.services.rest_bff_service import RestBffService
 
     class FakeMemoryStore:
         async def list_recent(
@@ -190,7 +255,7 @@ async def test_get_memory_snapshot_returns_structured_sanitized_items(monkeypatc
             }
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        "riskagent_backend.services.rest_bff_service.get_memory_store",
         lambda: FakeMemoryStore(),
     )
 
@@ -223,17 +288,17 @@ async def test_get_memory_snapshot_returns_structured_sanitized_items(monkeypatc
 
 @pytest.mark.asyncio
 async def test_get_task_memory_raises_when_task_scope_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
-    from riskmonitor_multiagent.services.runtime_task_store import RuntimeTaskStore
+    from riskagent_backend.services.rest_bff_service import RestBffService
+    from riskagent_backend.services.runtime_task_store import RuntimeTaskStore
 
     runtime_store = RuntimeTaskStore()
 
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_runtime_task_store",
+        "riskagent_backend.services.rest_bff_service.get_runtime_task_store",
         lambda: runtime_store,
     )
     monkeypatch.setattr(
-        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        "riskagent_backend.services.rest_bff_service.get_memory_store",
         lambda: None,
     )
 

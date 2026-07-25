@@ -1,5 +1,5 @@
 image:
-  repository: riskmonitor/multiagent
+  repository: riskagent/backend
   tag: k8s-local
   pullPolicy: IfNotPresent
 

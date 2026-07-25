@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from riskmonitor_multiagent.tools import mcp_tools
+from riskagent_backend.tools import mcp_tools
 
 
 def test_query_positions_by_trader_uses_tool_executor_path():
@@ -51,7 +51,7 @@ def test_query_positions_by_trader_uses_tool_executor_path():
     }
 
     with patch(
-        "riskmonitor_multiagent.tools.mcp_tools.execute_agent_command",
+        "riskagent_backend.tools.mcp_tools.execute_agent_command",
         return_value=fake_receipt,
     ) as mocked_execute:
         result = mcp_tools.query_positions_by_trader("TRADER-001")
@@ -103,7 +103,7 @@ def test_submit_alerts_uses_tool_executor_path():
     }
 
     with patch(
-        "riskmonitor_multiagent.tools.mcp_tools.execute_agent_command",
+        "riskagent_backend.tools.mcp_tools.execute_agent_command",
         return_value=fake_receipt,
     ) as mocked_execute:
         result = mcp_tools.submit_alerts(

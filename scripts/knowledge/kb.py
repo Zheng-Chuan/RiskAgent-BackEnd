@@ -10,8 +10,8 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
-from riskmonitor_multiagent.knowledge.ingest import ingest_recent_alerts
+from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
+from riskagent_backend.knowledge.ingest import ingest_recent_alerts
 
 
 def _cmd_ingest_alerts(args: argparse.Namespace) -> int:

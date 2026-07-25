@@ -10,7 +10,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 
 def test_intent_heuristics_side_effect_detection():
-    from riskmonitor_multiagent.orchestration.intent_heuristics import guess_risk_level, guess_side_effects
+    from riskagent_backend.orchestration.intent_heuristics import guess_risk_level, guess_side_effects
 
     text = "请删除数据库里的异常记录并重启服务"
     side = guess_side_effects(text=text)
@@ -20,7 +20,7 @@ def test_intent_heuristics_side_effect_detection():
 
 
 def test_intent_output_contract_normalize_and_validate():
-    from riskmonitor_multiagent.contracts.intent_output import normalize_intent_output, validate_intent_output
+    from riskagent_backend.contracts.intent_output import normalize_intent_output, validate_intent_output
 
     out = normalize_intent_output(
         {
@@ -39,7 +39,7 @@ def test_intent_output_contract_normalize_and_validate():
 
 
 def test_intent_output_multi_intent_is_sorted_and_explained():
-    from riskmonitor_multiagent.contracts.intent_output import normalize_intent_output
+    from riskagent_backend.contracts.intent_output import normalize_intent_output
 
     out = normalize_intent_output(
         {
@@ -70,7 +70,7 @@ def test_intent_output_multi_intent_is_sorted_and_explained():
 async def test_intent_agent_returns_failed_result_when_llm_disabled(monkeypatch):
     monkeypatch.setenv("DISABLE_LLM", "1")
     monkeypatch.setenv("LLM_API_KEY", "test")
-    from riskmonitor_multiagent.proactive_agents.roles import ProactiveIntentAgent
+    from riskagent_backend.proactive_agents.roles import ProactiveIntentAgent
 
     task = {"task_id": "t1", "session_id": "s1", "source": "human", "payload": {"content": "请查询 TRADER-001 的头寸"}}
     agent = ProactiveIntentAgent()

@@ -102,7 +102,7 @@ def _make_mock_persistence():
 
 def _create_store_with_mock(mock_redis, mock_persist=None):
     """创建带 mock Redis 的 MemoryStore."""
-    from riskmonitor_multiagent.memory import MemoryConfig, MemoryStore
+    from riskagent_backend.memory import MemoryConfig, MemoryStore
 
     store = MemoryStore(
         config=MemoryConfig(

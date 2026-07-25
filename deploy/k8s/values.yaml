@@ -9,7 +9,7 @@ global:
 
 # 镜像配置
 image:
-  repository: riskmonitor/multiagent
+  repository: riskagent/backend
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -17,7 +17,7 @@ image:
 mysql:
   host: mysql
   port: "3306"
-  database: riskmonitor
+  database: riskagent
   user: admin
   password: change_me
   rootPassword: root
@@ -51,8 +51,8 @@ redis:
 chroma:
   host: chroma
   port: "8000"
-  collection: riskmonitor-alerts
-  memoryCollection: riskmonitor-memory
+  collection: riskagent-alerts
+  memoryCollection: riskagent-memory
   image: chromadb/chroma:0.5.0
   resources:
     requests:

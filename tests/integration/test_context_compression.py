@@ -20,11 +20,11 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.memory.context_compressor import (
+from riskagent_backend.memory.context_compressor import (
     CompressionResult,
     ContextCompressor,
 )
-from riskmonitor_multiagent.proactive_agents.base import BaseProactiveAgent
+from riskagent_backend.proactive_agents.base import BaseProactiveAgent
 
 
 def _make_agent(
@@ -89,7 +89,7 @@ class TestShortTaskNoCompression:
         )
 
         with patch(
-            "riskmonitor_multiagent.llm.llm_client.LlmClient.chat_completions",
+            "riskagent_backend.llm.llm_client.LlmClient.chat_completions",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
@@ -221,7 +221,7 @@ class TestLongTaskCompression:
         )
 
         with patch(
-            "riskmonitor_multiagent.llm.llm_client.LlmClient.chat_completions",
+            "riskagent_backend.llm.llm_client.LlmClient.chat_completions",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
@@ -369,11 +369,11 @@ class TestCompressedMessagesConsumable:
         }
 
         with patch(
-            "riskmonitor_multiagent.llm.llm_client.LlmClient.chat_completions",
+            "riskagent_backend.llm.llm_client.LlmClient.chat_completions",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ) as mock_chat:
-            from riskmonitor_multiagent.llm import LlmClient
+            from riskagent_backend.llm import LlmClient
 
             client = LlmClient()
             resp = await client.chat_completions(

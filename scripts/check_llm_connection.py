@@ -23,9 +23,9 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 # 确保加载 .env
-from riskmonitor_multiagent import config  # noqa: E402
-from riskmonitor_multiagent.llm.llm_client import LlmClient  # noqa: E402
-from riskmonitor_multiagent.llm.llm_client import extract_first_text  # noqa: E402
+from riskagent_backend import config  # noqa: E402
+from riskagent_backend.llm.llm_client import LlmClient  # noqa: E402
+from riskagent_backend.llm.llm_client import extract_first_text  # noqa: E402
 
 
 async def main() -> int:

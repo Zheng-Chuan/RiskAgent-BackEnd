@@ -2,7 +2,7 @@
 
 **状态**：Decided, Implemented
 **日期**：2026-06-26
-**作者**：RiskMonitor-MultiAgent 项目组
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Context / 问题背景
 

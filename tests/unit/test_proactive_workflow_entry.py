@@ -22,7 +22,7 @@ async def test_proactive_workflow_runs_and_writes_memory(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_SQLITE_PATH", str(tmp_path / "memory.sqlite"))
     monkeypatch.delenv("WORKING_MEMORY_BACKEND", raising=False)
 
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.llm import llm_client
 
     async def _fake_chat(self, *, messages, model=None, temperature=0.2, max_tokens=None):
         sys_prompt = (messages[0] or {}).get("content") if isinstance(messages, list) and messages else ""
@@ -101,8 +101,8 @@ async def test_proactive_workflow_runs_and_writes_memory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(llm_client.LlmClient, "chat_completions", _fake_chat, raising=True)
 
-    from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
-    from riskmonitor_multiagent.memory import get_memory_store
+    from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
+    from riskagent_backend.memory import get_memory_store
 
     task = {
         "task_id": "task_demo_1",
@@ -173,7 +173,7 @@ async def test_proactive_workflow_requires_human_when_not_auto_approved(tmp_path
     monkeypatch.setenv("HITL_AUTO_APPROVE", "0")
     monkeypatch.delenv("WORKING_MEMORY_BACKEND", raising=False)
 
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.llm import llm_client
 
     async def _fake_chat(self, *, messages, model=None, temperature=0.2, max_tokens=None):
         sys_prompt = (messages[0] or {}).get("content") if isinstance(messages, list) and messages else ""
@@ -216,8 +216,8 @@ async def test_proactive_workflow_requires_human_when_not_auto_approved(tmp_path
 
     monkeypatch.setattr(llm_client.LlmClient, "chat_completions", _fake_chat, raising=True)
 
-    from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
-    from riskmonitor_multiagent.memory import get_memory_store
+    from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
+    from riskagent_backend.memory import get_memory_store
 
     task = {
         "task_id": "task_demo_2",
@@ -259,9 +259,9 @@ async def test_orchestrator_commands_generate_receipts_and_critic_can_see(tmp_pa
     monkeypatch.setenv("MEMORY_SQLITE_PATH", str(tmp_path / "memory.sqlite"))
     monkeypatch.delenv("MONGO_URL", raising=False)
 
-    from riskmonitor_multiagent.agents.base import AgentResult
-    from riskmonitor_multiagent.orchestration.tool_executor import new_agent_command
-    from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
+    from riskagent_backend.agents.base import AgentResult
+    from riskagent_backend.orchestration.tool_executor import new_agent_command
+    from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
 
     seen = {"receipts": None}
 
@@ -320,8 +320,8 @@ async def test_orchestrator_commands_generate_receipts_and_critic_can_see(tmp_pa
             },
         )
 
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveOrchestratorAgent.orchestrate", _fake_orchestrate)
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveCriticAgent.review", _fake_critic_review)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveOrchestratorAgent.orchestrate", _fake_orchestrate)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveCriticAgent.review", _fake_critic_review)
     async def _fake_intent(self, *, task, metadata=None, max_tokens=None):
         return AgentResult(
             ok=True,
@@ -337,7 +337,7 @@ async def test_orchestrator_commands_generate_receipts_and_critic_can_see(tmp_pa
             },
         )
 
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
 
     out = await run_proactive_workflow(
         task={"task_id": "task_cmd", "session_id": "s_cmd", "source": "human", "payload": {"content": "写入告警并检查指标"}}
@@ -357,8 +357,8 @@ async def test_orchestrator_unknown_step_kind_is_not_silent(tmp_path, monkeypatc
     monkeypatch.setenv("LLM_API_KEY", "test")
     monkeypatch.setenv("MEMORY_SQLITE_PATH", str(tmp_path / "memory.sqlite"))
 
-    from riskmonitor_multiagent.agents.base import AgentResult
-    from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
+    from riskagent_backend.agents.base import AgentResult
+    from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
 
     async def _fake_orchestrate(self, *, task, context=None, max_tokens=None):
         phase = context.get("phase") if isinstance(context, dict) else ""
@@ -401,8 +401,8 @@ async def test_orchestrator_unknown_step_kind_is_not_silent(tmp_path, monkeypatc
             },
         )
 
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveOrchestratorAgent.orchestrate", _fake_orchestrate)
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveCriticAgent.review", _fake_critic_review)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveOrchestratorAgent.orchestrate", _fake_orchestrate)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveCriticAgent.review", _fake_critic_review)
     async def _fake_intent(self, *, task, metadata=None, max_tokens=None):
         return AgentResult(
             ok=True,
@@ -418,7 +418,7 @@ async def test_orchestrator_unknown_step_kind_is_not_silent(tmp_path, monkeypatc
             },
         )
 
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
     out = await run_proactive_workflow(task={"task_id": "task_unknown", "session_id": "s_u", "source": "human", "payload": {"content": "测试未知step"}})
     result = out if isinstance(out, dict) else {}
     errors = result.get("errors") if isinstance(result.get("errors"), list) else []
@@ -433,10 +433,10 @@ async def test_multi_intent_disambiguation_written_to_shared_memory(tmp_path, mo
     monkeypatch.setenv("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", "1000000")
     monkeypatch.setenv("MEMORY_SQLITE_PATH", str(tmp_path / "memory.sqlite"))
 
-    from riskmonitor_multiagent.agents.base import AgentResult
-    from riskmonitor_multiagent.memory import get_memory_store
-    from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
-    from riskmonitor_multiagent.llm import llm_client
+    from riskagent_backend.agents.base import AgentResult
+    from riskagent_backend.memory import get_memory_store
+    from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
+    from riskagent_backend.llm import llm_client
 
     async def _fake_chat(self, *, messages, model=None, temperature=0.2, max_tokens=None):
         sys_prompt = (messages[0] or {}).get("content") if isinstance(messages, list) and messages else ""
@@ -499,7 +499,7 @@ async def test_multi_intent_disambiguation_written_to_shared_memory(tmp_path, mo
             },
         )
 
-    monkeypatch.setattr("riskmonitor_multiagent.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
+    monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
     out1 = await run_proactive_workflow(task={"task_id": "task_m1", "session_id": "s_m", "source": "human", "payload": {"content": "查头寸并可能写告警"}})
     out2 = await run_proactive_workflow(task={"task_id": "task_m2", "session_id": "s_m", "source": "human", "payload": {"content": "查头寸并可能写告警"}})
     i1 = ((out1.get("intent") or {}).get("intents"))

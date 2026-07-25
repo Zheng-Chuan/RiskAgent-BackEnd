@@ -33,10 +33,10 @@
 
 ## 当前实现锚点
 
-- 载荷构造: `src/riskmonitor_multiagent/memory/memory_store.py`
-- 恢复注入: `src/riskmonitor_multiagent/orchestration/workflow_resume.py`
-- step 级恢复执行: `src/riskmonitor_multiagent/orchestration/task_graph_executor.py`
-- 主流程恢复入口: `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
+- 载荷构造: `src/riskagent_backend/memory/memory_store.py`
+- 恢复注入: `src/riskagent_backend/orchestration/workflow_resume.py`
+- step 级恢复执行: `src/riskagent_backend/orchestration/task_graph_executor.py`
+- 主流程恢复入口: `src/riskagent_backend/orchestration/proactive_workflow.py`
 
 ## 当前进度
 

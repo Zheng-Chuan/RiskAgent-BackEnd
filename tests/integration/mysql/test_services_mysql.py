@@ -14,17 +14,17 @@ from decimal import Decimal
 import pymysql
 import pytest
 
-from riskmonitor_multiagent.services.alert_rules_service import (
+from riskagent_backend.services.alert_rules_service import (
     _determine_severity,
     evaluate_desk_delta_breach,
     format_alerts_for_response,
 )
-from riskmonitor_multiagent.services.breach_service import build_abs_delta_breaches
-from riskmonitor_multiagent.services.exposure_compute import (
+from riskagent_backend.services.breach_service import build_abs_delta_breaches
+from riskagent_backend.services.exposure_compute import (
     compute_position_pv_usd,
     to_float,
 )
-from riskmonitor_multiagent.services.exposure_service import compute_exposure
+from riskagent_backend.services.exposure_service import compute_exposure
 from tests.integration.factories import AlertFactory, PositionFactory
 
 

@@ -3,7 +3,7 @@
 
 提供两种对比:
 1. 历史版本对比: 与上次评估结果对比
-2. 业界基准对比: 与 GAIA、MultiAgentBench、PlanBench 等对比
+2. 业界基准对比: 与 GAIA、BackEndBench、PlanBench 等对比
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ BENCHMARK_REFERENCES: list[BenchmarkReference] = [
         description="GPT-4 performance on GAIA benchmark",
     ),
     BenchmarkReference(
-        name="MultiAgentBench",
+        name="BackEndBench",
         source="ACL 2025",
         metrics={
             "collaboration_score": 0.65,

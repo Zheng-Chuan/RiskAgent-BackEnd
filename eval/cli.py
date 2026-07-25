@@ -104,7 +104,7 @@ async def run_workflow_runner(task: dict[str, Any]) -> dict[str, Any]:
     """
     try:
         await _bootstrap_eval_memory(task)
-        from riskmonitor_multiagent.orchestration.proactive_workflow import run_proactive_workflow
+        from riskagent_backend.orchestration.proactive_workflow import run_proactive_workflow
         
         return await run_proactive_workflow(task=task)
     except Exception as e:
@@ -120,7 +120,7 @@ async def _bootstrap_eval_memory(task: dict[str, Any]) -> None:
     if task.get("memory_enabled", True) is not True:
         return
 
-    from riskmonitor_multiagent.memory import get_memory_store
+    from riskagent_backend.memory import get_memory_store
 
     memory_store = get_memory_store()
     run_id = str(task.get("task_id") or "eval_bootstrap")

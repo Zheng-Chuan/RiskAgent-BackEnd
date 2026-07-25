@@ -24,7 +24,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.memory.session_segmenter import (
+from riskagent_backend.memory.session_segmenter import (
     SegmentCheckpoint,
     SessionSegmenter,
 )

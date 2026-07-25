@@ -53,7 +53,7 @@ def _make_injection_skill(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_filters_low_confidence():
     """confidence < min_confidence_for_injection 的 Skill 被过滤."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     config = SkillGovernanceConfig(min_confidence_for_injection=0.3)
@@ -80,7 +80,7 @@ async def test_enforce_injection_limits_filters_low_confidence():
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_filters_non_active():
     """status != 'active' 的 Skill 被过滤."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     config = SkillGovernanceConfig(min_confidence_for_injection=0.0)
@@ -107,7 +107,7 @@ async def test_enforce_injection_limits_filters_non_active():
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_sorts_by_confidence_desc():
     """按 confidence 降序排序."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     config = SkillGovernanceConfig(
@@ -139,7 +139,7 @@ async def test_enforce_injection_limits_sorts_by_confidence_desc():
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_limits_count():
     """限制数量不超过 max_skills_per_category."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     config = SkillGovernanceConfig(
@@ -172,7 +172,7 @@ async def test_enforce_injection_limits_limits_count():
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_token_budget_truncation():
     """token 预算超限时截断."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     # 设置很小的 token 预算
@@ -218,7 +218,7 @@ async def test_enforce_injection_limits_token_budget_truncation():
 @pytest.mark.asyncio
 async def test_cleanup_stale_skills_archives_expired():
     """过期且低置信度的 Skill 被归档."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     # 100 天前的时间戳 (毫秒)
@@ -255,7 +255,7 @@ async def test_cleanup_stale_skills_archives_expired():
 @pytest.mark.asyncio
 async def test_cleanup_stale_skills_archives_low_confidence():
     """confidence < auto_archive_threshold 的 Skill 被归档 (无论是否过期)."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
 
@@ -287,7 +287,7 @@ async def test_cleanup_stale_skills_archives_low_confidence():
 @pytest.mark.asyncio
 async def test_cleanup_stale_skills_returns_correct_stats():
     """cleanup_stale_skills 返回正确的统计信息."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     old_time = int((time.time() - 100 * 24 * 60 * 60) * 1000)
@@ -324,7 +324,7 @@ async def test_cleanup_stale_skills_returns_correct_stats():
 @pytest.mark.asyncio
 async def test_merge_duplicate_skills_merges_high_similarity():
     """高相似度 Skill 被合并 (低置信度被归档)."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
 
@@ -363,7 +363,7 @@ async def test_merge_duplicate_skills_merges_high_similarity():
 @pytest.mark.asyncio
 async def test_merge_duplicate_skills_no_merge_low_similarity():
     """低相似度 Skill 不合并."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
 
@@ -401,7 +401,7 @@ async def test_merge_duplicate_skills_no_merge_low_similarity():
 
 def test_estimate_skills_token_cost_reasonable():
     """token 估算值合理."""
-    from riskmonitor_multiagent.skills import SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernor, SkillStore
 
     store = SkillStore()
     governor = SkillGovernor(store)
@@ -444,7 +444,7 @@ def test_estimate_skills_token_cost_reasonable():
 @pytest.mark.asyncio
 async def test_get_governance_report_structure():
     """get_governance_report 返回完整结构."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
 
@@ -492,7 +492,7 @@ async def test_get_governance_report_structure():
 
 def test_default_config_values():
     """SkillGovernanceConfig 默认值正确."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig
+    from riskagent_backend.skills import SkillGovernanceConfig
 
     config = SkillGovernanceConfig()
     assert config.max_skills_per_category == 10
@@ -509,7 +509,7 @@ def test_default_config_values():
 @pytest.mark.asyncio
 async def test_custom_config_values():
     """自定义配置生效."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
     config = SkillGovernanceConfig(
@@ -538,7 +538,7 @@ async def test_custom_config_values():
 @pytest.mark.asyncio
 async def test_enforce_injection_limits_empty_list():
     """空 Skill 列表安全返回空."""
-    from riskmonitor_multiagent.skills import SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernor, SkillStore
 
     store = SkillStore()
     governor = SkillGovernor(store)
@@ -553,7 +553,7 @@ async def test_enforce_injection_limits_empty_list():
 @pytest.mark.asyncio
 async def test_cleanup_does_not_affect_normal_skills():
     """正常 (未过期 + 高置信度) Skill 不受 cleanup 影响."""
-    from riskmonitor_multiagent.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
+    from riskagent_backend.skills import SkillGovernanceConfig, SkillGovernor, SkillStore
 
     store = SkillStore()
 

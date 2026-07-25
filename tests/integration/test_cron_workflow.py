@@ -7,17 +7,17 @@ from typing import Any
 
 import pytest
 
-from riskmonitor_multiagent.governance.proactive_budget import (
+from riskagent_backend.governance.proactive_budget import (
     ProactiveBudgetManager,
     reset_proactive_budget_manager,
 )
-from riskmonitor_multiagent.observability.run_trace import reset_run_trace_store
-from riskmonitor_multiagent.orchestration.proactive_workflow import (
-    ProactiveMultiAgentWorkflow,
+from riskagent_backend.observability.run_trace import reset_run_trace_store
+from riskagent_backend.orchestration.proactive_workflow import (
+    ProactiveBackEndWorkflow,
     reset_proactive_workflow,
 )
-from riskmonitor_multiagent.scheduling.cron_manager import CronManager, CronTask
-from riskmonitor_multiagent.scheduling.cron_templates import FINANCIAL_CRON_TEMPLATES
+from riskagent_backend.scheduling.cron_manager import CronManager, CronTask
+from riskagent_backend.scheduling.cron_templates import FINANCIAL_CRON_TEMPLATES
 
 
 def _make_cron_task(
@@ -50,7 +50,7 @@ async def test_cron_triggered_workflow_has_trace(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     captured: dict[str, Any] = {}
 
@@ -82,7 +82,7 @@ async def test_cron_triggered_workflow_has_trace(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,
@@ -125,7 +125,7 @@ async def test_cron_storm_budget_limit(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     blocked_count = {"value": 0}
 
@@ -153,7 +153,7 @@ async def test_cron_storm_budget_limit(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,
@@ -195,7 +195,7 @@ async def test_financial_templates_end_to_end(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     captured_events: list[dict[str, Any]] = []
 
@@ -224,7 +224,7 @@ async def test_financial_templates_end_to_end(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,
@@ -275,7 +275,7 @@ async def test_natural_language_override(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     manager = CronManager()
 
@@ -330,7 +330,7 @@ async def test_natural_language_override(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,
@@ -379,7 +379,7 @@ async def test_cron_failure_isolation(
     reset_proactive_workflow()
     reset_proactive_budget_manager()
     reset_run_trace_store()
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     call_count = {"value": 0}
 
@@ -410,7 +410,7 @@ async def test_cron_failure_isolation(
         }
 
     monkeypatch.setattr(
-        ProactiveMultiAgentWorkflow,
+        ProactiveBackEndWorkflow,
         "_run_internal",
         fake_run_internal,
         raising=True,

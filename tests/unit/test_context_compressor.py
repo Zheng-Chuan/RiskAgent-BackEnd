@@ -26,7 +26,7 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.memory.context_compressor import (
+from riskagent_backend.memory.context_compressor import (
     CompressionResult,
     ContextCompressor,
 )
@@ -319,7 +319,7 @@ class TestCompress:
             ]
         }
         with patch(
-            "riskmonitor_multiagent.llm.llm_client.LlmClient.chat_completions",
+            "riskagent_backend.llm.llm_client.LlmClient.chat_completions",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
@@ -346,7 +346,7 @@ class TestCompress:
         ]
 
         with patch(
-            "riskmonitor_multiagent.llm.llm_client.LlmClient.chat_completions",
+            "riskagent_backend.llm.llm_client.LlmClient.chat_completions",
             new_callable=AsyncMock,
             side_effect=Exception("LLM unavailable"),
         ):

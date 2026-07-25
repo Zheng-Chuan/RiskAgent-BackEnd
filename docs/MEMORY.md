@@ -1,6 +1,6 @@
 # MEMORY
 
-`RiskMonitor-MultiAgent` 的记忆模块不是一个单独的向量库服务.
+`RiskAgent-BackEnd` 的记忆模块不是一个单独的向量库服务.
 它本质上是一个统一门面 + Redis 持久层 + 进程内语义索引 的混合架构.
 
 核心目标如下.
@@ -14,7 +14,7 @@
 ## 1. 总体架构
 
 ```text
-RiskMonitor-MultiAgent Memory Architecture
+RiskAgent-BackEnd Memory Architecture
 
 [Workflow / Agents]
     |
@@ -479,35 +479,35 @@ proactive_workflow
 
 统一门面
 
-- `src/riskmonitor_multiagent/memory/memory_store.py`
+- `src/riskagent_backend/memory/memory_store.py`
 
 写入编排
 
-- `src/riskmonitor_multiagent/memory/memory_operations.py`
+- `src/riskagent_backend/memory/memory_operations.py`
 
 Redis 后端
 
-- `src/riskmonitor_multiagent/memory/redis_backend.py`
+- `src/riskagent_backend/memory/redis_backend.py`
 
 语义索引
 
-- `src/riskmonitor_multiagent/memory/semantic_indexer.py`
+- `src/riskagent_backend/memory/semantic_indexer.py`
 
 记忆 schema
 
-- `src/riskmonitor_multiagent/contracts/memory_entry.py`
+- `src/riskagent_backend/contracts/memory_entry.py`
 
 workflow 接入点
 
-- `src/riskmonitor_multiagent/orchestration/proactive_workflow.py`
+- `src/riskagent_backend/orchestration/proactive_workflow.py`
 
 plan 和 result 落记忆
 
-- `src/riskmonitor_multiagent/orchestration/workflow_memory.py`
+- `src/riskagent_backend/orchestration/workflow_memory.py`
 
 resume 接入
 
-- `src/riskmonitor_multiagent/orchestration/workflow_resume.py`
+- `src/riskagent_backend/orchestration/workflow_resume.py`
 
 ## 5. 设计重点
 

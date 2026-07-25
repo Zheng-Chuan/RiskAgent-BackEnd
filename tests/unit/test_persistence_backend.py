@@ -104,7 +104,7 @@ class MockPersistenceBackend:
         return self._engine
 
     async def persist_memory_entry(self, entry: dict[str, Any]) -> bool:
-        from riskmonitor_multiagent.memory.persistence_backend import _build_memory_row
+        from riskagent_backend.memory.persistence_backend import _build_memory_row
         row = _build_memory_row(entry)
         if not row["entry_id"]:
             return False
@@ -127,7 +127,7 @@ class MockPersistenceBackend:
             return False
 
     async def batch_persist_memory(self, entries: list[dict[str, Any]]) -> int:
-        from riskmonitor_multiagent.memory.persistence_backend import _build_memory_row
+        from riskagent_backend.memory.persistence_backend import _build_memory_row
         rows = [_build_memory_row(e) for e in entries]
         rows = [r for r in rows if r["entry_id"]]
         if not rows:
@@ -154,7 +154,7 @@ class MockPersistenceBackend:
         self, *, run_id: str | None = None, agent_id: str | None = None,
         kinds: list[str] | None = None, limit: int = 100,
     ) -> list[dict[str, Any]]:
-        from riskmonitor_multiagent.memory.persistence_backend import _parse_memory_row
+        from riskagent_backend.memory.persistence_backend import _parse_memory_row
         conditions: list[str] = []
         params: dict[str, Any] = {"limit": limit}
         if run_id is not None:
@@ -186,7 +186,7 @@ class MockPersistenceBackend:
             return []
 
     async def persist_skill(self, skill: dict[str, Any]) -> bool:
-        from riskmonitor_multiagent.memory.persistence_backend import _build_skill_row
+        from riskagent_backend.memory.persistence_backend import _build_skill_row
         row = _build_skill_row(skill)
         if not row["skill_id"]:
             return False
@@ -211,7 +211,7 @@ class MockPersistenceBackend:
             return False
 
     async def load_skills(self, *, status: str | None = None) -> list[dict[str, Any]]:
-        from riskmonitor_multiagent.memory.persistence_backend import _parse_skill_row
+        from riskagent_backend.memory.persistence_backend import _parse_skill_row
         conditions: list[str] = []
         params: dict[str, Any] = {}
         if status is not None:

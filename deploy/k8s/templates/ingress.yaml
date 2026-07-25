@@ -4,7 +4,7 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-mcp-server
   labels:
-{{- include "riskmonitor.labels" . | nindent 4 }}
+{{- include "riskagent.labels" . | nindent 4 }}
     component: mcp-server
   {{- with .Values.ingress.annotations }}
   annotations:

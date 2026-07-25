@@ -26,7 +26,7 @@
 
 1. `start_background_monitor()` 已实现但从未被任何入口调用, `server.py` 启动后不持有常驻感知协程.
 2. `_perceive_environment()` 方法为空壳, 未接入 Docker / Redis / MySQL / Prometheus 等真实监控数据源.
-3. 整个 `ProactiveMultiAgentWorkflow` 是一次性请求-响应模式, 缺少周期性轮询和自主触发能力.
+3. 整个 `ProactiveBackEndWorkflow` 是一次性请求-响应模式, 缺少周期性轮询和自主触发能力.
 
 本 Phase 的核心改造:
 
@@ -70,7 +70,7 @@
 让 `server.py` 启动后持有常驻后台协程, 周期性感知环境, 并具备异常自愈能力, 不再是一次性请求-响应模式.
 
 - [x] Checkpoint 16.1.1 server.py 启动常驻感知协程
-  - 实现项: 在 `server.py` 的 FastMCP 启动钩子中启动 `ProactiveMultiAgentWorkflow` 的常驻后台监控协程, 周期性调用 `_perceive_environment()`; 协程需具备优雅退出 (graceful shutdown) 能力, 服务停止时正确释放资源
+  - 实现项: 在 `server.py` 的 FastMCP 启动钩子中启动 `ProactiveBackEndWorkflow` 的常驻后台监控协程, 周期性调用 `_perceive_environment()`; 协程需具备优雅退出 (graceful shutdown) 能力, 服务停止时正确释放资源
   - 验收方法: 启动 `server.py`, 观察日志中周期性感知心跳; 发送 SIGTERM, 观察协程优雅退出
   - 验收证据: server 运行日志, 感知协程心跳记录, 优雅退出 trace
   - 通过标准: 常驻协程在服务存活期间持续运行, 无协程泄漏; SIGTERM 后协程在 5 秒内完成退出, 无残留任务
@@ -106,7 +106,7 @@
   - 通过标准: 连接数 / 慢查询计数与 `SHOW GLOBAL STATUS` 一致; 健康检查复用 `check_mysql_ready`, 不引入旁路
 
 - [x] Checkpoint 16.2.4 Prometheus 数据源接入
-  - 实现项: 通过 httpx 查询 Prometheus (9090) HTTP API, 采集已注册的 riskmonitor 业务指标 (orchestrator_runs_total / token 指标 / 工具调用指标); 支持 PromQL 查询封装
+  - 实现项: 通过 httpx 查询 Prometheus (9090) HTTP API, 采集已注册的 riskagent 业务指标 (orchestrator_runs_total / token 指标 / 工具调用指标); 支持 PromQL 查询封装
   - 验收方法: 运行感知协程, 对比 `curl localhost:9090/api/v1/query` 输出与感知快照中的 Prometheus 指标字段
   - 验收证据: 感知快照 JSON, httpx 请求记录, Prometheus API 对照表
   - 通过标准: 业务指标值与 Prometheus API 直接查询一致; 查询失败时快照标记 `source=prometheus status=unavailable` 且协程不中断
@@ -124,7 +124,7 @@
   - 通过标准: 正常信号 (info) 不升级; 异常信号 (warning / critical) 正确命中规则并产出标准化信号; 规则可配置不硬编码
 
 - [x] Checkpoint 16.3.2 异常升级触发
-  - 实现项: 预过滤命中的 warning / critical 信号生成 `system_event`, 经 `ModeratorAgent` 路由进入统一执行内核 (`ProactiveMultiAgentWorkflow.run()`), 不形成旁路; 升级事件附带完整感知快照作为证据
+  - 实现项: 预过滤命中的 warning / critical 信号生成 `system_event`, 经 `ModeratorAgent` 路由进入统一执行内核 (`ProactiveBackEndWorkflow.run()`), 不形成旁路; 升级事件附带完整感知快照作为证据
   - 验收方法: 注入 critical 信号, 观察是否生成 `system_event` 并进入主链执行; 检查 run_trace 中事件链路完整性
   - 验收证据: 升级事件 trace, ModeratorAgent 路由记录, run_trace.v2 事件链
   - 通过标准: critical 信号 100% 生成 `system_event` 并进入统一执行内核; 事件链路在 run_trace.v2 中完整可追溯; 不存在绕过主链的旁路

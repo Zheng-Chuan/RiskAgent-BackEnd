@@ -12,7 +12,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 
 def test_chroma_vector_store_query_returns_best_match(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.knowledge.chroma_store import ChromaVectorStore
+    from riskagent_backend.knowledge.chroma_store import ChromaVectorStore
 
     monkeypatch.setenv("CHROMA_PERSIST_DIR", str(tmp_path / "chroma"))
     monkeypatch.setenv("CHROMA_COLLECTION", "test-knowledge-unit")
@@ -36,6 +36,6 @@ def test_chroma_vector_store_query_returns_best_match(tmp_path: Path, monkeypatc
 
 
 def test_embed_text_empty_returns_empty_vector() -> None:
-    from riskmonitor_multiagent.knowledge.chroma_store import embed_text_dense
+    from riskagent_backend.knowledge.chroma_store import embed_text_dense
 
     assert embed_text_dense("") == [0.0] * 256

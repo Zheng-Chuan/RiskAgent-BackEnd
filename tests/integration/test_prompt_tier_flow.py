@@ -21,8 +21,8 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.prompts.prompt_cache import PromptCacheManager
-from riskmonitor_multiagent.prompts.tiered_prompt_builder import (
+from riskagent_backend.prompts.prompt_cache import PromptCacheManager
+from riskagent_backend.prompts.tiered_prompt_builder import (
     PromptTier,
     TieredPromptBuilder,
 )

@@ -49,7 +49,7 @@
 为系统增加原生的定时任务能力, 支持自然语言定义的周期性风控操作.
 
 - [x] Checkpoint 14.5.1 CronManager 核心实现
-  - 实现项: 新增 `src/riskmonitor_multiagent/scheduling/cron_manager.py`. 支持创建, 查询, 暂停, 删除定时任务. Cron 表达式和自然语言描述双模式. 每个 Cron 任务关联 `task_template` 和 `trigger_config`.
+  - 实现项: 新增 `src/riskagent_backend/scheduling/cron_manager.py`. 支持创建, 查询, 暂停, 删除定时任务. Cron 表达式和自然语言描述双模式. 每个 Cron 任务关联 `task_template` 和 `trigger_config`.
   - 验收方法: 运行 CronManager 单测和 3 个定时任务集成测试.
   - 验收证据: Cron 配置样例. 触发日志. 暂停和恢复记录.
   - 通过标准: Cron 按预期触发. 暂停后不触发. 恢复后继续触发.
@@ -79,7 +79,7 @@
 将系统从 MCP 单入口扩展为多通道统一适配架构, 当前正式目标聚焦于统一抽象层和路由能力.
 
 - [x] Checkpoint 14.6.1 网关适配器抽象层
-  - 实现项: 新增 `src/riskmonitor_multiagent/gateway/` 模块. 定义 `GatewayAdapter` 抽象基类, 包含 `receive_message()` `send_response()` `send_alert()` `platform_hints()`. 所有平台通过适配器映射到统一 `run_proactive_workflow()` 入口.
+  - 实现项: 新增 `src/riskagent_backend/gateway/` 模块. 定义 `GatewayAdapter` 抽象基类, 包含 `receive_message()` `send_response()` `send_alert()` `platform_hints()`. 所有平台通过适配器映射到统一 `run_proactive_workflow()` 入口.
   - 验收方法: 运行适配器抽象层单测和 mock 平台集成测试.
   - 验收证据: 适配器接口定义. mock 测试通过记录.
   - 通过标准: 新增平台只需实现适配器. 核心逻辑无需修改.

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
-from riskmonitor_multiagent.llm.llm_client import (
+from riskagent_backend.llm.llm_client import (
     LLMError,
     LlmClient,
     _build_headers,
@@ -19,14 +19,14 @@ from riskmonitor_multiagent.llm.llm_client import (
 def test_build_headers_includes_optional_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_API_KEY", "key")
     monkeypatch.setenv("LLM_HTTP_REFERER", "https://example.com")
-    monkeypatch.setenv("LLM_APP_TITLE", "RiskMonitor")
+    monkeypatch.setenv("LLM_APP_TITLE", "RiskAgent")
 
     headers = _build_headers(host_header="openrouter.ai")
 
     assert headers["Authorization"] == "Bearer key"
     assert headers["Host"] == "openrouter.ai"
     assert headers["HTTP-Referer"] == "https://example.com"
-    assert headers["X-Title"] == "RiskMonitor"
+    assert headers["X-Title"] == "RiskAgent"
 
 
 def test_extract_first_text_handles_invalid_shapes() -> None:
@@ -64,7 +64,7 @@ def test_normalize_response_payload_maps_reasoning_fields() -> None:
 @pytest.mark.asyncio
 async def test_chat_completions_rejects_invalid_input_and_empty_model(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_API_KEY", "test-key")
-    monkeypatch.setattr("riskmonitor_multiagent.llm.llm_client.config.get_llm_model", lambda: "")
+    monkeypatch.setattr("riskagent_backend.llm.llm_client.config.get_llm_model", lambda: "")
     client = LlmClient(http_client=MagicMock(), base_url="https://api.example.com/v1")
 
     with pytest.raises(LLMError, match="messages 不能为空"):
@@ -81,7 +81,7 @@ async def test_chat_completions_uses_cache_hit(monkeypatch: pytest.MonkeyPatch) 
     cached = {"choices": [{"message": {"content": "cached"}}]}
     fake_cache = MagicMock()
     fake_cache.get.return_value = cached
-    monkeypatch.setattr("riskmonitor_multiagent.llm.llm_client.get_llm_cache", lambda: fake_cache)
+    monkeypatch.setattr("riskagent_backend.llm.llm_client.get_llm_cache", lambda: fake_cache)
 
     session = MagicMock()
     session.post = MagicMock(side_effect=AssertionError("post should not be called on cache hit"))
@@ -130,11 +130,11 @@ async def test_chat_completions_handles_bad_json_and_non_dict(monkeypatch: pytes
 async def test_chat_completions_retries_client_errors_and_caches(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setenv("LLM_MODEL", "deepseek/test")
-    monkeypatch.setattr("riskmonitor_multiagent.llm.llm_client.asyncio.sleep", AsyncMock())
+    monkeypatch.setattr("riskagent_backend.llm.llm_client.asyncio.sleep", AsyncMock())
 
     fake_cache = MagicMock()
     fake_cache.get.return_value = None
-    monkeypatch.setattr("riskmonitor_multiagent.llm.llm_client.get_llm_cache", lambda: fake_cache)
+    monkeypatch.setattr("riskagent_backend.llm.llm_client.get_llm_cache", lambda: fake_cache)
 
     success_payload = {
         "choices": [{"message": {"content": "ok"}}],
@@ -148,7 +148,7 @@ async def test_chat_completions_retries_client_errors_and_caches(monkeypatch: py
     )
     session = MagicMock(post=post)
     record_usage = MagicMock()
-    monkeypatch.setattr("riskmonitor_multiagent.llm.token_tracker.record_token_usage", record_usage)
+    monkeypatch.setattr("riskagent_backend.llm.token_tracker.record_token_usage", record_usage)
 
     client = LlmClient(http_client=session, base_url="https://api.example.com/v1")
     response = await client.chat_completions(
@@ -166,7 +166,7 @@ async def test_chat_completions_timeout_and_dns_patch(monkeypatch: pytest.Monkey
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setenv("LLM_MODEL", "deepseek/test")
     monkeypatch.setenv("LLM_RESOLVE_IP", "1.1.1.1")
-    monkeypatch.setattr("riskmonitor_multiagent.llm.llm_client.asyncio.sleep", AsyncMock())
+    monkeypatch.setattr("riskagent_backend.llm.llm_client.asyncio.sleep", AsyncMock())
 
     original_getaddrinfo = socket.getaddrinfo
     session = MagicMock()

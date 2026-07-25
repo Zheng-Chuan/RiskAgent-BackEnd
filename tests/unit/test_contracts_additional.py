@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from riskmonitor_multiagent.contracts.agent_messages import (
+from riskagent_backend.contracts.agent_messages import (
     AGENT_COMMAND_SCHEMA_VERSION,
     AGENT_RECEIPT_SCHEMA_VERSION,
     validate_agent_command,
     validate_agent_receipt,
 )
-from riskmonitor_multiagent.contracts.agent_outputs import (
+from riskagent_backend.contracts.agent_outputs import (
     CRITIC_REVIEW_SCHEMA_VERSION,
     ORCHESTRATOR_OUTPUT_SCHEMA_VERSION,
     RISK_ANALYST_OUTPUT_SCHEMA_VERSION,
@@ -20,18 +20,18 @@ from riskmonitor_multiagent.contracts.agent_outputs import (
     validate_risk_analyst_output,
     validate_system_engineer_output,
 )
-from riskmonitor_multiagent.contracts.intent_output import (
+from riskagent_backend.contracts.intent_output import (
     normalize_intent_output,
     validate_intent_output,
 )
-from riskmonitor_multiagent.contracts.memory_entry import (
+from riskagent_backend.contracts.memory_entry import (
     MemoryEntry,
     _build_trace_ref,
     _infer_memory_type,
     normalize_memory_entry,
     validate_memory_entry,
 )
-from riskmonitor_multiagent.contracts.run_trace import (
+from riskagent_backend.contracts.run_trace import (
     RUN_TRACE_SCHEMA_VERSION,
     normalize_run_trace,
     validate_run_trace,

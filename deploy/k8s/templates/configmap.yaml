@@ -3,19 +3,19 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-app-config
   labels:
-{{- include "riskmonitor.labels" . | nindent 4 }}
+{{- include "riskagent.labels" . | nindent 4 }}
 data:
   MYSQL_HOST: {{ .Values.mysql.host | default "mysql" | quote }}
   MYSQL_PORT: {{ .Values.mysql.port | default "3306" | quote }}
-  MYSQL_DATABASE: {{ .Values.mysql.database | default "riskmonitor" | quote }}
+  MYSQL_DATABASE: {{ .Values.mysql.database | default "riskagent" | quote }}
   REDIS_URL: {{ printf "redis://%s:%s/%s" (.Values.redis.host | default "redis") (.Values.redis.port | default "6379" | toString) (.Values.redis.db | default "0" | toString) | quote }}
   REDIS_HOST: {{ .Values.redis.host | default "redis" | quote }}
   REDIS_PORT: {{ .Values.redis.port | default "6379" | quote }}
   REDIS_DB: {{ .Values.redis.db | default "0" | quote }}
   CHROMA_HOST: {{ .Values.chroma.host | default "chroma" | quote }}
   CHROMA_PORT: {{ .Values.chroma.port | default "8000" | quote }}
-  CHROMA_COLLECTION: {{ .Values.chroma.collection | default "riskmonitor-alerts" | quote }}
-  CHROMA_MEMORY_COLLECTION: {{ .Values.chroma.memoryCollection | default "riskmonitor-memory" | quote }}
+  CHROMA_COLLECTION: {{ .Values.chroma.collection | default "riskagent-alerts" | quote }}
+  CHROMA_MEMORY_COLLECTION: {{ .Values.chroma.memoryCollection | default "riskagent-memory" | quote }}
   APP_ENV: {{ .Values.app.env | default "production" | quote }}
   LOG_LEVEL: {{ .Values.app.logLevel | default "INFO" | quote }}
   MCP_TRANSPORT: {{ .Values.mcp.transport | default "streamable-http" | quote }}
@@ -29,5 +29,5 @@ data:
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}
   LLM_APP_TITLE: {{ .Values.llm.appTitle | default "" | quote }}
   PROMETHEUS_URL: {{ printf "http://%s:%s" (.Values.prometheus.host | default "prometheus") (.Values.prometheus.port | default "9090" | toString) | quote }}
-  RISKMONITOR_NAMESPACE: {{ .Release.Namespace | quote }}
+  RISKAGENT_NAMESPACE: {{ .Release.Namespace | quote }}
   DEPLOYMENT_ENV: "k8s"

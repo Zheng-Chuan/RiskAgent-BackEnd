@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from riskmonitor_multiagent.scheduling.cron_manager import CronManager, CronTask
-from riskmonitor_multiagent.scheduling.cron_templates import FINANCIAL_CRON_TEMPLATES
+from riskagent_backend.scheduling.cron_manager import CronManager, CronTask
+from riskagent_backend.scheduling.cron_templates import FINANCIAL_CRON_TEMPLATES
 
 
 @pytest.mark.asyncio

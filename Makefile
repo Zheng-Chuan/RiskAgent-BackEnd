@@ -1,7 +1,7 @@
 .PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm
 
 help:
-	@echo "RiskMonitor-MultiAgent Development Commands"
+	@echo "RiskAgent-BackEnd Development Commands"
 	@echo "====================================="
 	@echo "make install          - Install Python dependencies"
 	@echo "make build            - Build Docker images"
@@ -91,7 +91,7 @@ check-llm:
 
 setup-mcp:
 	@echo "=================================="
-	@echo "RiskMonitor-MultiAgent Setup"
+	@echo "RiskAgent-BackEnd Setup"
 	@echo "=================================="
 	@echo "Building Docker images..."
 	docker compose build
@@ -103,10 +103,10 @@ setup-mcp:
 	@docker compose ps
 
 mcp-logs:
-	docker logs -f riskmonitor-multiagent
+	docker logs -f riskagent-backend
 
 mcp-shell:
-	docker exec -it riskmonitor-multiagent /bin/bash
+	docker exec -it riskagent-backend /bin/bash
 
 down:
 	docker compose down
@@ -163,17 +163,17 @@ phpmyadmin:
 .PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status docker-build
 
 docker-build: ## Build Docker image for K8s deployment
-	docker build -t riskmonitor/multiagent:latest -f Dockerfile .
+	docker build -t riskagent/backend:latest -f Dockerfile .
 
 k8s-deploy: ## Deploy to Kubernetes via Helm (prod)
-	helm upgrade --install riskmonitor deploy/k8s/ -f deploy/k8s/values-prod.yaml --create-namespace -n riskmonitor
+	helm upgrade --install riskagent deploy/k8s/ -f deploy/k8s/values-prod.yaml --create-namespace -n riskagent
 
 k8s-deploy-dev: ## Deploy to Kubernetes via Helm (dev)
-	helm upgrade --install riskmonitor deploy/k8s/ -f deploy/k8s/values-dev.yaml --create-namespace -n riskmonitor
+	helm upgrade --install riskagent deploy/k8s/ -f deploy/k8s/values-dev.yaml --create-namespace -n riskagent
 
 k8s-uninstall: ## Uninstall Helm release
-	helm uninstall riskmonitor -n riskmonitor
+	helm uninstall riskagent -n riskagent
 
 k8s-status: ## Show K8s deployment status
-	helm status riskmonitor -n riskmonitor
-	kubectl get pods,svc -n riskmonitor
+	helm status riskagent -n riskagent
+	kubectl get pods,svc -n riskagent

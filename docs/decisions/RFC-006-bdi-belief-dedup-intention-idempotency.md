@@ -4,7 +4,7 @@
 |------|-----|
 | Status | Proposed |
 | Date | 2026-07-18 |
-| Author | RiskMonitor-MultiAgent 项目组 |
+| Author | RiskAgent-BackEnd 项目组 |
 
 ## Update Log
 
@@ -20,7 +20,7 @@
 
 ### 缺陷根因分析
 
-涉及代码位于 `src/riskmonitor_multiagent/proactive_agents/base.py`：
+涉及代码位于 `src/riskagent_backend/proactive_agents/base.py`：
 
 **1. 信念列表不清理**
 
@@ -102,7 +102,7 @@ for belief in recent_beliefs:
 
 ### 1. 数据模型变更
 
-**文件**：`src/riskmonitor_multiagent/proactive_agents/base_models.py`
+**文件**：`src/riskagent_backend/proactive_agents/base_models.py`
 
 #### Belief 模型新增字段
 
@@ -137,7 +137,7 @@ class Intention:
 
 ### 2. Deliberate 去重逻辑
 
-**文件**：`src/riskmonitor_multiagent/proactive_agents/base.py`，`_deliberate()` 方法
+**文件**：`src/riskagent_backend/proactive_agents/base.py`，`_deliberate()` 方法
 
 ```python
 async def _deliberate(self) -> None:
@@ -169,7 +169,7 @@ async def _deliberate(self) -> None:
 
 ### 3. 信念列表周期性清理
 
-**文件**：`src/riskmonitor_multiagent/proactive_agents/base.py`，新增 `_cleanup_beliefs()` 方法
+**文件**：`src/riskagent_backend/proactive_agents/base.py`，新增 `_cleanup_beliefs()` 方法
 
 ```python
 def _cleanup_beliefs(self, *, max_age_seconds: float = 300) -> int:
@@ -212,7 +212,7 @@ async def _monitor_loop(self) -> None:
 
 ### 4. 意图内容去重
 
-**文件**：`src/riskmonitor_multiagent/proactive_agents/base.py`，`add_intention()` 方法
+**文件**：`src/riskagent_backend/proactive_agents/base.py`，`add_intention()` 方法
 
 ```python
 def add_intention(

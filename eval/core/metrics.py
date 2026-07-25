@@ -3,7 +3,7 @@
 
 基于学术界和工业界最佳实践:
 - GAIA: General AI Assistant Benchmark
-- MultiAgentBench: Multi-Agent Collaboration Benchmark
+- BackEndBench: Multi-Agent Collaboration Benchmark
 - PlanBench: Planning and Execution Benchmark
 - GEMMAS: Graph-based Evaluation Metrics for Multi-Agent Systems
 
@@ -108,7 +108,7 @@ class CollaborationMetrics:
     """
     协作深度指标.
     
-    基于 MultiAgentBench 和 GEMMAS 学术基准.
+    基于 BackEndBench 和 GEMMAS 学术基准.
     
     Attributes:
         agent_participation_rate: Agent 参与率 (0-1)

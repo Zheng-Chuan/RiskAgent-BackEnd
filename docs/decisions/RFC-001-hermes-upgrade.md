@@ -2,7 +2,7 @@
 
 **状态**：Accepted and Implemented
 **日期**：2026-06-26
-**作者**：RiskMonitor-MultiAgent 项目组
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Motivation / 动机
 

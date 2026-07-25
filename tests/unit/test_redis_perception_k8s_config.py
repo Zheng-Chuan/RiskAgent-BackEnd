@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import types
 
-from riskmonitor_multiagent.perception.data_sources.redis_source import RedisDataSource
+from riskagent_backend.perception.data_sources.redis_source import RedisDataSource
 
 
 def test_redis_data_source_prefers_redis_url(monkeypatch):

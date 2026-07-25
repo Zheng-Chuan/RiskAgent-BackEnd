@@ -16,8 +16,8 @@ if str(_SRC_ROOT) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_llm_chat_completions_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.llm.llm_client import LlmClient
-    from riskmonitor_multiagent.llm.llm_client import extract_first_text
+    from riskagent_backend.llm.llm_client import LlmClient
+    from riskagent_backend.llm.llm_client import extract_first_text
 
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setenv("LLM_MODEL", "qwen3-8b")
@@ -58,8 +58,8 @@ async def test_llm_chat_completions_success(monkeypatch: pytest.MonkeyPatch) -> 
 
 @pytest.mark.asyncio
 async def test_llm_chat_completions_non_2xx(monkeypatch: pytest.MonkeyPatch) -> None:
-    from riskmonitor_multiagent.llm.llm_client import LLMError
-    from riskmonitor_multiagent.llm.llm_client import LlmClient
+    from riskagent_backend.llm.llm_client import LLMError
+    from riskagent_backend.llm.llm_client import LlmClient
 
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setenv("LLM_MODEL", "qwen3-8b")

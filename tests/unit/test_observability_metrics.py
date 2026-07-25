@@ -6,14 +6,14 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from riskmonitor_multiagent.observability.metrics import (
+from riskagent_backend.observability.metrics import (
     inc_counter,
     observe_ms,
     render_prometheus_metrics,
     reset_observability_metrics,
     set_gauge,
 )
-from riskmonitor_multiagent.services.prometheus_metrics_service import (
+from riskagent_backend.services.prometheus_metrics_service import (
     generate_prometheus_metrics,
     reset_metrics,
 )

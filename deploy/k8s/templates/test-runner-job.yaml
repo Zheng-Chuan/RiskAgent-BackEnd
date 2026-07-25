@@ -5,9 +5,9 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-test-runner
-  {{- include "riskmonitor.namespace" . | nindent 2 }}
+  {{- include "riskagent.namespace" . | nindent 2 }}
   labels:
-    {{- include "riskmonitor.labels" . | nindent 4 }}
+    {{- include "riskagent.labels" . | nindent 4 }}
     app.kubernetes.io/component: test-runner
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "riskmonitor.labels" . | nindent 8 }}
+        {{- include "riskagent.labels" . | nindent 8 }}
         app.kubernetes.io/component: test-runner
     spec:
       restartPolicy: Never

@@ -50,7 +50,7 @@
 #### Checkpoint 详细内容
 
 - [x] Checkpoint 14.3.1 Skill 契约与存储层
-  - 实现项: 新增 `src/riskmonitor_multiagent/skills/` 模块. 定义 `Skill` 契约, 包含 `skill_id` `name` `tags` `applicable_conditions` `steps` `failure_boundary` `confidence` `write_origin` `created_at` `updated_at` `usage_count` `success_rate`. 实现 `SkillStore` 支持 CRUD 和语义检索.
+  - 实现项: 新增 `src/riskagent_backend/skills/` 模块. 定义 `Skill` 契约, 包含 `skill_id` `name` `tags` `applicable_conditions` `steps` `failure_boundary` `confidence` `write_origin` `created_at` `updated_at` `usage_count` `success_rate`. 实现 `SkillStore` 支持 CRUD 和语义检索.
   - 验收方法: 运行 Skill 契约单测和存储层集成测试.
   - 验收证据: Skill JSON 样例. 语义检索命中记录. 非法 Skill 拒绝记录.
   - 通过标准: 契约单测全部通过. 语义检索能命中相关 Skill. 非法输入全部被拒绝.
@@ -105,7 +105,7 @@
 
 ## 交付物清单
 
-- [x] 代码：`src/riskmonitor_multiagent/skills/` 模块, SkillStore, SkillProposer, 置信度更新器
+- [x] 代码：`src/riskagent_backend/skills/` 模块, SkillStore, SkillProposer, 置信度更新器
 - [x] 测试：Skill 契约单测, 创建链路集成测试, 注入对照测试, 置信度更新测试
 - [x] 文档：Skill 系统设计说明, 治理参数配置指南
 - [x] 评测：skill_on vs skill_off A/B 对照实验报告

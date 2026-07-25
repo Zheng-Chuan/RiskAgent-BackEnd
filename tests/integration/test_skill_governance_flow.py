@@ -56,7 +56,7 @@ def _make_task(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_large_skill_pool_injection_quality_filter():
     """大量 Skill 积累后注入, 只返回高质量且不超限额的."""
-    from riskmonitor_multiagent.skills import (
+    from riskagent_backend.skills import (
         SkillGovernanceConfig,
         SkillGovernor,
         SkillInjector,
@@ -130,7 +130,7 @@ async def test_large_skill_pool_injection_quality_filter():
 @pytest.mark.asyncio
 async def test_cleanup_archives_low_quality_and_excludes_from_injection():
     """低质量 Skill 清理后被归档, 不再参与注入."""
-    from riskmonitor_multiagent.skills import (
+    from riskagent_backend.skills import (
         SkillGovernanceConfig,
         SkillGovernor,
         SkillInjector,
@@ -178,7 +178,7 @@ async def test_cleanup_archives_low_quality_and_excludes_from_injection():
 @pytest.mark.asyncio
 async def test_token_budget_limits_prompt_size():
     """Skill 注入不超过 token 预算."""
-    from riskmonitor_multiagent.skills import (
+    from riskagent_backend.skills import (
         SkillGovernanceConfig,
         SkillGovernor,
         SkillInjector,
@@ -239,7 +239,7 @@ async def test_token_budget_limits_prompt_size():
 @pytest.mark.asyncio
 async def test_governance_report_after_cleanup():
     """治理报告反映清理后的状态."""
-    from riskmonitor_multiagent.skills import (
+    from riskagent_backend.skills import (
         SkillGovernanceConfig,
         SkillGovernor,
         SkillStore,
@@ -279,7 +279,7 @@ async def test_governance_report_after_cleanup():
 @pytest.mark.asyncio
 async def test_injector_without_governor_unchanged_behavior():
     """无 governor 时 SkillInjector 行为与原来一致 (不回归)."""
-    from riskmonitor_multiagent.skills import SkillInjector, SkillStore
+    from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
     await store.create(_make_skill(name="正常技能", confidence=0.9))
@@ -306,7 +306,7 @@ async def test_governor_exception_does_not_break_injection():
     """governor 异常时 SkillInjector 仍返回安全结构."""
     from unittest.mock import AsyncMock, patch
 
-    from riskmonitor_multiagent.skills import (
+    from riskagent_backend.skills import (
         SkillGovernanceConfig,
         SkillGovernor,
         SkillInjector,

@@ -1,7 +1,7 @@
 """Skill 注入规划链路端到端集成测试.
 
 测试从 Skill 创建到 orchestrator context 注入的完整流程.
-使用真实 SkillStore (内存存储) 和 ProactiveMultiAgentWorkflow, 不依赖外部 LLM.
+使用真实 SkillStore (内存存储) 和 ProactiveBackEndWorkflow, 不依赖外部 LLM.
 
 测试场景:
 1. 创建 Skill → 构建 orchestrator context → 检查 context 中是否包含 skills
@@ -65,11 +65,11 @@ def _make_intent_output(**kwargs) -> dict:
 @pytest.mark.asyncio
 async def test_skill_injected_into_orchestrator_context():
     """创建 Skill → 构建 orchestrator context → 检查 context 中包含 skills."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     # 在 workflow 的 _skill_store 中创建匹配的 Skill
     await workflow._skill_store.create(
@@ -118,11 +118,11 @@ async def test_skill_injected_into_orchestrator_context():
 @pytest.mark.asyncio
 async def test_skill_off_context_has_empty_skills():
     """skill_enabled=False → context 中 skills 为空."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     # 即使创建了 Skill, skill_off 时也不应注入
     await workflow._skill_store.create(
@@ -151,11 +151,11 @@ async def test_skill_off_context_has_empty_skills():
 @pytest.mark.asyncio
 async def test_no_matching_skill_returns_empty():
     """SkillStore 中无匹配 Skill → context skills 为空但结构正确."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
     # 不创建任何 Skill
 
     context = await workflow._build_orchestrator_context(
@@ -176,11 +176,11 @@ async def test_no_matching_skill_returns_empty():
 @pytest.mark.asyncio
 async def test_replan_phase_also_injects_skills():
     """replan 阶段也注入 Skill."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     await workflow._skill_store.create(
         _make_skill(
@@ -206,11 +206,11 @@ async def test_replan_phase_also_injects_skills():
 @pytest.mark.asyncio
 async def test_skill_injection_does_not_affect_memory_field():
     """Skill 注入不影响 memory 字段."""
-    from riskmonitor_multiagent.orchestration.proactive_workflow import (
-        ProactiveMultiAgentWorkflow,
+    from riskagent_backend.orchestration.proactive_workflow import (
+        ProactiveBackEndWorkflow,
     )
 
-    workflow = ProactiveMultiAgentWorkflow()
+    workflow = ProactiveBackEndWorkflow()
 
     await workflow._skill_store.create(
         _make_skill(confidence=0.9)
