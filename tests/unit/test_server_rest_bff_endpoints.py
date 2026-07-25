@@ -186,3 +186,68 @@ def test_rest_bff_memory_endpoints_validate_query_params(monkeypatch) -> None:
     resp = client.get("/api/tasks/task_missing/memory")
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_rest_bff_memory_endpoint_masks_sensitive_content(monkeypatch) -> None:
+    from starlette.testclient import TestClient
+
+    from riskmonitor_multiagent import server
+    from riskmonitor_multiagent.server import mcp
+    from riskmonitor_multiagent.services.rest_bff_service import RestBffService
+
+    class FakeMemoryStore:
+        async def list_recent(
+            self,
+            *,
+            agent_id: str,
+            scope: str,
+            session_id: str | None = None,
+            run_id: str | None = None,
+            limit: int = 50,
+        ) -> list[dict[str, object]]:
+            del agent_id, scope, session_id, run_id, limit
+            return [
+                {
+                    "entry_id": "mem_secret_1",
+                    "agent_id": "system_engineer",
+                    "scope": "shared",
+                    "kind": "working_memory",
+                    "memory_type": "episodic",
+                    "source": "task_graph_execution",
+                    "tags": ["delegate", "sk-or-v1-sensitive-token-123456"],
+                    "confidence": 1.0,
+                    "ts_ms": 1234567999,
+                    "run_id": "task_123",
+                    "session_id": "session_123",
+                    "content": {
+                        "text": "调用 sk-or-v1-sensitive-token-123456 后完成分析",
+                        "task_id": "task_123",
+                    },
+                }
+            ]
+
+        async def get_private_memory_state(
+            self,
+            *,
+            agent_ids=None,
+            session_id: str | None = None,
+            run_id: str | None = None,
+            limit: int = 5,
+        ) -> dict[str, list[dict[str, object]]]:
+            del agent_ids, session_id, run_id, limit
+            return {}
+
+    monkeypatch.setattr(
+        "riskmonitor_multiagent.services.rest_bff_service.get_memory_store",
+        lambda: FakeMemoryStore(),
+    )
+    monkeypatch.setattr(server, "get_rest_bff_service", lambda: RestBffService())
+
+    app = mcp.streamable_http_app()
+    client = TestClient(app)
+
+    resp = client.get("/api/memory")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["items"][0]["summary"] == "调用 sk-*** 后完成分析"
+    assert "sk-or-v1-sensitive-token-123456" not in str(body)

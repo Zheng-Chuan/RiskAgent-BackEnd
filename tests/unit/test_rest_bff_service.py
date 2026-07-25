@@ -207,6 +207,7 @@ async def test_get_memory_snapshot_returns_structured_sanitized_items(monkeypatc
 
     shared_item = snapshot["items"][1]
     assert shared_item["summary"] == "调用 sk-*** 后完成分析"
+    assert shared_item["tags"] == ["delegate", "sk-***"]
     assert shared_item["details"] == [
         "来源 task_graph_execution",
         "任务 run_1",

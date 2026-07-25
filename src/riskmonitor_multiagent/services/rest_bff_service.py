@@ -486,9 +486,9 @@ class RestBffService:
             "summary": summary,
             "details": self._build_memory_entry_details(entry=entry, content=content),
             "tags": [
-                str(tag)
+                _sanitize_public_text(tag, limit=24)
                 for tag in entry.get("tags", [])
-                if isinstance(tag, str) and tag.strip()
+                if isinstance(tag, str) and _sanitize_public_text(tag, limit=24)
             ],
             "confidence": round(float(entry.get("confidence") or 0.0), 2),
             "createdAt": int(entry.get("ts_ms") or _now_ms()),
