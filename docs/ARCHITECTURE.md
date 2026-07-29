@@ -1548,34 +1548,6 @@ steps_summary = "\n".join([
 }
 ```
 
-**⑥ `semantic_case` — 长期经验案例记忆**
-
-写入时机：CriticAgent 在 `final_review` 阶段，经 `build_experience_policy()` 策略筛选后，`confidence` 达标的 run 才写入。写入逻辑在 [memory_operations.py:287-308](../src/riskagent_backend/memory/memory_operations.py)，`memory_type="semantic"`（语义记忆），是唯一一种长期 few-shot 经验。未通过筛选的 run 写入 `kind="experience_rejection"`。SkillStore 也用此 kind 将 Skill 索引到 SemanticIndexer（[skill_store.py:80-91](../src/riskagent_backend/skills/skill_store.py)）。通过 `should_persist` 判定后立即异步落盘。
-
-```json
-{
-  "agent_id": "critic",
-  "scope": "shared",
-  "kind": "semantic_case",
-  "memory_type": "semantic",
-  "run_id": "1780038446-7049a732",
-  "source": "critic_confidence_policy",
-  "agent_role": "critic",
-  "task_phase": "final_review",
-  "confidence": 0.85,
-  "trace_ref": {"run_id": "1780038446-7049a732"},
-  "content": {
-    "snapshot_text": "task=监控交易台敞口 intent=monitor_exposure plan=delegate→system_engineer,delegate→risk_analyst,command→resize_pool outcome=success confidence=0.85",
-    "task_id": "task_789",
-    "intent_type": "monitor_exposure",
-    "plan_summary": "delegate→system_engineer, delegate→risk_analyst, command→resize_pool",
-    "outcome": "success",
-    "agent_perspective": "critic"
-  },
-  "tags": ["experience", "few_shot", "critic"]
-}
-```
-
 ### kind 与 memory_type 的关系
 
 `kind` 是业务语义标签（记录“这条记忆是什么”），`memory_type` 是认知科学分类（记录“这条记忆怎么被召回”）：
@@ -1583,13 +1555,13 @@ steps_summary = "\n".join([
 | memory_type | 对应 kind | 认知科学含义 | 召回方式 |
 |-------------|---------|------------|--------|
 | `episodic`（情景记忆） | `plan` / `working_memory` / `final` / `approval` | 特定 run 中的具体事件 | 按 `run_id` / `session_id` 精确检索 |
-| `procedural`（过程记忆） | `lesson` | 从多次执行中提炼的操作经验 | 按 `tags` + `text` 关键词匹配 |
-| `semantic`（语义记忆） | `semantic_case` | 跨 run 的抽象经验案例 | 通过 SemanticIndexer 语义相似度检索 |
+
+> **注**：`procedural`（过程记忆）和 `semantic`（语义记忆）已不再作为记忆系统的 `kind` 出现，而是统一由 [Skill 系统](#section-6) 管理——高质量 run 经 CriticAgent 评审后通过 SkillProposer 提炼为 Skill，由 SkillStore 独立索引，planning 阶段通过 SkillInjector 注入 few-shot。
 
 **使用场景**：
 - planning 阶段从这里取 recent hits 和 shared board
 - execution 阶段每完成一个 node 就写入 working_memory
-- finalize 阶段写入 final 和 lesson
+- finalize 阶段写入 final
 
 **关键设计**：
 - **主协作面**：shared memory 是整个系统的主协作面,private memory 只是辅助
@@ -1634,7 +1606,7 @@ steps_summary = "\n".join([
 <a id="section-5-5"></a>
 ## 5.5 长期经验记忆
 
-**作用**：运行结束后沉淀的 summary / lesson / semantic_case,供后续 planning 时做 few-shot 和经验召回
+**作用**：运行结束后沉淀的 summary,供后续 planning 时做经验召回。长期经验（procedural/semantic）已不再沉淀为记忆条目，而是统一由 [Skill 系统](#section-6) 通过 SkillProposer 提炼为 Skill,planning 阶段通过 SkillInjector 注入 few-shot。
 
 **实现方式**：
 - **不是外部向量库**：当前实现是进程内 `SemanticIndexer`
@@ -1657,8 +1629,8 @@ steps_summary = "\n".join([
 | TTL 层级 | TTL | 包含的 kind | 说明 |
 |----------|-----|------------|------|
 | `EPHEMERAL` | 24h | `working_memory`, `plan`, `step`, `command`, `receipt`, `approval`, `message`, `private_task_state`, `working` | 运行中的工作态记忆,任务结束后自然过期 |
-| `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `experience_rejection`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
-| `LONG_TERM` | **永久** | `lesson`, `semantic_case`, `few_shot`, `knowledge`, `fact`, `example` | 经 Critic 审核通过的高置信经验,永不过期,会触发 MySQL 落盘 |
+| `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
+| `LONG_TERM` | **永久** | `few_shot`, `knowledge`, `fact`, `example` | 经 Critic 审核通过的高置信经验,永不过期,会触发 MySQL 落盘 |
 | `PERMANENT` | **永久** | `skill`, `policy`, `config`, `procedure`, `playbook` | Skill 和系统配置,永不过期,会触发 MySQL 落盘 |
 
 **分类优先级**（`classify()` 方法,5 级决策链）：
@@ -1690,7 +1662,7 @@ steps_summary = "\n".join([
 
 **关键设计**：
 - **时间驱动演进**：EPHEMERAL → SHORT_TERM 由时间自然驱动（24h 后若未过期进入 7 天窗口）
-- **质量驱动升级**：SHORT_TERM → LONG_TERM 由 CriticAgent 的 `confidence_policy` 控制（`ok=True` + `confidence ≥ 0.85` 才升级为 `semantic_case`）
+- **质量驱动升级**：SHORT_TERM → LONG_TERM 由 CriticAgent 的 `confidence_policy` 控制（`ok=True` + `confidence ≥ 0.85` 的高质量 run 通过 [SkillProposer](#section-6-4) 提炼为 Skill）
 - **永久级别保护**：LONG_TERM 和 PERMANENT 永不过期,且触发 MySQL 落盘,Redis 重启后可从 MySQL 恢复
 - **过期不删运行中任务**：`cleanup_expired()` 仅删除已过期条目,不影响运行中任务
 
@@ -1762,7 +1734,7 @@ MemoryStore.restore_from_persistence()
 
 | 问题 | 记忆机制 | 效果 |
 |---|---|---|
-| **planning 缺乏历史上下文** | retrieve_for_planning() 读取 shared board + semantic hits | orchestrator 能参考历史 plan 和 lesson,避免重复犯错 |
+| **planning 缺乏历史上下文** | retrieve_for_planning() 读取 shared board + semantic hits | orchestrator 能参考历史 plan 和 Skill few-shot,避免重复犯错 |
 | **execution 缺乏过程记录** | record_working_memory() 每步写入 | 后续 agent 能看到之前的执行结果,支持协作 |
 | **resume 缺乏上下文** | save_run_context() 保存完整快照 | 恢复执行时能从中断点继续,不是重新跑一遍 |
 | **经验无法复用** | SemanticIndexer 做语义索引 | 相似任务能召回历史经验,few_shot_reuse_rate > 30% |
