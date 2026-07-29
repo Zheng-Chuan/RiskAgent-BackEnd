@@ -165,7 +165,7 @@ def test_intent_output_validation_and_normalization_edge_cases() -> None:
 
 
 def test_memory_entry_helpers_and_roundtrip() -> None:
-    assert _infer_memory_type("lesson") == "procedural"
+    assert _infer_memory_type("policy") == "procedural"
     assert _infer_memory_type("knowledge") == "semantic"
     assert _infer_memory_type("other") == "episodic"
     assert _build_trace_ref({"run_id": "run-1", "entry_id": "mem-1"}) == {"run_id": "run-1", "entry_id": "mem-1"}
@@ -176,7 +176,7 @@ def test_memory_entry_helpers_and_roundtrip() -> None:
             "ts_ms": 1,
             "agent_id": "risk_analyst",
             "scope": "bad",
-            "kind": "lesson",
+            "kind": "policy",
             "memory_type": "bad",
             "content": [],
             "confidence": "bad",

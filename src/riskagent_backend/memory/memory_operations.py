@@ -14,11 +14,8 @@ from riskagent_backend.contracts.approval import build_approval_summary_text
 from riskagent_backend.memory.memory_helpers import (
     _DEFAULT_PRIVATE_AGENT_IDS,
     agent_perspective,
-    build_experience_policy,
-    build_long_term_experience_content,
     build_private_task_snapshot,
     canonical_agent_id,
-    derive_lesson_text,
     derive_summary_text,
     extract_confidence,
     extract_content_text,
@@ -133,7 +130,7 @@ class MemoryWriteOperationsMixin:
         final_output: dict[str, Any],
         critic_final: dict[str, Any],
     ) -> dict[str, Any]:
-        """保存 run summary 和 procedural lesson."""
+        """保存 run summary（学习产物统一由 Skill 系统管理）."""
         run_summary = critic_final.get("run_summary") if isinstance(critic_final, dict) else {}
         if not isinstance(run_summary, dict):
             run_summary = {}
@@ -168,40 +165,9 @@ class MemoryWriteOperationsMixin:
             }
         )
 
-        lesson_text = derive_lesson_text(final_output=final_output, run_summary=summary_payload)
-        lesson_entry = await self.append(
-            {
-                "agent_id": "critic",
-                "scope": "shared",
-                "kind": "lesson",
-                "memory_type": "procedural",
-                "session_id": task.get("session_id") if isinstance(task.get("session_id"), str) else None,
-                "run_id": run_id,
-                "source": "critic_final_review",
-                "created_by": "critic",
-                "trace_ref": {"run_id": run_id},
-                "content": {
-                    "text": lesson_text,
-                    "task_id": task.get("task_id"),
-                    "key_points": key_points,
-                    "receipt_command_ids": summary_payload["receipt_command_ids"],
-                },
-                "tags": ["lesson", "procedure"],
-            }
-        )
-        # lesson 是关键数据, 立即同步落盘 (仅在 should_persist 时触发)
-        if self._ttl_engine.should_persist(lesson_entry):
-            asyncio.ensure_future(self.persistence.persist_memory_entry(lesson_entry))
-        experience_entry = await self._persist_long_term_experience(
-            run_id=run_id, task=task, final_output=final_output, critic_final=critic_final,
-        )
         return {
             "run_summary": summary_payload,
             "summary_entry": summary_entry,
-            "lesson_entry": lesson_entry,
-            "long_term_experience": experience_entry.get("experience_entry"),
-            "rejected_experience": experience_entry.get("rejected_entry"),
-            "memory_policy": experience_entry.get("policy", {}),
         }
 
     async def persist_approval_memory(
@@ -243,67 +209,3 @@ class MemoryWriteOperationsMixin:
                 )
             )
         return saved_entries
-
-    async def _persist_long_term_experience(
-        self,
-        *,
-        run_id: str,
-        task: dict[str, Any],
-        final_output: dict[str, Any],
-        critic_final: dict[str, Any],
-    ) -> dict[str, Any]:
-        """保存长期经验."""
-        policy = build_experience_policy(
-            run_id=run_id, critic_final=critic_final, final_output=final_output,
-        )
-        if not policy["accepted"]:
-            rejected_entry = await self.append(
-                {
-                    "agent_id": "critic",
-                    "scope": "shared",
-                    "kind": "experience_rejection",
-                    "memory_type": "episodic",
-                    "session_id": task.get("session_id") if isinstance(task.get("session_id"), str) else None,
-                    "run_id": run_id,
-                    "source": "critic_confidence_policy",
-                    "created_by": "critic",
-                    "agent_role": "critic",
-                    "agent_perspective": agent_perspective("critic"),
-                    "task_phase": "final_review",
-                    "confidence": float(policy["confidence"]),
-                    "trace_ref": {"run_id": run_id},
-                    "content": {
-                        "text": f"experience rejected because {policy['reasons'][0]}",
-                        "policy": policy,
-                    },
-                    "tags": ["experience", "rejected"],
-                }
-            )
-            return {"experience_entry": None, "rejected_entry": rejected_entry, "policy": policy}
-
-        content = build_long_term_experience_content(
-            task=task, final_output=final_output, critic_final=critic_final, policy=policy,
-        )
-        experience_entry = await self.append(
-            {
-                "agent_id": "critic",
-                "scope": "shared",
-                "kind": "semantic_case",
-                "memory_type": "semantic",
-                "session_id": task.get("session_id") if isinstance(task.get("session_id"), str) else None,
-                "run_id": run_id,
-                "source": "critic_confidence_policy",
-                "created_by": "critic",
-                "agent_role": "critic",
-                "agent_perspective": content.get("agent_perspective"),
-                "task_phase": "final_review",
-                "confidence": float(policy["confidence"]),
-                "trace_ref": {"run_id": run_id},
-                "content": content,
-                "tags": ["experience", "few_shot", "critic"],
-            }
-        )
-        # long_term_experience 是关键数据, 立即同步落盘 (仅在 should_persist 时触发)
-        if self._ttl_engine.should_persist(experience_entry):
-            asyncio.ensure_future(self.persistence.persist_memory_entry(experience_entry))
-        return {"experience_entry": experience_entry, "rejected_entry": None, "policy": policy}

@@ -639,10 +639,6 @@ class RestBffService:
         kind = str(entry.get("kind") or "")
         if kind in {"working_memory", "private_task_state"}:
             return "updated"
-        if kind in {"lesson", "semantic_case"}:
-            return "compressed"
-        if kind in {"experience_rejection"}:
-            return "archived"
         return "created"
 
     def _build_memory_summary(self, items: list[dict[str, Any]]) -> dict[str, Any]:

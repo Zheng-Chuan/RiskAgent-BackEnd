@@ -55,12 +55,9 @@ KIND_TO_TTL_TIER: dict[str, TTLTier] = {
     "final": TTLTier.SHORT_TERM,
     "analysis": TTLTier.SHORT_TERM,
     "task": TTLTier.SHORT_TERM,
-    "experience_rejection": TTLTier.SHORT_TERM,
     "intent_disambiguation": TTLTier.SHORT_TERM,
 
-    # long_term: 经验（永久保存）
-    "lesson": TTLTier.LONG_TERM,
-    "semantic_case": TTLTier.LONG_TERM,
+    # long_term: 经验（永久保存,统一走 Skill 系统）
     "few_shot": TTLTier.LONG_TERM,
     "knowledge": TTLTier.LONG_TERM,
     "fact": TTLTier.LONG_TERM,

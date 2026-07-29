@@ -624,8 +624,8 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
 
         async def retrieve_for_planning(self, *, task, intent=None, limit=5):
             return {
-                "hits": [{"entry_id": "mem-1", "kind": "lesson", "memory_type": "procedural", "content": {"text": "先查持仓"}}],
-                "summary": {"hit_count": 1, "texts": ["[procedural/lesson] 先查持仓"]},
+                "hits": [{"entry_id": "mem-1", "kind": "plan", "memory_type": "episodic", "content": {"text": "先查持仓"}}],
+                "summary": {"hit_count": 1, "texts": ["[episodic/plan] 先查持仓"]},
                 "shared_board": [{"entry_id": "board-1", "agent_role": "orchestrator", "content": {"text": "关注持仓波动"}}],
                 "private_memory_state": {
                     "risk_analyst": [{"entry_id": "pm-1", "content": {"text": "分析师历史备注"}}],
@@ -648,10 +648,6 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
             payload = {
                 "run_summary": {"text": "完成总结", "key_points": ["先查持仓"], "receipt_command_ids": list(final_output.get("receipt_command_ids") or [])},
                 "summary_entry": {"entry_id": "summary-1"},
-                "lesson_entry": {"entry_id": "lesson-1", "kind": "lesson", "memory_type": "procedural", "content": {"text": "先查持仓再查风险"}},
-                "long_term_experience": {"entry_id": "exp-1", "kind": "semantic_case", "memory_type": "semantic"},
-                "rejected_experience": {},
-                "memory_policy": {"accepted": True, "confidence": 0.95},
             }
             self.persisted_runs[run_id] = payload
             return payload
@@ -763,7 +759,6 @@ def test_proactive_workflow_persists_memory_and_supports_resume_from_run_id():
         assert first.get("status") == "failed"
         assert len(fake_store.working_entries) >= 1
         assert isinstance(first.get("run_summary"), dict)
-        assert (first.get("procedural_lesson") or {}).get("kind") == "lesson"
 
         saved_context = fake_store.saved_contexts[first_run_id]["data"]
         for node in (saved_context.get("task_graph") or {}).get("nodes", []):
@@ -863,8 +858,8 @@ def test_proactive_workflow_disables_private_memory_only():
             del intent, limit
             assert task.get("private_memory_enabled") is False
             return {
-                "hits": [{"entry_id": "mem-1", "kind": "lesson", "memory_type": "procedural", "content": {"text": "先查持仓"}}],
-                "summary": {"hit_count": 1, "texts": ["[procedural/lesson] 先查持仓"]},
+                "hits": [{"entry_id": "mem-1", "kind": "plan", "memory_type": "episodic", "content": {"text": "先查持仓"}}],
+                "summary": {"hit_count": 1, "texts": ["[episodic/plan] 先查持仓"]},
                 "shared_board": [{"entry_id": "board-1", "agent_role": "orchestrator"}],
                 "private_memory_state": {},
             }
@@ -879,9 +874,6 @@ def test_proactive_workflow_disables_private_memory_only():
             return {
                 "run_summary": {"text": "done", "key_points": [], "receipt_command_ids": []},
                 "summary_entry": {"entry_id": "summary-1"},
-                "lesson_entry": {"entry_id": "lesson-1", "kind": "lesson", "memory_type": "procedural"},
-                "long_term_experience": {"entry_id": "exp-1", "kind": "semantic_case", "memory_type": "semantic"},
-                "memory_policy": {"accepted": True, "confidence": 0.9},
             }
 
         async def save_run_context(self, *, run_id, event_id, data):
@@ -975,7 +967,6 @@ def test_proactive_workflow_resumes_pending_approval_from_blocked_step():
             payload = {
                 "run_summary": {"text": "审批后完成", "key_points": ["resume"], "receipt_command_ids": []},
                 "summary_entry": {"entry_id": "summary-approval"},
-                "lesson_entry": {"entry_id": "lesson-approval", "kind": "lesson", "memory_type": "procedural"},
             }
             self.persisted_runs[run_id] = payload
             return payload

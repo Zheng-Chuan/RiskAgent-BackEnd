@@ -30,11 +30,11 @@ class SemanticIndexer:
         """
         索引到长期语义经验层.
 
-        仅索引重要类型的条目(plan, final, semantic_case 等).
+        仅索引重要类型的条目(plan, final, analysis 等).
         """
         kind = entry.get("kind")
         memory_type = entry.get("memory_type")
-        if kind not in {"plan", "final", "analysis", "lesson", "semantic_case"} and memory_type not in {"semantic", "procedural"}:
+        if kind not in {"plan", "final", "analysis"} and memory_type not in {"semantic", "procedural"}:
             return
 
         text = self._memory_text(entry)

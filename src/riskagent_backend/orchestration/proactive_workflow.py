@@ -479,10 +479,6 @@ class ProactiveBackEndWorkflow:
                         else {}
                     ),
                     "run_summary": {},
-                    "procedural_lesson": {},
-                    "long_term_experience": {},
-                    "rejected_experience": {},
-                    "memory_policy": {},
                     "approval_memory": [],
                 }
             task = apply_resume_context(
@@ -802,7 +798,6 @@ class ProactiveBackEndWorkflow:
             persisted_memory = {
                 "run_summary": {},
                 "summary_entry": None,
-                "lesson_entry": None,
             }
             if memory_enabled and not requires_manual_approval(
                 critic_output=critic_result.output,
@@ -933,10 +928,6 @@ class ProactiveBackEndWorkflow:
                             "shared_memory_board": result.get("shared_memory_board", []),
                             "private_memory_state": result.get("private_memory_state", {}),
                             "run_summary": result.get("run_summary", {}),
-                            "procedural_lesson": result.get("procedural_lesson", {}),
-                            "long_term_experience": result.get("long_term_experience", {}),
-                            "rejected_experience": result.get("rejected_experience", {}),
-                            "memory_policy": result.get("memory_policy", {}),
                             "final_output": result.get("final_output", {}),
                         },
                     )

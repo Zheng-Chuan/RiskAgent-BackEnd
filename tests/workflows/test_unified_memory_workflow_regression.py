@@ -11,7 +11,7 @@ if str(src_root) not in sys.path:
 
 
 @pytest.mark.asyncio
-async def test_unified_memory_workflow_reuses_shared_plan_and_semantic_case() -> None:
+async def test_unified_memory_workflow_reuses_shared_plan_and_analysis() -> None:
     from riskagent_backend.memory import MemoryStore
 
     store_data: dict[str, list[str]] = {}
@@ -60,7 +60,7 @@ async def test_unified_memory_workflow_reuses_shared_plan_and_semantic_case() ->
         {
             "agent_id": "critic",
             "scope": "shared",
-            "kind": "semantic_case",
+            "kind": "analysis",
             "memory_type": "semantic",
             "session_id": "workflow-memory",
             "content": {

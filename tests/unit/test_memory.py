@@ -275,7 +275,7 @@ async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
         {
             "agent_id": "critic",
             "scope": "shared",
-            "kind": "semantic_case",
+            "kind": "analysis",
             "memory_type": "semantic",
             "session_id": "s_plan",
             "content": {
@@ -298,7 +298,7 @@ async def test_memory_store_retrieve_for_planning_summarizes_recent_hits():
     summary_block = summary.get("summary") or {}
     assert summary_block.get("hit_count") >= 1
     assert isinstance(summary_block.get("texts"), list)
-    assert "lesson" in summary_block.get("texts")[0] or "plan" in summary_block.get("texts")[0]
+    assert "plan" in summary_block.get("texts")[0] or "analysis" in summary_block.get("texts")[0]
     assert summary_block.get("few_shot_example_count") >= 1
     assert summary_block.get("few_shot_examples")
 
@@ -356,7 +356,7 @@ async def test_memory_store_retrieve_for_planning_gates_low_relevance_hits():
         {
             "agent_id": "critic",
             "scope": "shared",
-            "kind": "semantic_case",
+            "kind": "analysis",
             "memory_type": "semantic",
             "session_id": "s_gate",
             "content": {
@@ -427,7 +427,7 @@ async def test_memory_store_semantic_search_returns_real_hits():
         {
             "agent_id": "critic",
             "scope": "shared",
-            "kind": "semantic_case",
+            "kind": "analysis",
             "memory_type": "semantic",
             "content": {"text": "交易台风险告警需要先核对持仓再核对限额"},
         }
@@ -601,7 +601,8 @@ async def test_memory_store_record_working_memory_builds_private_and_shared_view
 
 
 @pytest.mark.asyncio
-async def test_memory_store_persist_run_artifacts_builds_long_term_experience():
+async def test_memory_store_persist_run_artifacts_saves_summary():
+    """persist_run_artifacts 保存 run_summary 和 summary_entry（学习产物统一走 Skill 系统）."""
     from riskagent_backend.memory import MemoryConfig, MemoryStore
 
     _store_data = {}
@@ -651,7 +652,8 @@ async def test_memory_store_persist_run_artifacts_builds_long_term_experience():
         },
     )
 
-    experience = persisted.get("long_term_experience") or {}
-    assert experience.get("kind") == "semantic_case"
-    assert (experience.get("content") or {}).get("decision_pattern")
-    assert (persisted.get("memory_policy") or {}).get("accepted") is True
+    run_summary = persisted.get("run_summary") or {}
+    assert run_summary.get("text") == "完成总结"
+    assert "先查持仓" in run_summary.get("key_points", [])
+    summary_entry = persisted.get("summary_entry") or {}
+    assert summary_entry.get("kind") == "final"

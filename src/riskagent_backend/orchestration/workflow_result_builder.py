@@ -114,26 +114,6 @@ def build_workflow_result(
             else {}
         )
         result["run_summary"] = persisted_memory.get("run_summary", {})
-        result["procedural_lesson"] = (
-            persisted_memory.get("lesson_entry")
-            if isinstance(persisted_memory.get("lesson_entry"), dict)
-            else {}
-        )
-        result["long_term_experience"] = (
-            persisted_memory.get("long_term_experience")
-            if isinstance(persisted_memory.get("long_term_experience"), dict)
-            else {}
-        )
-        result["rejected_experience"] = (
-            persisted_memory.get("rejected_experience")
-            if isinstance(persisted_memory.get("rejected_experience"), dict)
-            else {}
-        )
-        result["memory_policy"] = (
-            persisted_memory.get("memory_policy")
-            if isinstance(persisted_memory.get("memory_policy"), dict)
-            else {}
-        )
         result["approval_memory"] = []
     if isinstance(task.get("trigger_event_id"), str) and task.get("trigger_event_id"):
         result["trigger"] = {

@@ -264,7 +264,7 @@ class MemoryStore(MemoryWriteOperationsMixin):
         recent_limit = max(1, limit - semantic_reserve)
         recent_hits = await self.list_recent(
             agent_id="orchestrator", scope="shared", session_id=session_id,
-            kinds=["plan", "final", "analysis", "intent_disambiguation", "lesson", "approval"],
+            kinds=["plan", "final", "analysis", "intent_disambiguation", "approval"],
             memory_types=["episodic", "procedural"], limit=recent_limit,
         )
         semantic_hits = await self.search_semantic(
@@ -272,17 +272,8 @@ class MemoryStore(MemoryWriteOperationsMixin):
             agent_id="orchestrator",
             limit=max(1, limit - min(len(recent_hits), recent_limit)),
         )
-        recent_semantic_cases = await self.list_recent(
-            agent_id="orchestrator", scope="shared", session_id=session_id,
-            kinds=["semantic_case"], memory_types=["semantic"], limit=semantic_reserve,
-        )
-        for entry in recent_semantic_cases:
-            reusable_snippet = self._semantic.build_reusable_snippet(entry)
-            if reusable_snippet:
-                entry["reusable_snippet"] = reusable_snippet
-
         candidate_hits = dedupe_memory_hits(
-            recent_hits + semantic_hits + recent_semantic_cases,
+            recent_hits + semantic_hits,
             limit=max(limit * 2, 6),
         )
         annotated_hits = annotate_memory_hits_for_planning(
@@ -465,7 +456,7 @@ class MemoryStore(MemoryWriteOperationsMixin):
         """批量落盘当前 Redis 中的关键数据到 MySQL.
 
         遍历 shared:memory 和各 agent 私有记忆,
-        将 lesson、semantic_case、procedural 类型的条目落盘.
+        将需要持久化的条目落盘（由 TTL 策略引擎决定）.
 
         Returns:
             成功落盘的条目数

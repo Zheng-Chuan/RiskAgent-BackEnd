@@ -48,7 +48,7 @@ def test_kind_to_tier_mapping_short_term():
     from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    short_term_kinds = ["final", "analysis", "task", "experience_rejection"]
+    short_term_kinds = ["final", "analysis", "task", "intent_disambiguation"]
     for kind in short_term_kinds:
         entry = {"kind": kind, "memory_type": "episodic", "ts_ms": 1000}
         assert engine.classify(entry) == TTLTier.SHORT_TERM, f"kind={kind} should be SHORT_TERM"
@@ -59,7 +59,7 @@ def test_kind_to_tier_mapping_long_term():
     from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    long_term_kinds = ["lesson", "semantic_case", "few_shot"]
+    long_term_kinds = ["few_shot", "knowledge", "fact"]
     for kind in long_term_kinds:
         entry = {"kind": kind, "ts_ms": 1000}
         assert engine.classify(entry) == TTLTier.LONG_TERM, f"kind={kind} should be LONG_TERM"
@@ -112,7 +112,7 @@ def test_get_ttl_seconds_for_long_term():
     from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
+    entry = {"kind": "few_shot", "ts_ms": 1000}
     assert engine.get_ttl_seconds(entry) is None
 
 
@@ -151,7 +151,7 @@ def test_should_persist_long_term_true():
     from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
+    entry = {"kind": "few_shot", "ts_ms": 1000}
     assert engine.should_persist(entry) is True
 
 
@@ -172,8 +172,8 @@ def test_is_expired_permanent_never_expires():
     from riskagent_backend.memory.ttl_policy import TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    # lesson 是 LONG_TERM
-    entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
+    # few_shot 是 LONG_TERM
+    entry = {"kind": "few_shot", "ts_ms": 1000}
     # 即使过了很久
     far_future_ms = int(time.time() * 1000) + 365 * 24 * 3600 * 1000
     assert engine.is_expired(entry, now_ms=far_future_ms) is False
@@ -246,7 +246,7 @@ def test_get_cleanup_candidates_only_returns_expired():
         # short_term, 已过期 (8d 前)
         {"kind": "final", "memory_type": "episodic", "ts_ms": base_ts - 8 * 24 * 3600 * 1000},
         # long_term, 永不过期
-        {"kind": "lesson", "memory_type": "procedural", "ts_ms": base_ts - 365 * 24 * 3600 * 1000},
+        {"kind": "few_shot", "ts_ms": base_ts - 365 * 24 * 3600 * 1000},
         # permanent, 永不过期
         {"kind": "skill", "ts_ms": base_ts - 365 * 24 * 3600 * 1000},
     ]
@@ -258,7 +258,7 @@ def test_get_cleanup_candidates_only_returns_expired():
     assert "working" in kinds
     assert "final" in kinds
     # 永久条目不在清理列表中
-    assert "lesson" not in kinds
+    assert "few_shot" not in kinds
     assert "skill" not in kinds
 
 
@@ -277,7 +277,7 @@ def test_get_cleanup_candidates_all_permanent():
 
     engine = TTLPolicyEngine()
     entries = [
-        {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1},
+        {"kind": "few_shot", "ts_ms": 1},
         {"kind": "skill", "ts_ms": 1},
     ]
     candidates = engine.get_cleanup_candidates(entries, now_ms=9999999999999)
@@ -304,8 +304,8 @@ def test_custom_overrides_do_not_affect_other_kinds():
     from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine(custom_overrides={"working": TTLTier.PERMANENT})
-    # "lesson" 仍然映射到 LONG_TERM
-    entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000}
+    # "few_shot" 仍然映射到 LONG_TERM
+    entry = {"kind": "few_shot", "ts_ms": 1000}
     assert engine.classify(entry) == TTLTier.LONG_TERM
 
 
@@ -395,7 +395,7 @@ def test_existing_ttl_tier_ephemeral():
     from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
     engine = TTLPolicyEngine()
-    entry = {"kind": "lesson", "memory_type": "procedural", "ts_ms": 1000, "ttl_tier": "ephemeral"}
+    entry = {"kind": "few_shot", "ts_ms": 1000, "ttl_tier": "ephemeral"}
     assert engine.classify(entry) == TTLTier.EPHEMERAL
     assert engine.should_persist(entry) is False
 
@@ -438,8 +438,8 @@ def test_cleanup_does_not_affect_non_expired():
         {"kind": "final", "memory_type": "episodic", "ts_ms": base_ts - 10 * 24 * 3600 * 1000, "entry_id": "expired_2"},
         # 未过期 short_term
         {"kind": "final", "memory_type": "episodic", "ts_ms": base_ts - 1 * 24 * 3600 * 1000, "entry_id": "active_2"},
-        # 永久 lesson
-        {"kind": "lesson", "memory_type": "procedural", "ts_ms": base_ts - 365 * 24 * 3600 * 1000, "entry_id": "permanent_1"},
+        # 永久 few_shot
+        {"kind": "few_shot", "ts_ms": base_ts - 365 * 24 * 3600 * 1000, "entry_id": "permanent_1"},
         # 永久 skill
         {"kind": "skill", "ts_ms": base_ts - 365 * 24 * 3600 * 1000, "entry_id": "permanent_2"},
     ]

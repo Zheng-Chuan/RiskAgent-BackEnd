@@ -37,6 +37,8 @@
   - [5.3 短期共享记忆](#section-5-3)
   - [5.4 短期私有记忆（分角色）](#section-5-4)
   - [5.5 长期经验记忆](#section-5-5)
+    - [5.5.1 TTL 分级策略](#section-5-5-1)
+    - [5.5.2 MySQL 持久化](#section-5-5-2)
   - [5.6 记忆能解决什么问题](#section-5-6)
   - [5.7 缺点与风险](#section-5-7)
   - [5.8 关键代码出处](#section-5-8)
@@ -188,7 +190,7 @@
 [Step 7] finalize output
     | 汇总 engineer analyst receipts approvals
     | 生成 final_output quality approval summary
-    | critic 写 final 和 lesson
+    | critic 写 final
     v
 [Step 8] persist and trace
     | build_run_trace_snapshot -> run_trace.v2
@@ -1376,7 +1378,7 @@ steps_summary = "\n".join([
   "ts_ms": 1710000000000,
   "agent_id": "system_engineer",
   "scope": "shared",                    // shared / private
-  "kind": "working_memory",             // plan / working_memory / final / lesson / approval / semantic_case
+  "kind": "working_memory",             // plan / working_memory / final / approval
   "memory_type": "episodic",            // episodic / procedural / semantic
   "session_id": "sess_monitor_001",
   "run_id": "run_proactive_001",
@@ -1417,16 +1419,14 @@ steps_summary = "\n".join([
 - Type: List
 - Value: JSON string (memory_entry.v1)
 
-**典型条目**：共 6 种 `kind`，按任务生命周期阶段划分如下：
+**典型条目**：共 4 种 `kind`，按任务生命周期阶段划分如下：
 
 | kind | 写入阶段 | 写入者 | memory_type | 作用 |
 |------|---------|--------|-------------|------|
 | `plan` | planning | OrchestratorAgent | episodic | 保存编排计划，供后续 step 恢复和下次 planning 检索 |
 | `working_memory` | execution | TaskGraphExecutor | episodic | step 级执行记录，每个 node 完成后写入，是协作面的主要数据流 |
 | `final` | finalize | CriticAgent | episodic | run 级总结摘要，包含 key_points 和 receipt 列表 |
-| `lesson` | finalize | CriticAgent | procedural | 过程性经验教训，供下次任务 planning 参考 |
 | `approval` | approval | Workflow | episodic | 审批记录，包含 approval_id 和 state 状态机快照 |
-| `semantic_case` | finalize | CriticAgent | semantic | 长期 few-shot 经验案例，经 confidence 策略筛选后写入，供 Skill 系统和记忆检索召回 |
 
 ### 各 kind 详细说明与 Example
 
@@ -1514,30 +1514,7 @@ steps_summary = "\n".join([
 }
 ```
 
-**④ `lesson` — 过程性经验记忆**
-
-写入时机：与 `final` 同阶段，紧随其后写入。写入逻辑在 [memory_operations.py:171-191](../src/riskagent_backend/memory/memory_operations.py)，`memory_type="procedural"`（过程性记忆），由 `derive_lesson_text()` 从 `final_output` 和 `run_summary` 提炼一句话教训。通过 `should_persist` 判定后立即异步落盘到 MySQL。
-
-```json
-{
-  "agent_id": "critic",
-  "scope": "shared",
-  "kind": "lesson",
-  "memory_type": "procedural",
-  "run_id": "1780038446-7049a732",
-  "source": "critic_final_review",
-  "trace_ref": {"run_id": "1780038446-7049a732"},
-  "content": {
-    "text": "当 error_rate 飙升时优先检查数据库连接池状态，而非重启服务",
-    "task_id": "task_789",
-    "key_points": ["error_rate 已降至 0.02", "payment-service 连接池已扩容"],
-    "receipt_command_ids": ["cmd_001", "cmd_002", "cmd_003"]
-  },
-  "tags": ["lesson", "procedure"]
-}
-```
-
-**⑤ `approval` — 审批记忆**
+**④ `approval` — 审批记忆**
 
 写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 [memory_operations.py:207-245](../src/riskagent_backend/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
 
@@ -1672,6 +1649,114 @@ steps_summary = "\n".join([
 - **轻量语义索引**：不依赖外部向量库,降低部署复杂度
 - **confidence 衰减**：长期记忆的置信度会随时间衰减,防止过时经验污染规划
 
+<a id="section-5-5-1"></a>
+### 5.5.1 TTL 分级策略
+
+系统通过 `TTLPolicyEngine` 将记忆按 `kind` 自动分配到四个 TTL 层级,实现从工作记忆到长期经验的自动演进：
+
+| TTL 层级 | TTL | 包含的 kind | 说明 |
+|----------|-----|------------|------|
+| `EPHEMERAL` | 24h | `working_memory`, `plan`, `step`, `command`, `receipt`, `approval`, `message`, `private_task_state`, `working` | 运行中的工作态记忆,任务结束后自然过期 |
+| `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `experience_rejection`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
+| `LONG_TERM` | **永久** | `lesson`, `semantic_case`, `few_shot`, `knowledge`, `fact`, `example` | 经 Critic 审核通过的高置信经验,永不过期,会触发 MySQL 落盘 |
+| `PERMANENT` | **永久** | `skill`, `policy`, `config`, `procedure`, `playbook` | Skill 和系统配置,永不过期,会触发 MySQL 落盘 |
+
+**分类优先级**（`classify()` 方法,5 级决策链）：
+
+```text
+1. entry 中显式指定的 ttl_tier 字段
+     ↓ (未指定)
+2. custom_overrides 自定义覆盖
+     ↓ (未命中)
+3. KIND_TO_TTL_TIER 默认映射表
+     ↓ (未命中)
+4. 根据 memory_type 兜底推断:
+   procedural → LONG_TERM
+   semantic   → LONG_TERM
+   episodic   → SHORT_TERM
+     ↓ (无法推断)
+5. 最终兜底 → EPHEMERAL
+```
+
+**核心方法**：
+
+| 方法 | 功能 |
+|------|------|
+| `classify(entry)` | 根据 entry 的 kind/memory_type 分配 TTL 层级 |
+| `get_ttl_seconds(entry)` | 获取 TTL 秒数（`None` 表示永不过期） |
+| `should_persist(entry)` | 判断是否需要 MySQL 落盘（LONG_TERM 和 PERMANENT 才落盘） |
+| `is_expired(entry)` | 判断是否已过期（永久级别永不过期） |
+| `get_cleanup_candidates(entries)` | 筛选待清理的过期条目 |
+
+**关键设计**：
+- **时间驱动演进**：EPHEMERAL → SHORT_TERM 由时间自然驱动（24h 后若未过期进入 7 天窗口）
+- **质量驱动升级**：SHORT_TERM → LONG_TERM 由 CriticAgent 的 `confidence_policy` 控制（`ok=True` + `confidence ≥ 0.85` 才升级为 `semantic_case`）
+- **永久级别保护**：LONG_TERM 和 PERMANENT 永不过期,且触发 MySQL 落盘,Redis 重启后可从 MySQL 恢复
+- **过期不删运行中任务**：`cleanup_expired()` 仅删除已过期条目,不影响运行中任务
+
+<a id="section-5-5-2"></a>
+### 5.5.2 MySQL 持久化
+
+系统通过 `PersistenceBackend` 将 LONG_TERM 和 PERMANENT 层级的记忆异步落盘到 MySQL,解决 Redis 重启丢失关键经验的问题。
+
+**存储模型**：使用 `memory_store` 表（`INSERT ON DUPLICATE KEY UPDATE` 语义）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `entry_id` | VARCHAR(64) PK | 记忆唯一 ID |
+| `ts_ms` | BIGINT | 创建时间戳（毫秒） |
+| `agent_id` | VARCHAR(64) | Agent ID |
+| `scope` | VARCHAR(16) | shared / private |
+| `kind` | VARCHAR(32) | 业务语义标签 |
+| `memory_type` | VARCHAR(16) | episodic / procedural / semantic |
+| `content` | JSON | 记忆内容（Python dict → JSON 序列化） |
+| `confidence` | DOUBLE | 置信度 [0,1] |
+| `trace_ref` | JSON | 溯源引用（run_id/step_id/command_id） |
+| `tags` | JSON | 标签列表 |
+| `session_id` | VARCHAR(64) | 会话 ID |
+| `run_id` | VARCHAR(128) | 运行 ID |
+| `ttl_tier` | VARCHAR(16) | TTL 层级标记 |
+
+**核心方法**：
+
+| 方法 | 功能 | 调用场景 |
+|------|------|---------|
+| `persist_memory_entry(entry)` | 单条记忆落盘（upsert） | 高置信度记忆写入时异步触发 |
+| `batch_persist_memory(entries)` | 批量落盘 | `flush_to_persistence()` 定期批量同步 |
+| `load_memory_entries(run_id, agent_id, kinds)` | 从 MySQL 加载记忆 | `restore_from_persistence()` 故障恢复 |
+| `persist_skill(skill)` | Skill 落盘（upsert） | Skill 创建/更新时触发 |
+| `load_skills(status)` | 从 MySQL 加载 Skill | Skill 系统恢复 |
+
+**落盘策略**：
+
+```text
+MemoryStore.append(entry)
+  │
+  ├─ TTLPolicyEngine.classify(entry) → tier
+  │
+  ├─ TTLPolicyEngine.should_persist(entry)
+  │   ├─ LONG_TERM / PERMANENT → asyncio.ensure_future(persist_memory_entry())
+  │   └─ EPHEMERAL / SHORT_TERM → 仅 Redis,不落盘
+  │
+  └─ 落盘失败 → 仅写 warning 日志,不中断主流程
+```
+
+**故障恢复**：
+
+```text
+MemoryStore.restore_from_persistence()
+  │
+  ├─ persistence.load_memory_entries() → 从 MySQL 批量加载
+  ├─ 逐条写入 Redis (shared:memory / agent:{id}:memory)
+  └─ 重建 SemanticIndexer 索引
+```
+
+**关键设计**：
+- **Fire-and-forget**：落盘使用 `asyncio.ensure_future()`,不阻塞主执行链路
+- **Upsert 语义**：`INSERT ON DUPLICATE KEY UPDATE` 保证幂等,重复写入不会产生脏数据
+- **同步引擎异步包装**：SQLAlchemy 同步 Engine 通过 `asyncio.to_thread` 包装为异步,避免阻塞事件循环
+- **JSON 透明序列化**：`content`/`trace_ref`/`tags` 等复杂字段自动 JSON 序列化/反序列化,上层无感知
+
 <a id="section-5-6"></a>
 ## 5.6 记忆能解决什么问题
 
@@ -1690,18 +1775,21 @@ steps_summary = "\n".join([
 
 | 缺点 | 风险等级 | 缓解措施 |
 |---|---|---|
-| **进程内语义索引,重启丢失** | 中 | 关键记忆通过 Redis 持久化,语义索引可重建 |
-| **Redis 重启丢失短期记忆** | 中 | Redis 配置 AOF/RDB 持久化,但仍有窗口期 |
+| **进程内语义索引,重启丢失** | 中 | 关键记忆通过 Redis 持久化,语义索引可重建;LONG_TERM/PERMANENT 级别已通过 MySQL 落盘保护 |
+| **Redis 重启丢失短期记忆** | 中 | Redis 配置 AOF/RDB 持久化;LONG_TERM/PERMANENT 可通过 `restore_from_persistence()` 从 MySQL 恢复 |
+| **MySQL 持久化 fire-and-forget 丢数据** | 中 | 落盘失败仅写 warning 日志不中断主流程,但存在丢失窗口;`flush_to_persistence()` 提供定期批量同步作为补充 |
+| **EPHEMERAL 24h TTL 对长任务不友好** | 低 | 长时间运行的任务可能在工作态记忆过期前未完成;缓解：任务完成后的记忆会升级为 SHORT_TERM/LONG_TERM,不受 EPHEMERAL 窗口限制 |
 | **记忆噪音污染规划** | 高 | confidence policy 只沉淀高置信结论,Skill 置信度动态衰减 |
 | **记忆串读风险** | 高 | `memory_cross_talk_rate = 0%` 硬约束,私有记忆隔离 |
-| **Redis List 无限增长** | 中 | 定期清理低置信度记忆,限制 List 长度 |
+| **Redis List 无限增长** | 中 | TTL 分级自动清理过期条目(`cleanup_expired()`),限制 List 长度(`max_list_len=2000`) |
 | **语义索引精度有限** | 中 | 进程内索引不如专业向量库,但降低部署复杂度 |
 | **记忆写入延迟** | 低 | Redis 写入快,但网络抖动可能影响主链 |
 
 **关键风险**：
 - **记忆噪音**：低质量经验污染规划,导致决策退化。缓解：confidence policy + 动态衰减
 - **记忆串读**：私有记忆被非所属 agent 读取。缓解：`memory_cross_talk_rate = 0%` 硬约束
-- **持久化迁移**：Redis → DB 迁移期间的数据一致性风险。缓解：双写 + 校验
+- **持久化链路断裂**：MySQL 不可用时 LONG_TERM/PERMANENT 记忆无法落盘,Redis 重启后永久丢失。缓解：`flush_to_persistence()` 定期批量同步 + 监控 MySQL 健康状态
+- **TTL 边界竞争**：EPHEMERAL (24h) 记忆在任务运行中过期被清理,导致 execution trace 不完整。缓解：任务运行中的记忆通过 `run_id` 关联,清理时跳过运行中任务
 
 <a id="section-5-8"></a>
 ## 5.8 关键代码出处
@@ -1711,6 +1799,8 @@ steps_summary = "\n".join([
 | 统一门面 | [memory_store.py](../src/riskagent_backend/memory/memory_store.py) | `MemoryStore` |
 | Redis 后端 | [redis_backend.py](../src/riskagent_backend/memory/redis_backend.py) | `RedisBackend` |
 | 语义索引 | [semantic_indexer.py](../src/riskagent_backend/memory/semantic_indexer.py) | `SemanticIndexer` |
+| TTL 分级策略 | [ttl_policy.py](../src/riskagent_backend/memory/ttl_policy.py) | `TTLPolicyEngine`, `TTLTier` |
+| MySQL 持久化 | [persistence_backend.py](../src/riskagent_backend/memory/persistence_backend.py) | `PersistenceBackend` |
 | 记忆写入编排 | [memory_operations.py](../src/riskagent_backend/memory/memory_operations.py) | 记忆写入逻辑 |
 | 记忆 schema | [memory_entry.py](../src/riskagent_backend/contracts/memory_entry.py) | `MemoryEntry` |
 | planning 链接入 | [proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) | `retrieve_for_planning()` |

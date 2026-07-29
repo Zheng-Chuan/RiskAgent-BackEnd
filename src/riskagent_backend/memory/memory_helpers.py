@@ -1,7 +1,7 @@
 """
 记忆系统辅助函数模块.
 
-包含 Agent 身份解析、文本处理、经验构建等无状态辅助函数.
+包含 Agent 身份解析、文本处理、快照构建等无状态辅助函数.
 """
 
 from __future__ import annotations
@@ -230,17 +230,13 @@ def annotate_memory_hits_for_planning(
             score += 0.12
             reasons.append("same_session")
 
-        if hit.get("kind") == "semantic_case" and isinstance(hit.get("reusable_snippet"), dict):
-            score += 0.08
-            reasons.append("reusable_snippet")
-
         semantic_score = hit.get("semantic_score")
         if isinstance(semantic_score, (int, float)) and semantic_score > 0:
             score += min(0.2, float(semantic_score) * 0.2)
             reasons.append("semantic_score")
 
         score = round(min(1.0, score), 4)
-        threshold = 0.25 if hit.get("kind") == "semantic_case" else 0.3
+        threshold = 0.3
         hit["relevance_score"] = score
         hit["relevance_reasons"] = reasons
         hit["used_for_planning"] = score >= threshold
@@ -417,88 +413,9 @@ def extract_few_shot_examples(hits: list[dict[str, Any]]) -> list[dict[str, Any]
     return examples
 
 
-# ==================== 经验构建 ====================
-
-
 def derive_summary_text(*, final_output: dict[str, Any]) -> str:
     """从最终输出推导摘要文本."""
     summary = final_output.get("summary")
     if isinstance(summary, str) and summary.strip():
         return summary.strip()
     return json.dumps(final_output, ensure_ascii=False, sort_keys=True)[:200]
-
-
-def derive_lesson_text(*, final_output: dict[str, Any], run_summary: dict[str, Any]) -> str:
-    """推导经验教训文本."""
-    key_points = run_summary.get("key_points") if isinstance(run_summary.get("key_points"), list) else []
-    if key_points:
-        return "lesson " + " ; ".join(str(item) for item in key_points[:3])
-    summary_text = run_summary.get("text")
-    if isinstance(summary_text, str) and summary_text.strip():
-        return f"lesson based on summary {summary_text[:160]}"
-    return f"lesson based on output {derive_summary_text(final_output=final_output)[:160]}"
-
-
-def build_experience_policy(
-    *,
-    run_id: str,
-    critic_final: dict[str, Any],
-    final_output: dict[str, Any],
-) -> dict[str, Any]:
-    """构建经验保存策略."""
-    evidence = critic_final.get("evidence") if isinstance(critic_final.get("evidence"), dict) else {}
-    receipt_command_ids = list(evidence.get("receipt_command_ids") or final_output.get("receipt_command_ids") or [])
-    if not receipt_command_ids:
-        explicit_refs = evidence.get("evidence_refs")
-        if isinstance(explicit_refs, list):
-            receipt_command_ids = [str(item) for item in explicit_refs if str(item).strip()]
-    if not receipt_command_ids:
-        receipt_command_ids = [f"run_trace:{run_id}", f"final_output:{run_id}"]
-    confidence = critic_final.get("confidence")
-    if not isinstance(confidence, (int, float)):
-        confidence = 0.9 if critic_final.get("ok") is True else 0.4
-    reasons: list[str] = []
-    if critic_final.get("ok") is not True:
-        reasons.append("critic_not_ok")
-    if float(confidence) < 0.85:
-        reasons.append("low_confidence")
-    return {
-        "accepted": len(reasons) == 0,
-        "confidence": min(1.0, max(0.0, float(confidence))),
-        "threshold": 0.85,
-        "reasons": reasons or ["accepted"],
-        "evidence_refs": receipt_command_ids,
-    }
-
-
-def build_long_term_experience_content(
-    *,
-    task: dict[str, Any],
-    final_output: dict[str, Any],
-    critic_final: dict[str, Any],
-    policy: dict[str, Any],
-) -> dict[str, Any]:
-    """构建长期经验内容."""
-    summary = critic_final.get("run_summary") if isinstance(critic_final.get("run_summary"), dict) else {}
-    key_points = summary.get("key_points") if isinstance(summary.get("key_points"), list) else []
-    decision_pattern = " -> ".join(str(item) for item in key_points[:3]) or "use receipts to validate final answer"
-    applicable_conditions = [
-        extract_content_text(task)[:120] or "general_multi_agent_task",
-    ]
-    failure_boundary = critic_final.get("issues") if isinstance(critic_final.get("issues"), list) else []
-    if not failure_boundary:
-        failure_boundary = ["low_evidence_or_low_confidence_should_not_reuse"]
-    snapshot_text = (
-        f"decision_pattern={decision_pattern[:120]} "
-        f"conditions={'; '.join(applicable_conditions)[:120]} "
-        f"boundary={'; '.join(str(item) for item in failure_boundary[:2])[:120]}"
-    )
-    return {
-        "text": summary.get("text") or derive_summary_text(final_output=final_output),
-        "agent_perspective": agent_perspective("critic"),
-        "decision_pattern": decision_pattern,
-        "applicable_conditions": applicable_conditions,
-        "failure_boundary": failure_boundary,
-        "evidence_refs": list(policy.get("evidence_refs") or []),
-        "snapshot_text": snapshot_text,
-    }

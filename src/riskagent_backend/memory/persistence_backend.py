@@ -26,8 +26,8 @@ from riskagent_backend.data_access.mysql_engine import get_engine
 
 logger = logging.getLogger(__name__)
 
-# 关键数据类型: 需要立即落盘的 kind
-_CRITICAL_KINDS = {"lesson", "semantic_case"}
+# 关键数据类型: 需要立即落盘的 kind (已废弃,学习产物统一走 Skill 系统)
+_CRITICAL_KINDS: set[str] = set()
 
 # 长期记忆的 memory_type
 _LONG_TERM_TYPES = {"semantic", "procedural"}

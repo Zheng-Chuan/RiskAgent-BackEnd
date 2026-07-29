@@ -7,7 +7,7 @@
 
 - 给 planning 阶段提供历史上下文
 - 给 execution 阶段持续记录 working memory
-- 给 finalize 阶段沉淀 run summary 和 lesson
+- 给 finalize 阶段沉淀 run summary
 - 给 resume 阶段恢复 task graph 和 memory state
 - 给多角色协作提供 shared memory 和 private memory
 
@@ -53,7 +53,7 @@ RiskAgent-BackEnd Memory Architecture
 作用
 
 - 保存所有角色都能看到的共享记忆流
-- 典型条目包括 `plan` `working_memory` `final` `lesson` `approval` `semantic_case`
+- 典型条目包括 `plan` `working_memory` `final` `approval`
 - planning 阶段会从这里取 recent hits 和 shared board
 
 Redis key
@@ -284,8 +284,7 @@ field 对应的 value
     "planning_memory": {
       "hit_count": 2,
       "texts": [
-        "[episodic/plan] previous plan",
-        "[procedural/lesson] lesson use receipts"
+        "[episodic/plan] previous plan"
       ]
     },
     "shared_memory_board": [],
@@ -304,24 +303,6 @@ field 对应的 value
       "receipt_command_ids": [],
       "task_id": "task_monitor_001",
       "session_id": "sess_monitor_001"
-    },
-    "procedural_lesson": {
-      "text": "lesson use receipts before final answer"
-    },
-    "long_term_experience": {
-      "kind": "semantic_case"
-    },
-    "rejected_experience": {},
-    "memory_policy": {
-      "accepted": true,
-      "confidence": 0.92,
-      "threshold": 0.85,
-      "reasons": [
-        "accepted"
-      ],
-      "evidence_refs": [
-        "run_trace:run_proactive_001"
-      ]
     },
     "final_output": {
       "summary": "desk exposure and service metrics checked"
@@ -408,12 +389,52 @@ field 对应的 value
 - 底层也是 Redis List
 - 典型 key 类似 `agent:{agent_id}:memory`
 
-### 2.3 长期经验记忆
+### 2.3 长期经验记忆（Skill 系统）
 
-- 运行结束后沉淀 summary lesson semantic_case
-- 当前不是外部向量库
-- 当前实现是进程内 `SemanticIndexer`
-- 作用是在后续 planning 时做 few-shot 和经验召回
+- 运行结束后沉淀 summary，所有学习产物（procedural/semantic）统一由 Skill 系统管理
+- Skill 系统通过 SkillInjector 在 planning 阶段注入 few-shot，替代原 lesson/semantic_case 检索
+- 当前实现是进程内 `SemanticIndexer`，Skill 系统有独立的索引器
+
+### 2.4 TTL 分级策略
+
+系统通过 `TTLPolicyEngine` 将记忆按 `kind` 自动分配到四个 TTL 层级，实现从工作记忆到长期经验的自动演进：
+
+| TTL 层级 | TTL | 包含的 kind | 说明 |
+|----------|-----|------------|------|
+| `EPHEMERAL` | 24h | `working_memory`, `plan`, `step`, `command`, `receipt`, `approval`, `message`, `private_task_state`, `working` | 运行中的工作态记忆,任务结束后自然过期 |
+| `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
+| `LONG_TERM` | **永久** | `few_shot`, `knowledge`, `fact`, `example` | 经验类型，永不过期，会触发 MySQL 落盘 |
+| `PERMANENT` | **永久** | `skill`, `policy`, `config`, `procedure`, `playbook` | Skill 和系统配置,永不过期,会触发 MySQL 落盘 |
+
+**分类优先级**（5 级决策链）：
+1. entry 中显式指定的 `ttl_tier` 字段
+2. `custom_overrides` 自定义覆盖
+3. `KIND_TO_TTL_TIER` 默认映射表
+4. 根据 `memory_type` 兜底推断（procedural→LONG_TERM, semantic→LONG_TERM, episodic→SHORT_TERM）
+5. 最终兜底 → EPHEMERAL
+
+**演进机制**：
+- **时间驱动**：EPHEMERAL → SHORT_TERM 由时间自然驱动
+- **质量驱动**：学习产物统一由 Skill 系统管理，Skill 的 confidence 策略控制升级
+- **永久保护**：LONG_TERM 和 PERMANENT 永不过期,且触发 MySQL 落盘
+
+### 2.5 MySQL 持久化
+
+系统通过 `PersistenceBackend` 将 LONG_TERM 和 PERMANENT 层级的记忆异步落盘到 MySQL，解决 Redis 重启丢失关键经验的问题。
+
+**存储模型**：使用 `memory_store` 表（`INSERT ON DUPLICATE KEY UPDATE` 语义），核心字段：`entry_id`, `ts_ms`, `agent_id`, `scope`, `kind`, `memory_type`, `content`(JSON), `confidence`, `trace_ref`(JSON), `tags`(JSON), `session_id`, `run_id`, `ttl_tier`。
+
+**落盘触发时机**：
+- `MemoryStore.append()` 写入时，若 `TTLPolicyEngine.should_persist()` 返回 True，则通过 `asyncio.ensure_future()` fire-and-forget 异步落盘
+- `flush_to_persistence()` 定期批量同步，遍历 shared:memory 和各 agent 私有记忆，将 LONG_TERM/PERMANENT 条目批量落盘
+
+**故障恢复**：`restore_from_persistence()` 从 MySQL 批量加载记忆 → 逐条写回 Redis → 重建 SemanticIndexer 索引
+
+**关键设计**：
+- Fire-and-forget：落盘不阻塞主执行链路
+- Upsert 语义：`INSERT ON DUPLICATE KEY UPDATE` 保证幂等
+- 同步引擎异步包装：SQLAlchemy 同步 Engine 通过 `asyncio.to_thread` 包装为异步
+- JSON 透明序列化：`content`/`trace_ref`/`tags` 自动序列化/反序列化
 
 ## 3. 主调用链
 
@@ -452,7 +473,7 @@ TaskGraphExecutor.execute()
 
 执行完成后系统会生成 final output.
 critic 会做 final review.
-然后把 run summary lesson 和可能的 semantic_case 一起沉淀下来.
+然后把 run summary 沉淀下来（学习产物统一由 Skill 系统管理）.
 
 主链大致如下.
 
@@ -488,6 +509,14 @@ proactive_workflow
 Redis 后端
 
 - `src/riskagent_backend/memory/redis_backend.py`
+
+TTL 分级策略
+
+- `src/riskagent_backend/memory/ttl_policy.py`
+
+MySQL 持久化
+
+- `src/riskagent_backend/memory/persistence_backend.py`
 
 语义索引
 

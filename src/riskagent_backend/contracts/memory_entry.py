@@ -118,8 +118,8 @@ def normalize_memory_entry(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def _infer_memory_type(kind: str) -> str:
-    procedural_kinds = {"lesson", "policy", "procedure", "playbook"}
-    semantic_kinds = {"semantic_case", "knowledge", "fact", "example", "few_shot"}
+    procedural_kinds = {"policy", "procedure", "playbook"}
+    semantic_kinds = {"knowledge", "fact", "example", "few_shot"}
     if kind in procedural_kinds:
         return "procedural"
     if kind in semantic_kinds:
