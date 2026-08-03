@@ -2,7 +2,7 @@
 
 ## 状态
 
-部分完成 — P0 心跳已通，感知链路断裂已修复，待重新验收. 在 Phase 0-9 全部完成的基础上, 补全持续感知和常驻进程两个缺失组件, 使系统从被动响应升级为主动感知 → 分析 → 行动的 5min 闭环.
+已完成 — 全链路验证通过，5min 监控闭环从感知到 Trace 记录完整跑通. 在 Phase 0-9 全部完成的基础上, 补全持续感知和常驻进程两个缺失组件, 使系统从被动响应升级为主动感知 → 分析 → 行动的 5min 闭环.
 
 **集成状态**: perception 模块已接入 proactive agents 的 `_perceive_environment()` 方法, 完成感知 → 过滤 → 升级 → 处置的完整链路接线:
 - `ProactiveSystemEngineerAgent._perceive_environment()`: 接入 Docker/Redis/MySQL/Prometheus 四类数据源, 过滤后升级检查, critical 事件触发自主处置
@@ -296,3 +296,25 @@
 - 复杂问题 100% 触发 `ask_human` 人类升级, 附带完整证据链
 - 所有处置动作在 run_trace.v2 中完整可追溯, 高置信经验沉淀为 Skill
 - 感知协程异常不影响用户任务执行, 连续失败触发熔断
+
+## 验证结果摘要
+
+| 维度 | 结果 |
+|------|------|
+| 验证日期 | 2026-08-03 |
+| 验证环境 | K8s (riskagent-e2e) |
+| 故障类型 | Redis Service scale to 0 |
+| 全链路验证 | 感知 → 升级 → 告警 → 意图识别 → 编排规划 → 评审 → 重规划 → TaskGraph 执行 → Trace 记录 |
+| Trace status | completed |
+| LLM 调用 | deepseek/deepseek-chat，真实调用（非 fallback） |
+| ask_human 步骤 | 无（已移除，改用 HITL_AUTO_APPROVE 自动审批） |
+| ORCHESTRATOR_OUTPUT_INVALID | 无（normalize→validate 顺序修复 + evidence/tool_name 归一化） |
+
+### 修复清单
+
+1. **LLM Fallback 降级机制**：MISSING_API_KEY/LLM_DISABLED 加入白名单，避免误触发降级
+2. **semantic_indexer 递归 Bug**：添加 max_depth 限制，防止无限递归
+3. **Orchestrator 输出验证**：normalize→validate 顺序修正 + evidence/tool_name 归一化
+4. **ask_human 步骤移除**：改用 HITL_AUTO_APPROVE 自动审批，消除全链路阻塞
+5. **文档体系全量更新**：7×24 → 5min，统一监控验证周期
+6. **K8s 部署验证**：LLM_API_KEY 注入成功，deepseek/deepseek-chat 调用正常

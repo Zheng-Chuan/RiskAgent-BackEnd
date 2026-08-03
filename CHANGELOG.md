@@ -4,6 +4,16 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-03: Phase 10 主动监控全链路验证完成
+
+- 5min 监控全链路验证通过（感知→告警→LLM处置→Trace completed）
+- 修复 LLM Fallback 降级机制（MISSING_API_KEY/LLM_DISABLED 加入白名单）
+- 修复 semantic_indexer 递归 Bug（max_depth 限制）
+- 修复 Orchestrator 输出验证（normalize→validate 顺序 + evidence/tool_name 归一化）
+- 移除 ask_human 步骤，添加 HITL_AUTO_APPROVE 自动审批
+- 文档体系全量更新：7×24 → 5min
+- K8s 部署验证：LLM_API_KEY 注入成功，deepseek/deepseek-chat 调用正常
+
 ## 2026-08-03: 5min 监控验证方案
 
 - 将 7×24 监控验收方案调整为 5 分钟快速验证

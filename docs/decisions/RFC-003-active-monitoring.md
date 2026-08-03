@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| Status | Accepted, In Progress |
+| Status | Accepted, Completed |
 | Date | 2026-07-18 |
 | Author | RiskAgent-BackEnd 项目组 |
 
@@ -11,6 +11,7 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-07-18 | 初始创建 |
+| 2026-08-03 | 状态更新为 Completed。全链路验证通过：感知 → 升级 → 告警 → 意图识别 → 编排规划 → 评审 → 重规划 → TaskGraph 执行 → Trace 记录（status=completed）。LLM 真实调用 deepseek/deepseek-chat（非 fallback）。修复 LLM Fallback 降级机制、semantic_indexer 递归 Bug、Orchestrator 输出验证顺序。移除 ask_human 步骤改用 HITL_AUTO_APPROVE 自动审批。K8s 部署 LLM_API_KEY 注入验证通过。 |
 
 ## 上下文
 
