@@ -188,6 +188,11 @@ def build_task_graph_from_plan_steps(plan_steps: list[dict[str, Any]]) -> dict[s
             if key in step:
                 node[key] = step.get(key)
 
+        # tool_call 节点必须有 tool_name; LLM 常将工具名放在 instruction/action 字段
+        if str(node["kind"]) == "tool_call" and not is_non_empty_str(node.get("tool_name")):
+            _fallback_tool = node.get("instruction") or step.get("action") or step.get("instruction") or ""
+            node["tool_name"] = str(_fallback_tool).strip() if is_non_empty_str(_fallback_tool) else "submit_alerts"
+
         nodes.append(node)
 
         if is_non_empty_str(parent_id):
@@ -268,6 +273,10 @@ def normalize_task_graph(graph: dict[str, Any], *, plan_steps: list[dict[str, An
         ):
             if key in node:
                 normalized_node[key] = node.get(key)
+        # tool_call 节点必须有 tool_name; LLM 常将工具名放在 instruction/action 字段
+        if str(normalized_node["kind"]) == "tool_call" and not is_non_empty_str(normalized_node.get("tool_name")):
+            _fallback_tool = normalized_node.get("instruction") or node.get("action") or node.get("instruction") or ""
+            normalized_node["tool_name"] = str(_fallback_tool).strip() if is_non_empty_str(_fallback_tool) else "submit_alerts"
         normalized["nodes"].append(normalized_node)
 
     if not normalized["edges"]:

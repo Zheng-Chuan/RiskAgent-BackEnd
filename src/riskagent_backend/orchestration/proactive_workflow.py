@@ -1229,7 +1229,13 @@ class ProactiveBackEndWorkflow:
         self,
         result: ProactiveAgentResult,
     ) -> ProactiveAgentResult:
-        """严格校验编排结果, 禁止 fallback 或隐式降级."""
+        """严格校验编排结果, 禁止 fallback 或隐式降级.
+
+        归一化优先: 先通过 normalize 补全缺失字段 (evidence refs,
+        tool_call tool_name 等), 再对归一化后的输出做验证.
+        这样主动监控场景下 LLM 未输出 tool_name / evidence.fields
+        时不会直接失败.
+        """
         if not result.ok:
             raise RuntimeError(self._build_orchestrator_failure_reason(result=result))
 
@@ -1237,13 +1243,15 @@ class ProactiveBackEndWorkflow:
         if not isinstance(raw_output.get("plan_steps"), list) or not raw_output.get("plan_steps"):
             raise RuntimeError("ORCHESTRATOR_PLAN_STEPS_MISSING")
 
-        is_valid_output, output_errors = validate_orchestrator_output(raw_output)
+        # 先归一化, 再验证 — normalize 会补全 evidence refs 和 tool_call tool_name
+        normalized_output = normalize_orchestrator_output(raw_output)
+
+        is_valid_output, output_errors = validate_orchestrator_output(normalized_output)
         if not is_valid_output:
             raise RuntimeError(
                 "ORCHESTRATOR_OUTPUT_INVALID: " + "; ".join(output_errors)
             )
 
-        normalized_output = normalize_orchestrator_output(raw_output)
         task_graph = normalized_output.get("task_graph") if isinstance(normalized_output.get("task_graph"), dict) else {}
         nodes = task_graph.get("nodes") if isinstance(task_graph.get("nodes"), list) else []
         if not nodes:

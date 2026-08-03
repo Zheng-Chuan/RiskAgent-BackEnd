@@ -156,10 +156,20 @@ class SemanticIndexer:
         return (cosine * 0.7) + (overlap * 0.3)
 
 
-def _make_json_safe(value: Any, *, _visited: set[int] | None = None) -> Any:
-    """确保值可以安全 JSON 序列化, 并处理循环引用."""
+def _make_json_safe(
+    value: Any,
+    *,
+    _visited: set[int] | None = None,
+    _depth: int = 0,
+    _max_depth: int = 50,
+) -> Any:
+    """确保值可以安全 JSON 序列化, 并处理循环引用与过深嵌套."""
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
+
+    # 深度限制: 防止非循环但过深嵌套的结构触发 RecursionError
+    if _depth >= _max_depth:
+        return '<max_depth_exceeded>'
 
     visited = _visited if isinstance(_visited, set) else set()
     obj_id = id(value)
@@ -170,7 +180,12 @@ def _make_json_safe(value: Any, *, _visited: set[int] | None = None) -> Any:
         visited.add(obj_id)
         try:
             return {
-                str(key): _make_json_safe(item, _visited=visited)
+                str(key): _make_json_safe(
+                    item,
+                    _visited=visited,
+                    _depth=_depth + 1,
+                    _max_depth=_max_depth,
+                )
                 for key, item in value.items()
             }
         finally:
@@ -178,7 +193,15 @@ def _make_json_safe(value: Any, *, _visited: set[int] | None = None) -> Any:
     if isinstance(value, (list, tuple, set)):
         visited.add(obj_id)
         try:
-            return [_make_json_safe(item, _visited=visited) for item in value]
+            return [
+                _make_json_safe(
+                    item,
+                    _visited=visited,
+                    _depth=_depth + 1,
+                    _max_depth=_max_depth,
+                )
+                for item in value
+            ]
         finally:
             visited.discard(obj_id)
     return str(value)

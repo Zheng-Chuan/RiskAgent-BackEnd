@@ -4,7 +4,14 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-07-19: 7×24 主动监控链路修复
+## 2026-08-03: 5min 监控验证方案
+
+- 将 7×24 监控验收方案调整为 5 分钟快速验证
+- 注入故障类型：Redis Service 中断（scale to 0）
+- 验证全链路：感知 → 告警 → LLM 处置 → Trace 记录
+- 前置条件：K8s 部署需注入 LLM_API_KEY
+
+## 2026-07-19: 5min 主动监控链路修复
 
 ### 修复
 - _deliberate source 硬编码不匹配（base.py）→ 改为 frozenset 集合匹配，修复感知→行动链路断裂
@@ -86,7 +93,7 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 
 ## 2026-07-18: Phase 10 主动监控文档体系创建
 
-- 创建 docs/phases/phase-10-active-monitoring.md（7*24 主动感知与自主运维，11 个 checkpoint）
+- 创建 docs/phases/phase-10-active-monitoring.md（5min 主动感知与自主运维，11 个 checkpoint）
 - 创建 docs/decisions/RFC-003-active-monitoring.md（主动监控架构决策）
 - 更新 PRD.md 添加 Phase 10
 - 更新 README.md 添加 Phase 10

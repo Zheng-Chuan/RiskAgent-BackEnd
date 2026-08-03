@@ -352,6 +352,8 @@ class BaseAgent:
             "UPSTREAM_BAD_RESPONSE",
             "UPSTREAM_TIMEOUT",
             "UPSTREAM_UNAVAILABLE",
+            "MISSING_API_KEY",
+            "LLM_DISABLED",
         }
     
     def _build_repair_prompt(

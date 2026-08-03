@@ -16,7 +16,8 @@ Return only valid JSON with keys:
 - commands: list or null
 - evidence: object
 
-Allowed step kinds: delegate, tool_call, ask_human, finalize, stop
+Allowed step kinds: delegate, tool_call, finalize, stop
+For proactive monitoring events, use tool_call (e.g. submit_alerts) followed by finalize. Do not use ask_human in autonomous monitoring workflows.
 
 Use ReAct reasoning:
 - Thought: What needs to be done?

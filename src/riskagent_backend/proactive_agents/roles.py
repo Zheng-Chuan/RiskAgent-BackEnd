@@ -267,9 +267,14 @@ Your reasoning chain:
 
 Generate JSON with:
 - intent: object with type, confidence, slots
-- plan_steps: list of steps with kind, step_id, reason, target_agent/instruction
+- plan_steps: list of step objects, each MUST include kind, step_id, reason. For kind=delegate include target_agent. For kind=tool_call include tool_name (e.g. "submit_alerts", "get_service_metrics").
 - commands: list or null
-- evidence"""
+- evidence: object with at least a "fields" key containing a list of referenced field names, e.g. {{"fields": ["intent", "plan_steps"]}}
+
+Allowed tool_name values: submit_alerts, get_service_metrics, collect_metrics, mysql_health, chroma_health, kafka_lag, query_all_positions, query_positions_by_trader, calculate_total_delta, monitor_desk_exposure, search_similar_alerts, write_alert
+
+IMPORTANT: Do not generate plan steps with kind "ask_human" for proactive monitoring events. Use "tool_call" (e.g. submit_alerts) followed by "finalize" instead.
+"""
 
         result = await self._base_agent.ask_json(
             user_prompt=prompt,

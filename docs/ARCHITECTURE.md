@@ -64,7 +64,7 @@
   - [7.7 五道治理关卡](#section-7-7)
   - [7.8 MCP Resources 与 Prompts](#section-7-8)
   - [7.9 关键代码出处](#section-7-9)
-- [8. 7×24 主动监控全流程](#section-8)
+- [8. 5min 主动监控全流程](#section-8)
   - [8.1 启动与停止](#section-8-1)
   - [8.2 监控循环](#section-8-2)
   - [8.3 感知层：数据源采集与过滤](#section-8-3)
@@ -2467,9 +2467,9 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 | 治理决策 | [ADR-004](../docs/decisions/ADR-004-tool-governance.md) | 零信任工具治理体系 |
 
 <a id="section-8"></a>
-# 8. 7×24 主动监控全流程
+# 8. 5min 主动监控全流程
 
-本系统通过 `BaseProactiveAgent` 的后台监控循环实现 7×24 主动感知、自主分析、自主行动能力。主动行为不旁路执行，全部接入统一执行内核。
+本系统通过 `BaseProactiveAgent` 的后台监控循环实现 5min 主动感知、自主分析、自主行动能力。主动行为不旁路执行，全部接入统一执行内核。
 
 <a id="section-8-1"></a>
 ## 8.1 启动与停止
@@ -2700,7 +2700,7 @@ proactive_event → workflow.start_from_event()
 **关键设计**：
 - 主动性不是无限制的，受预算约束
 - 熔断后系统降级为被动响应模式
-- 成本可控是 7×24 主动监控的前提
+- 成本可控是 5min 主动监控的前提
 
 <a id="section-8-9"></a>
 ## 8.9 关键代码出处

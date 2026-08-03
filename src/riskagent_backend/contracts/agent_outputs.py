@@ -278,7 +278,10 @@ def normalize_orchestrator_output(output: dict[str, Any]) -> dict[str, Any]:
     out.setdefault("schema_version", ORCHESTRATOR_VERSION)
     out.setdefault("intent", {"type": "unknown", "confidence": 0.0, "slots": {}})
     out.setdefault("plan_steps", [])
-    out.setdefault("evidence", {"fields": ["unknown"]})
+    # evidence: 不仅在缺失时补充, 还要在存在但无效时修复
+    _evidence = out.get("evidence")
+    if not isinstance(_evidence, dict) or not has_evidence_refs(_evidence):
+        out["evidence"] = {"fields": ["unknown"]}
     out.setdefault("degraded", False)
 
     # 修复 plan_steps

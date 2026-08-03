@@ -81,7 +81,7 @@
 | Phase 7 | 调度与多平台 | ✓ 抽象层收口完成 | [phase-7-scheduling-gateway.md](./phases/phase-7-scheduling-gateway.md) |
 | Phase 8 | 提示词优化与自我改进闭环 | ✓ 完成 | [phase-8-prompt-optimization.md](./phases/phase-8-prompt-optimization.md) |
 | Phase 9 | 证据优先收口与验收补强 | ✓ 完成 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
-| Phase 10 | 7*24 主动感知与自主运维 | 修复中 — 感知链路断裂已修复，待重新验收 |
+| Phase 10 | 5min 主动感知与自主运维 | 修复中 — 感知链路断裂已修复，待重新验收 |
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | 规划中 — RFC-005 Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | Phase 12 | BDI 信念去重与意图幂等性修复 | 规划中 — RFC-006 Proposed | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | 开发中 | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
@@ -99,7 +99,7 @@
 | run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
 | Hermes 五柱升级提案 | Accepted and Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
 | Evidence-First 收口提案 | Accepted and Completed | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
-| 7*24 主动感知与自主运维架构 | Accepted, In Progress | [RFC-003](./decisions/RFC-003-active-monitoring.md) |
+| 5min 主动感知与自主运维架构 | Accepted, In Progress | [RFC-003](./decisions/RFC-003-active-monitoring.md) |
 | K8s 全量迁移 | Accepted | [RFC-004](./decisions/RFC-004-k8s-migration.md) |
 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | BDI 信念去重与意图幂等性修复 | Proposed | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
