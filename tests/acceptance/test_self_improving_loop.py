@@ -157,6 +157,7 @@ def _make_skill(**kwargs: Any) -> dict[str, Any]:
     """构造测试用 Skill dict."""
     base: dict[str, Any] = {
         "name": "交易台风险排查",
+        "summary": "从持仓查询到限额核对的完整风险排查工作流",
         "tags": ["risk", "trading"],
         "applicable_conditions": ["延迟异常", "告警触发"],
         "steps": [

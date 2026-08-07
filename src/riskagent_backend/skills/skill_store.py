@@ -53,7 +53,15 @@ class SkillStore:
     # ==================== 内部工具 ====================
 
     def _build_skill_text(self, skill: dict[str, Any]) -> str:
-        """构建 Skill 的语义文本, 用于向量化检索."""
+        """构建 Skill 的语义文本, 用于向量化检索.
+
+        优先使用 summary 字段（语义锡点）;
+        如果 summary 不存在或为空（防御性处理），fallback 到全字段拼接.
+        """
+        summary = skill.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary.strip()
+
         parts: list[str] = []
         name = skill.get("name")
         if isinstance(name, str) and name.strip():

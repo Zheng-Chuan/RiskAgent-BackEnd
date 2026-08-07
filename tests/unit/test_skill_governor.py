@@ -19,6 +19,7 @@ def _make_skill(**kwargs) -> dict:
     """构造测试用 Skill dict."""
     base = {
         "name": "交易台风险排查",
+        "summary": "从持仓查询到限额核对的完整风险排查工作流",
         "tags": ["risk", "trading"],
         "applicable_conditions": ["延迟异常", "告警触发"],
         "steps": [
@@ -331,6 +332,7 @@ async def test_merge_duplicate_skills_merges_high_similarity():
     # 创建两个内容完全相同的 Skill (不同置信度)
     common_data = {
         "name": "交易台风险排查",
+        "summary": "从持仓查询到限额核对的完整风险排查工作流",
         "tags": ["risk", "trading"],
         "applicable_conditions": ["延迟异常", "告警触发"],
         "steps": [
@@ -380,6 +382,7 @@ async def test_merge_duplicate_skills_no_merge_low_similarity():
     await store.create(
         _make_skill(
             name="数据库备份恢复",
+            summary="数据库备份失败后的磁盘检查与恢复工作流",
             tags=["database"],
             applicable_conditions=["备份失败"],
             steps=[{"description": "检查磁盘空间", "expected_outcome": "确认空间"}],

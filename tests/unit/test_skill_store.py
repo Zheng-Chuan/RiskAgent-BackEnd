@@ -15,6 +15,7 @@ def _make_skill(**kwargs) -> dict:
     """构造测试用 Skill dict."""
     base = {
         "name": "交易台风险排查",
+        "summary": "从持仓查询到限额核对的完整风险排查工作流",
         "tags": ["risk", "trading"],
         "applicable_conditions": ["延迟异常", "告警触发"],
         "steps": [
@@ -236,10 +237,10 @@ async def test_search_filters_non_active():
     from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
-    await store.create(_make_skill(name="活跃技能", status="active"))
-    await store.create(_make_skill(name="废弃技能", status="deprecated"))
+    await store.create(_make_skill(name="活跃技能", status="active", summary="风险排查活跃技能"))
+    await store.create(_make_skill(name="废弃技能", status="deprecated", summary="风险排查废弃技能"))
 
-    hits = await store.search("技能")
+    hits = await store.search("风险排查")
     names = [h["name"] for h in hits]
     assert "活跃技能" in names
     assert "废弃技能" not in names
@@ -251,13 +252,13 @@ async def test_search_min_confidence_filter():
     from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
-    await store.create(_make_skill(name="低置信度技能", confidence=0.3))
-    await store.create(_make_skill(name="高置信度技能", confidence=0.9))
+    await store.create(_make_skill(name="低置信度技能", confidence=0.3, summary="风险排查低置信度"))
+    await store.create(_make_skill(name="高置信度技能", confidence=0.9, summary="风险排查高置信度"))
 
-    all_hits = await store.search("技能", min_confidence=0.0)
+    all_hits = await store.search("风险排查", min_confidence=0.0)
     assert len(all_hits) >= 2
 
-    high_only = await store.search("技能", min_confidence=0.5)
+    high_only = await store.search("风险排查", min_confidence=0.5)
     assert len(high_only) == 1
     assert high_only[0]["name"] == "高置信度技能"
 
@@ -283,6 +284,7 @@ async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full(
         _make_skill(
             skill_id="skill_target",
             name="集成测试 Skill",
+            summary="集成测试风险排查技能",
             tags=["risk", "integration"],
             applicable_conditions=["集成测试"],
         )
@@ -292,6 +294,7 @@ async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full(
             _make_skill(
                 skill_id=f"skill_noise_{index}",
                 name=f"噪声技能{index}",
+                summary=f"噪声技能摘要{index}",
                 tags=["noise"],
             )
         )
@@ -368,6 +371,7 @@ async def test_find_similar_high_threshold():
     )
     candidate = _make_skill(
         name="合规报告生成",
+        summary="合规审计报告生成与归档工作流",
         tags=["compliance"],
         steps=[{"description": "收集审计数据", "expected_outcome": "生成报告"}],
     )
@@ -480,6 +484,48 @@ async def test_update_confidence_nonexistent_raises():
     store = SkillStore()
     with pytest.raises(KeyError):
         await store.update_confidence("skill_nonexistent", True)
+
+
+# ==================== _build_skill_text: summary 优先 ====================
+
+
+@pytest.mark.asyncio
+async def test_build_skill_text_uses_summary_when_present():
+    """summary 存在且非空时，_build_skill_text 优先返回 summary."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    skill = _make_skill(summary="摘要文本优先使用")
+    text = store._build_skill_text(skill)
+    assert text == "摘要文本优先使用"
+
+
+@pytest.mark.asyncio
+async def test_build_skill_text_fallback_when_summary_empty():
+    """summary 为空时，_build_skill_text fallback 到全字段拼接."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    skill = _make_skill(summary="")
+    text = store._build_skill_text(skill)
+    # fallback 包含 name, tags, conditions, steps 等
+    assert "交易台风险排查" in text
+    assert len(text) > len("交易台风险排查")
+    # summary 为空时不只返回 summary
+    assert text != ""
+
+
+@pytest.mark.asyncio
+async def test_build_skill_text_fallback_when_summary_missing():
+    """summary 字段缺失时，_build_skill_text fallback 到全字段拼接."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    skill = _make_skill()
+    del skill["summary"]
+    text = store._build_skill_text(skill)
+    assert "交易台风险排查" in text
+    assert len(text) > len("交易台风险排查")
 
 
 # ==================== health_check ====================

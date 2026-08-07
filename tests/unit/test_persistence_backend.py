@@ -71,6 +71,7 @@ def _create_sqlite_engine() -> Engine:
             CREATE TABLE skill_store (
                 skill_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
+                summary TEXT,
                 tags TEXT,
                 applicable_conditions TEXT,
                 steps TEXT,
@@ -192,12 +193,12 @@ class MockPersistenceBackend:
             return False
         sql = sa_text("""
             INSERT OR REPLACE INTO skill_store (
-                skill_id, name, tags, applicable_conditions, steps,
+                skill_id, name, summary, tags, applicable_conditions, steps,
                 failure_boundary, confidence, write_origin, status,
                 usage_count, success_rate, revision_history,
                 source_run_id, source_agent_id, created_at, updated_at
             ) VALUES (
-                :skill_id, :name, :tags, :applicable_conditions, :steps,
+                :skill_id, :name, :summary, :tags, :applicable_conditions, :steps,
                 :failure_boundary, :confidence, :write_origin, :status,
                 :usage_count, :success_rate, :revision_history,
                 :source_run_id, :source_agent_id, :created_at, :updated_at
@@ -219,7 +220,7 @@ class MockPersistenceBackend:
             params["status"] = status
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         sql = sa_text(f"""
-            SELECT skill_id, name, tags, applicable_conditions, steps,
+            SELECT skill_id, name, summary, tags, applicable_conditions, steps,
                    failure_boundary, confidence, write_origin, status,
                    usage_count, success_rate, revision_history,
                    source_run_id, source_agent_id, created_at, updated_at
@@ -297,6 +298,7 @@ def _make_skill(**kwargs) -> dict[str, Any]:
     base: dict[str, Any] = {
         "skill_id": "skill_test001",
         "name": "交易台风险排查",
+        "summary": "从持仓查询到限额核对的完整风险排查工作流",
         "tags": ["risk", "trading"],
         "applicable_conditions": ["延迟异常", "告警触发"],
         "steps": [
@@ -377,6 +379,7 @@ async def test_persist_and_load_skill(mock_backend):
     result = loaded[0]
     assert result["skill_id"] == "skill_test001"
     assert result["name"] == "交易台风险排查"
+    assert result["summary"] == "从持仓查询到限额核对的完整风险排查工作流"
     assert result["tags"] == ["risk", "trading"]
     assert result["confidence"] == pytest.approx(0.85)
     assert result["status"] == "active"
@@ -562,3 +565,32 @@ async def test_skill_json_fields_roundtrip(mock_backend):
     assert len(result["steps"]) == 2
     assert result["steps"][0]["description"] == "查询持仓"
     assert result["revision_history"][0]["action"] == "created"
+
+
+@pytest.mark.asyncio
+async def test_skill_summary_roundtrip(mock_backend):
+    """测试 summary 字段持久化往返."""
+    skill = _make_skill(summary="一个用于测试的技能摘要")
+    ok = await mock_backend.persist_skill(skill)
+    assert ok is True
+
+    loaded = await mock_backend.load_skills()
+    assert len(loaded) == 1
+    result = loaded[0]
+    assert result["summary"] == "一个用于测试的技能摘要"
+
+
+@pytest.mark.asyncio
+async def test_skill_upsert_updates_summary(mock_backend):
+    """测试 upsert 时 summary 被更新."""
+    skill1 = _make_skill(summary="原始摘要")
+    ok1 = await mock_backend.persist_skill(skill1)
+    assert ok1 is True
+
+    skill2 = _make_skill(summary="更新后的摘要")
+    ok2 = await mock_backend.persist_skill(skill2)
+    assert ok2 is True
+
+    loaded = await mock_backend.load_skills()
+    assert len(loaded) == 1
+    assert loaded[0]["summary"] == "更新后的摘要"

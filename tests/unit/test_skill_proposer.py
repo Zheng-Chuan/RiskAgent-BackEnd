@@ -111,6 +111,11 @@ async def test_high_quality_produces_proposal():
     assert result["skill_id"].startswith("skill_")
     assert result["reason"] == "no_similar_skill_found"
 
+    # 验证 summary 已生成
+    stored = await store.get(result["skill_id"])
+    assert stored is not None
+    assert stored["summary"]  # 非空
+
 
 # ==================== 2. 低质量不产生提案 ====================
 
@@ -300,6 +305,9 @@ async def test_proposal_content_correctness():
 
     # source_agent_id
     assert stored["source_agent_id"] == "skill_proposer"
+
+    # summary 已生成
+    assert stored["summary"]
 
 
 @pytest.mark.asyncio
@@ -636,3 +644,116 @@ async def test_payload_style_task():
     assert "查询交易台" in stored["name"]
     # applicable_conditions 从 payload.content 提取
     assert any("查询交易台" in c for c in stored["applicable_conditions"])
+
+
+# ==================== 8. summary 生成测试 ====================
+
+
+@pytest.mark.asyncio
+async def test_generate_summary_with_mocked_llm():
+    """测试 LLM 成功生成 summary."""
+    from riskagent_backend.skills import SkillProposer, SkillStore
+    from unittest.mock import AsyncMock, MagicMock
+
+    store = SkillStore()
+    mock_client = MagicMock()
+    mock_client.chat_completions = AsyncMock(
+        return_value={
+            "choices": [
+                {"message": {"content": "一个简洁的技能摘要描述"}}
+            ]
+        }
+    )
+    proposer = SkillProposer(store, llm_client=mock_client)
+
+    summary = await proposer._generate_summary(
+        task={"intent": "query_positions", "payload": {"content": "查询持仓"}},
+        orchestrator_output={
+            "intent": {"type": "query_positions"},
+            "plan_steps": [{"instruction": "查持仓"}],
+        },
+    )
+    assert summary == "一个简洁的技能摘要描述"
+
+
+@pytest.mark.asyncio
+async def test_generate_summary_fallback_on_llm_error():
+    """LLM 调用失败时使用 fallback 摘要."""
+    from riskagent_backend.skills import SkillProposer, SkillStore
+    from unittest.mock import AsyncMock, MagicMock
+
+    store = SkillStore()
+    mock_client = MagicMock()
+    mock_client.chat_completions = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+    proposer = SkillProposer(store, llm_client=mock_client)
+
+    summary = await proposer._generate_summary(
+        task={"intent": "query_positions"},
+        orchestrator_output={"intent": {"type": "query_positions"}},
+    )
+    assert summary  # 非空
+    assert "query_positions" in summary
+
+
+@pytest.mark.asyncio
+async def test_generate_summary_fallback_uses_both_intents():
+    """fallback 摘要拼接 task.intent + orchestrator_output.intent."""
+    from riskagent_backend.skills import SkillProposer, SkillStore
+    from unittest.mock import AsyncMock, MagicMock
+
+    store = SkillStore()
+    mock_client = MagicMock()
+    mock_client.chat_completions = AsyncMock(side_effect=RuntimeError("fail"))
+    proposer = SkillProposer(store, llm_client=mock_client)
+
+    summary = await proposer._generate_summary(
+        task={"intent": "task_intent"},
+        orchestrator_output={"intent": {"type": "orch_intent"}},
+    )
+    assert "task_intent" in summary
+    assert "orch_intent" in summary
+
+
+@pytest.mark.asyncio
+async def test_generate_summary_truncates_to_80_chars():
+    """LLM 返回的 summary 被截断到 80 字."""
+    from riskagent_backend.skills import SkillProposer, SkillStore
+    from unittest.mock import AsyncMock, MagicMock
+
+    store = SkillStore()
+    long_text = "这是一个非常非常长的摘要文本" * 20  # 远超 80 字
+    mock_client = MagicMock()
+    mock_client.chat_completions = AsyncMock(
+        return_value={
+            "choices": [{"message": {"content": long_text}}]
+        }
+    )
+    proposer = SkillProposer(store, llm_client=mock_client)
+
+    summary = await proposer._generate_summary(
+        task={"intent": "test"},
+        orchestrator_output={"intent": {"type": "test"}},
+    )
+    assert len(summary) <= 80
+
+
+@pytest.mark.asyncio
+async def test_proposal_summary_in_created_skill():
+    """创建的 Skill 包含 summary 字段."""
+    from riskagent_backend.skills import SkillProposer, SkillStore
+
+    store = SkillStore()
+    proposer = SkillProposer(store)
+
+    result = await proposer.propose(
+        run_id="run-summary-001",
+        task=_make_task(),
+        critic_final=_make_critic_final(),
+        orchestrator_output=_make_orchestrator_output(),
+    )
+
+    assert result["action"] == "created"
+    stored = await store.get(result["skill_id"])
+    assert stored is not None
+    assert stored["summary"]  # 非空
+    assert len(stored["summary"]) <= 80

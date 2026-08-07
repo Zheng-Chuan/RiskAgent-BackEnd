@@ -50,6 +50,7 @@ def normalize_skill(d: dict[str, Any]) -> dict[str, Any]:
     out.setdefault("usage_count", 0)
     out.setdefault("success_rate", 0.0)
     out.setdefault("revision_history", [])
+    out.setdefault("summary", "")
     out.setdefault("source_run_id", None)
     out.setdefault("source_agent_id", None)
 
@@ -119,6 +120,7 @@ def normalize_skill(d: dict[str, Any]) -> dict[str, Any]:
 
     out["write_origin"] = str(out.get("write_origin") or "auto")
     out["status"] = str(out.get("status") or "active")
+    out["summary"] = str(out.get("summary") or "")
 
     # source_run_id / source_agent_id -> str | None
     if not isinstance(out.get("source_run_id"), str) or not out["source_run_id"].strip():
@@ -146,6 +148,8 @@ def validate_skill(d: dict[str, Any]) -> dict[str, Any]:
         errors.append("bad_skill_id")
     if not _is_non_empty_str(nd.get("name")):
         errors.append("bad_name")
+    if not _is_non_empty_str(nd.get("summary")):
+        errors.append("bad_summary")
     if nd.get("status") not in SKILL_STATUS_VALUES:
         errors.append("unsupported_status")
     if nd.get("write_origin") not in WRITE_ORIGIN_VALUES:
@@ -201,6 +205,7 @@ class Skill:
     usage_count: int
     success_rate: float
     revision_history: list[dict[str, Any]]
+    summary: str = ""
     source_run_id: str | None = None
     source_agent_id: str | None = None
 
@@ -221,6 +226,7 @@ class Skill:
             "usage_count": int(self.usage_count),
             "success_rate": float(self.success_rate),
             "revision_history": [dict(r) for r in self.revision_history],
+            "summary": self.summary,
             "source_run_id": self.source_run_id,
             "source_agent_id": self.source_agent_id,
         }
@@ -252,6 +258,7 @@ class Skill:
                 if isinstance(nd.get("revision_history"), list)
                 else []
             ),
+            summary=str(nd.get("summary")),
             source_run_id=(
                 nd.get("source_run_id") if isinstance(nd.get("source_run_id"), str) else None
             ),

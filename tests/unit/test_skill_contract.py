@@ -24,6 +24,7 @@ def test_validate_skill_normal_input():
     skill = validate_skill(
         {
             "name": "交易台风险排查",
+            "summary": "从持仓查询到限额核对的完整风险排查工作流",
             "tags": ["risk", "trading"],
             "applicable_conditions": ["延迟异常"],
             "steps": [
@@ -34,6 +35,7 @@ def test_validate_skill_normal_input():
     )
     assert skill["schema_version"] == SKILL_SCHEMA_VERSION
     assert skill["name"] == "交易台风险排查"
+    assert skill["summary"] == "从持仓查询到限额核对的完整风险排查工作流"
     assert skill["tags"] == ["risk", "trading"]
     assert skill["applicable_conditions"] == ["延迟异常"]
     assert skill["status"] == "active"
@@ -95,8 +97,35 @@ def test_validate_skill_step_without_description():
 
     with pytest.raises(ValueError, match="bad_step_0"):
         validate_skill(
-            {"name": "test", "steps": [{"expected_outcome": "no desc"}]}
+            {"name": "test", "summary": "测试摘要", "steps": [{"expected_outcome": "no desc"}]}
         )
+
+
+# ==================== summary 校验 ====================
+
+
+def test_validate_skill_missing_summary():
+    """测试 validate_skill 缺少 summary 字段."""
+    from riskagent_backend.skills.skill_contract import validate_skill
+
+    with pytest.raises(ValueError, match="bad_summary"):
+        validate_skill({"name": "test"})
+
+
+def test_validate_skill_empty_summary():
+    """测试 validate_skill 空 summary."""
+    from riskagent_backend.skills.skill_contract import validate_skill
+
+    with pytest.raises(ValueError, match="bad_summary"):
+        validate_skill({"name": "test", "summary": ""})
+
+
+def test_validate_skill_whitespace_summary():
+    """测试 validate_skill 纯空白 summary."""
+    from riskagent_backend.skills.skill_contract import validate_skill
+
+    with pytest.raises(ValueError, match="bad_summary"):
+        validate_skill({"name": "test", "summary": "   "})
 
 
 # ==================== normalize_skill ====================
@@ -125,6 +154,7 @@ def test_normalize_skill_defaults():
     assert nd["usage_count"] == 0
     assert nd["success_rate"] == 0.0
     assert nd["revision_history"] == []
+    assert nd["summary"] == ""
     assert nd["source_run_id"] is None
     assert nd["source_agent_id"] is None
 
@@ -169,6 +199,7 @@ def test_skill_from_dict_to_dict_roundtrip():
 
     original = {
         "name": "风险排查技能",
+        "summary": "从告警触发到持仓核对再到限额确认的排查流程",
         "tags": ["risk"],
         "applicable_conditions": ["告警触发"],
         "steps": [
@@ -184,6 +215,7 @@ def test_skill_from_dict_to_dict_roundtrip():
     d = skill.to_dict()
 
     assert d["name"] == "风险排查技能"
+    assert d["summary"] == "从告警触发到持仓核对再到限额确认的排查流程"
     assert d["tags"] == ["risk"]
     assert d["applicable_conditions"] == ["告警触发"]
     assert d["steps"] == [{"description": "step1", "expected_outcome": "outcome1"}]

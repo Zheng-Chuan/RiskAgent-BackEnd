@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS memory_store (
 CREATE TABLE IF NOT EXISTS skill_store (
     skill_id VARCHAR(128) PRIMARY KEY COMMENT 'Skill 唯一ID',
     name VARCHAR(256) NOT NULL COMMENT 'Skill 名称',
+    summary TEXT COMMENT 'Skill 摘要, 30-80字, LLM生成',
     tags JSON COMMENT '标签列表',
     applicable_conditions JSON COMMENT '适用条件列表',
     steps JSON COMMENT '执行步骤列表',

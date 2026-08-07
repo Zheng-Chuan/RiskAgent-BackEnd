@@ -101,6 +101,7 @@ def _build_skill_row(skill: dict[str, Any]) -> dict[str, Any]:
     return {
         "skill_id": str(skill.get("skill_id") or ""),
         "name": str(skill.get("name") or ""),
+        "summary": str(skill.get("summary") or ""),
         "tags": _serialize_json(skill.get("tags") or []),
         "applicable_conditions": _serialize_json(skill.get("applicable_conditions") or []),
         "steps": _serialize_json(skill.get("steps") or []),
@@ -123,6 +124,7 @@ def _parse_skill_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "skill_id": row.get("skill_id"),
         "name": row.get("name") or "",
+        "summary": row.get("summary") or "",
         "tags": _deserialize_json(row.get("tags")) or [],
         "applicable_conditions": _deserialize_json(row.get("applicable_conditions")) or [],
         "steps": _deserialize_json(row.get("steps")) or [],
@@ -330,18 +332,19 @@ class PersistenceBackend:
 
         sql = text("""
             INSERT INTO skill_store (
-                skill_id, name, tags, applicable_conditions, steps,
+                skill_id, name, summary, tags, applicable_conditions, steps,
                 failure_boundary, confidence, write_origin, status,
                 usage_count, success_rate, revision_history,
                 source_run_id, source_agent_id, created_at, updated_at
             ) VALUES (
-                :skill_id, :name, :tags, :applicable_conditions, :steps,
+                :skill_id, :name, :summary, :tags, :applicable_conditions, :steps,
                 :failure_boundary, :confidence, :write_origin, :status,
                 :usage_count, :success_rate, :revision_history,
                 :source_run_id, :source_agent_id, :created_at, :updated_at
             )
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
+                summary = VALUES(summary),
                 tags = VALUES(tags),
                 applicable_conditions = VALUES(applicable_conditions),
                 steps = VALUES(steps),
@@ -382,7 +385,7 @@ class PersistenceBackend:
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         sql = text(f"""
-            SELECT skill_id, name, tags, applicable_conditions, steps,
+            SELECT skill_id, name, summary, tags, applicable_conditions, steps,
                    failure_boundary, confidence, write_origin, status,
                    usage_count, success_rate, revision_history,
                    source_run_id, source_agent_id, created_at, updated_at

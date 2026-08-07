@@ -15,6 +15,7 @@ import logging
 import re
 from typing import Any
 
+from riskagent_backend.llm import LlmClient, extract_first_text
 from riskagent_backend.skills.skill_store import SkillStore
 
 logger = logging.getLogger(__name__)
@@ -23,9 +24,16 @@ logger = logging.getLogger(__name__)
 class SkillProposer:
     """从高质量完成的 run 中提取可复用模式, 生成 Skill 提案."""
 
-    def __init__(self, skill_store: SkillStore, *, confidence_threshold: float = 0.85) -> None:
+    def __init__(
+        self,
+        skill_store: SkillStore,
+        *,
+        confidence_threshold: float = 0.85,
+        llm_client: LlmClient | None = None,
+    ) -> None:
         self._store = skill_store
         self._confidence_threshold = confidence_threshold
+        self._llm_client = llm_client
 
     async def propose(
         self,
@@ -65,7 +73,7 @@ class SkillProposer:
             }
 
         # 2. 提取可复用模式
-        skill_data = self._extract_skill_pattern(
+        skill_data = await self._extract_skill_pattern(
             run_id=run_id,
             task=task,
             critic_final=critic_final,
@@ -104,6 +112,7 @@ class SkillProposer:
                     "steps": skill_data["steps"],
                     "failure_boundary": skill_data["failure_boundary"],
                     "confidence": skill_data["confidence"],
+                    "summary": skill_data["summary"],
                     "source_run_id": run_id,
                 }
                 # 添加 revision history
@@ -154,7 +163,7 @@ class SkillProposer:
 
     # ==================== 模式提取 ====================
 
-    def _extract_skill_pattern(
+    async def _extract_skill_pattern(
         self,
         *,
         run_id: str,
@@ -171,6 +180,9 @@ class SkillProposer:
         applicable_conditions = self._build_applicable_conditions(content, task, intent)
         steps = self._build_steps(orchestrator_output)
         failure_boundary = self._build_failure_boundary(critic_final)
+        summary = await self._generate_summary(
+            task=task, orchestrator_output=orchestrator_output
+        )
 
         ok = bool(critic_final.get("ok", False))
         confidence = critic_final.get("confidence")
@@ -186,6 +198,7 @@ class SkillProposer:
             "confidence": float(confidence),
             "write_origin": "auto",
             "status": "active",
+            "summary": summary,
             "source_run_id": run_id,
             "source_agent_id": "skill_proposer",
         }
@@ -331,3 +344,105 @@ class SkillProposer:
             return f"risk_level={risk_level.strip()}"
 
         return "no_known_failure_boundary"
+
+    # ==================== summary 生成 ====================
+
+    async def _generate_summary(
+        self,
+        *,
+        task: dict[str, Any],
+        orchestrator_output: dict[str, Any],
+    ) -> str:
+        """调用 LLM 生成一句话 Skill 摘要.
+
+        参考 AutoSkill extraction prompt 设计原则:
+        - 只提取持久的、可复用的约束、策略、工作流
+        - 不提取一次性请求或通用任务
+        - 捕捉"如何做类似任务"而非"这个实例的事实"
+        - 移除案例特定实体，只保留可移植规则
+
+        如果 LLM 调用失败，fallback 到规则提取的短摘要.
+        """
+        prompt = self._build_summary_prompt(task, orchestrator_output)
+        try:
+            client = self._llm_client or LlmClient()
+            resp = await client.chat_completions(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "你是一个技能摘要助手。请用一句话（30-80字）概括以下任务的可复用工作流模式。"
+                            "只提取持久的、可复用的约束和策略，不要提取一次性请求或案例特定实体。"
+                            "捕捉\"如何做类似任务\"而非\"这个实例的事实\"。"
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=128,
+                use_cache=False,
+                agent_name="skill_proposer",
+                stage="skill_summary",
+            )
+            text = extract_first_text(resp).strip()
+            if text:
+                # 截断到 80 字以内
+                return text[:80]
+        except Exception as exc:
+            logger.warning("LLM summary generation failed, using fallback: %s", exc)
+        return self._fallback_summary(task, orchestrator_output)
+
+    def _build_summary_prompt(
+        self, task: dict[str, Any], orchestrator_output: dict[str, Any]
+    ) -> str:
+        """构建 summary 生成的 LLM prompt."""
+        task_intent = self._extract_intent(task)
+        orch_intent = orchestrator_output.get("intent")
+        if isinstance(orch_intent, dict):
+            orch_intent_str = orch_intent.get("type", "")
+        else:
+            orch_intent_str = str(orch_intent or "")
+
+        plan_steps = orchestrator_output.get("plan_steps") or []
+        steps_text = "\n".join(
+            f"  {i+1}. {s.get('instruction', s.get('reason', ''))}"
+            for i, s in enumerate(plan_steps)
+            if isinstance(s, dict)
+        )
+
+        task_desc = task.get("payload", {}).get("content") if isinstance(task.get("payload"), dict) else ""
+        if not task_desc:
+            task_desc = task.get("content", {}).get("description", "") if isinstance(task.get("content"), dict) else ""
+
+        return (
+            f"任务意图: {task_intent}\n"
+            f"编排意图: {orch_intent_str}\n"
+            f"任务描述: {task_desc}\n"
+            f"执行步骤:\n{steps_text}\n\n"
+            "请用一句话（30-80字）概括这个任务的可复用工作流模式。"
+        )
+
+    def _fallback_summary(
+        self, task: dict[str, Any], orchestrator_output: dict[str, Any]
+    ) -> str:
+        """规则提取的 fallback 摘要.
+
+        从 task.intent + orchestrator_output.intent 拼接短摘要.
+        """
+        intent = self._extract_intent(task)
+        orch_intent = orchestrator_output.get("intent")
+        if isinstance(orch_intent, dict):
+            orch_type = str(orch_intent.get("type", ""))
+        elif isinstance(orch_intent, str):
+            orch_type = orch_intent
+        else:
+            orch_type = ""
+
+        parts = [intent]
+        if orch_type and orch_type != intent:
+            parts.append(orch_type)
+
+        summary = " | ".join(parts)
+        if not summary.strip():
+            summary = "unnamed_skill_pattern"
+        return summary[:80]
