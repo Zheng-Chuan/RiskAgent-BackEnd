@@ -117,6 +117,12 @@ class Settings(BaseSettings):
         default=256, description="query 改写 LRU 缓存容量"
     )
 
+    # ---- Skill hybrid retrieval 配置 (RFC-005 需求四) ----
+    skill_hybrid_vector_weight: float = Field(
+        default=0.7,
+        description="Hybrid 检索向量权重 alpha (0.0=纯BM25, 1.0=纯向量, 默认0.7)",
+    )
+
     # ---- 派生属性 ----
     @property
     def mysql_dsn(self) -> str:

@@ -277,7 +277,7 @@ async def test_search_empty_query_returns_empty():
 
 @pytest.mark.asyncio
 async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full():
-    """测试 search 在语义结果已满时仍会合并关键词兜底命中."""
+    """测试 Hybrid 检索: 向量结果已满时 BM25 通道仍合并命中."""
     from riskagent_backend.skills import SkillStore
 
     store = SkillStore()
@@ -302,14 +302,14 @@ async def test_search_keyword_fallback_still_merges_when_semantic_hits_are_full(
 
     async def fake_semantic_search(_query: str, limit: int = 5):
         hits = []
-        for index in range(limit):
+        for index in range(min(limit, 5)):
             noise = await store.get(f"skill_noise_{index}")
             assert noise is not None
             hits.append({"skill": noise, "semantic_score": 0.9 - (index * 0.01)})
         return hits
 
     store._indexer.search = fake_semantic_search  # type: ignore[method-assign]
-    hits = await store.search("集成测试", limit=5)
+    hits = await store.search("集成测试", limit=10)
 
     assert any(hit["skill_id"] == target["skill_id"] for hit in hits)
 
@@ -616,10 +616,11 @@ async def test_search_uses_chroma_ann():
     assert call_kwargs["query_embedding"] == [0.1] * 1536
     assert call_kwargs["top_k"] == 5
 
-    # 验证结果
+    # 验证结果 (Hybrid 检索: 向量归一化后 0.95→1.0, BM25 也命中同一 skill 归一化后 1.0)
+    # final = 0.7 * 1.0 + 0.3 * 1.0 = 1.0
     assert len(hits) >= 1
     assert hits[0]["skill_id"] == skill1["skill_id"]
-    assert hits[0]["semantic_score"] == 0.95
+    assert hits[0]["semantic_score"] == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio
@@ -772,3 +773,256 @@ async def test_search_empty_query_with_chroma():
     assert hits == []
     # embed 抛异常后 fallback, query_skills 不应被调用
     chroma_store.query_skills.assert_not_called()
+
+
+# ==================== Hybrid 检索 (RFC-005 需求四) ====================
+
+
+@pytest.mark.asyncio
+async def test_normalize_scores():
+    """测试 _normalize_scores 归一化."""
+    from riskagent_backend.skills import SkillStore
+
+    # 正常归一化: max=4.0 → [0.25, 0.5, 1.0]
+    assert SkillStore._normalize_scores([1.0, 2.0, 4.0]) == [0.25, 0.5, 1.0]
+    # 空列表
+    assert SkillStore._normalize_scores([]) == []
+    # 全零分数
+    assert SkillStore._normalize_scores([0.0, 0.0, 0.0]) == [0.0, 0.0, 0.0]
+    # 单个分数 → 归一化为 1.0
+    assert SkillStore._normalize_scores([5.0]) == [1.0]
+
+
+@pytest.mark.asyncio
+async def test_merge_hybrid_results_basic():
+    """测试 _merge_hybrid_results 基本加权合并."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    vector_hits = [
+        {"skill": {"skill_id": "s1", "name": "v1"}, "semantic_score": 0.9},
+        {"skill": {"skill_id": "s2", "name": "v2"}, "semantic_score": 0.6},
+    ]
+    bm25_hits = [
+        {"skill_id": "s2", "name": "v2", "bm25_score": 1.0},
+        {"skill_id": "s3", "name": "v3", "bm25_score": 0.5},
+    ]
+    merged = store._merge_hybrid_results(vector_hits, bm25_hits, alpha=0.7)
+    by_id = {r["skill_id"]: r for r in merged}
+
+    # s1: only vector, norm_v=1.0 → final = 0.7 * 1.0 = 0.7
+    assert by_id["s1"]["semantic_score"] == pytest.approx(0.7)
+    # s2: both, norm_v=0.6/0.9, norm_b=1.0 → final = 0.7*(0.6/0.9) + 0.3*1.0
+    assert by_id["s2"]["semantic_score"] == pytest.approx(0.7 * (0.6 / 0.9) + 0.3 * 1.0)
+    assert by_id["s2"]["vector_score"] == pytest.approx(0.6 / 0.9)
+    assert by_id["s2"]["bm25_score"] == pytest.approx(1.0)
+    # s3: only BM25, norm_b=0.5 → final = 0.3 * 0.5 = 0.15
+    assert by_id["s3"]["semantic_score"] == pytest.approx(0.3 * 0.5)
+
+
+@pytest.mark.asyncio
+async def test_merge_hybrid_results_dedup():
+    """测试去重: 同一 Skill 在两个通道都出现时合并分数."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    vector_hits = [
+        {"skill": {"skill_id": "s1", "name": "skill1"}, "semantic_score": 0.8},
+    ]
+    bm25_hits = [
+        {"skill_id": "s1", "name": "skill1", "bm25_score": 0.6},
+    ]
+    merged = store._merge_hybrid_results(vector_hits, bm25_hits, alpha=0.7)
+    assert len(merged) == 1
+    # norm_v=1.0, norm_b=1.0 → final = 0.7*1.0 + 0.3*1.0 = 1.0
+    assert merged[0]["skill_id"] == "s1"
+    assert merged[0]["semantic_score"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_merge_hybrid_results_empty_channels():
+    """测试空通道处理."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    # 两个通道都空
+    assert store._merge_hybrid_results([], [], alpha=0.7) == []
+    # 只有向量
+    vector_hits = [{"skill": {"skill_id": "s1"}, "semantic_score": 0.9}]
+    merged = store._merge_hybrid_results(vector_hits, [], alpha=0.7)
+    assert len(merged) == 1
+    assert merged[0]["semantic_score"] == pytest.approx(0.7 * 1.0)
+    # 只有 BM25
+    bm25_hits = [{"skill_id": "s2", "bm25_score": 0.5}]
+    merged = store._merge_hybrid_results([], bm25_hits, alpha=0.7)
+    assert len(merged) == 1
+    assert merged[0]["semantic_score"] == pytest.approx(0.3 * 1.0)
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_alpha_1_pure_vector(monkeypatch):
+    """测试 alpha=1.0 时纯向量检索, BM25 被禁用."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    monkeypatch.setenv("SKILL_HYBRID_VECTOR_WEIGHT", "1.0")
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    skill1 = await store.create(_make_skill(name="向量匹配", summary="向量匹配工作流"))
+    skill2 = await store.create(_make_skill(name="关键词匹配", summary="关键词匹配工作流"))
+
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(doc_id=skill1["skill_id"], similarity=0.9, document="向量匹配工作流", metadata={}),
+    ])
+
+    hits = await store.search("向量匹配 关键词匹配", limit=5)
+
+    # alpha=1.0: 只有向量结果, BM25 被禁用
+    assert len(hits) == 1
+    assert hits[0]["skill_id"] == skill1["skill_id"]
+    # skill2 不应在结果中 (BM25 被禁用)
+    assert all(h["skill_id"] != skill2["skill_id"] for h in hits)
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_alpha_0_pure_bm25(monkeypatch):
+    """测试 alpha=0.0 时纯 BM25 检索, 向量被禁用."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    monkeypatch.setenv("SKILL_HYBRID_VECTOR_WEIGHT", "0.0")
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    skill1 = await store.create(_make_skill(name="向量匹配", summary="向量匹配工作流"))
+    skill2 = await store.create(_make_skill(name="关键词匹配", summary="关键词匹配工作流"))
+
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(doc_id=skill1["skill_id"], similarity=0.9, document="向量匹配工作流", metadata={}),
+    ])
+
+    hits = await store.search("关键词匹配", limit=5)
+
+    # alpha=0.0: 只有 BM25 结果, 向量被禁用
+    chroma_store.query_skills.assert_not_called()
+    # skill2 通过 BM25 匹配
+    assert any(h["skill_id"] == skill2["skill_id"] for h in hits)
+    # skill1 不在 BM25 结果中
+    assert all(h["skill_id"] != skill1["skill_id"] for h in hits)
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_alpha_default(monkeypatch):
+    """测试默认 alpha=0.7 时加权合并."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    monkeypatch.delenv("SKILL_HYBRID_VECTOR_WEIGHT", raising=False)
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    skill_v = await store.create(_make_skill(name="向量技能", summary="向量技能摘要"))
+    skill_b = await store.create(_make_skill(name="关键词技能", summary="关键词技能摘要"))
+
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(doc_id=skill_v["skill_id"], similarity=0.9, document="向量技能摘要", metadata={}),
+    ])
+
+    hits = await store.search("向量 关键词", limit=5)
+
+    # 两个通道都应返回结果
+    hit_ids = [h["skill_id"] for h in hits]
+    assert skill_v["skill_id"] in hit_ids  # 来自向量通道
+    assert skill_b["skill_id"] in hit_ids  # 来自 BM25 通道
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_filter_still_works(monkeypatch):
+    """测试 Hybrid 检索仍然过滤 status 和 confidence."""
+    monkeypatch.delenv("SKILL_HYBRID_VECTOR_WEIGHT", raising=False)
+
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    await store.create(_make_skill(name="活跃技能", confidence=0.9, summary="风险排查活跃技能"))
+    await store.create(_make_skill(name="废弃技能", status="deprecated", summary="风险排查废弃技能"))
+    await store.create(_make_skill(name="低置信度技能", confidence=0.1, summary="风险排查低置信度技能"))
+
+    # min_confidence=0.0: 只过滤 status
+    hits = await store.search("风险排查")
+    names = [h["name"] for h in hits]
+    assert "活跃技能" in names
+    assert "废弃技能" not in names
+    assert "低置信度技能" in names
+
+    # min_confidence=0.5: 过滤低置信度
+    high_hits = await store.search("风险排查", min_confidence=0.5)
+    high_names = [h["name"] for h in high_hits]
+    assert "活跃技能" in high_names
+    assert "低置信度技能" not in high_names
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_empty_vector_channel():
+    """测试向量通道返回空时不报错, BM25 仍返回结果."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    await store.create(_make_skill(name="风险排查", summary="风险排查工作流"))
+
+    # Mock Chroma 返回空 (向量通道无命中)
+    chroma_store.query_skills = MagicMock(return_value=[])
+
+    hits = await store.search("风险排查", limit=5)
+    assert len(hits) >= 1
+    assert hits[0]["name"] == "风险排查"
+
+
+@pytest.mark.asyncio
+async def test_search_hybrid_empty_bm25_channel():
+    """测试 BM25 通道返回空时不报错, 向量仍返回结果."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    skill1 = await store.create(_make_skill(name="向量匹配", summary="向量匹配工作流"))
+
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(doc_id=skill1["skill_id"], similarity=0.9, document="向量匹配工作流", metadata={}),
+    ])
+
+    # 查询不含任何 skill 文本中的关键词 → BM25 返回空
+    hits = await store.search("完全不匹配的查询文本", limit=5)
+    assert len(hits) >= 1
+
+
+@pytest.mark.asyncio
+async def test_keyword_fallback_search_returns_normalized_scores():
+    """测试 _keyword_fallback_search 输出归一化分数."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    await store.create(_make_skill(skill_id="skill_a", name="风险排查A", summary="风险排查工作流A"))
+    await store.create(_make_skill(skill_id="skill_b", name="风险排查B", summary="风险排查"))
+
+    hits = store._keyword_fallback_search(query="风险排查", limit=5, min_confidence=0.0)
+
+    assert len(hits) >= 1
+    for hit in hits:
+        score = float(hit.get("bm25_score", 0.0))
+        assert 0.0 <= score <= 1.0
+    max_score = max(float(h.get("bm25_score", 0.0)) for h in hits)
+    assert max_score == pytest.approx(1.0)

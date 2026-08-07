@@ -20,6 +20,7 @@ import logging
 import time
 from typing import Any, Optional
 
+from riskagent_backend.config import get_skill_hybrid_vector_weight
 from riskagent_backend.memory.persistence_backend import PersistenceBackend
 from riskagent_backend.memory.semantic_indexer import SemanticIndexer
 from riskagent_backend.skills.skill_contract import (
@@ -266,52 +267,129 @@ class SkillStore:
         # Fallback: SemanticIndexer
         return await self._indexer.search(query, limit=limit)
 
-    async def search(
-        self, query: str, *, limit: int = 5, min_confidence: float = 0.0
-    ) -> list[dict[str, Any]]:
-        """语义检索 Skill.
+    # ==================== Hybrid 检索 (RFC-005 需求四) ====================
 
-        使用 Chroma ANN 检索 (注入时) 或 SemanticIndexer fallback.
-        过滤 confidence < min_confidence 的结果.
-        过滤 status != "active" 的结果.
+    @staticmethod
+    def _normalize_scores(scores: list[float]) -> list[float]:
+        """将分数列表归一化到 [0, 1] 区间.
+
+        归一化方式: score / max_score (如果 max_score > 0), 否则所有分数为 0.
         """
-        hits = await self._semantic_search(query, limit=limit)
-        merged_results: dict[str, dict[str, Any]] = {}
-        for hit in hits:
+        if not scores:
+            return []
+        max_score = max(scores)
+        if max_score <= 0:
+            return [0.0] * len(scores)
+        return [s / max_score for s in scores]
+
+    def _merge_hybrid_results(
+        self,
+        vector_hits: list[dict[str, Any]],
+        bm25_hits: list[dict[str, Any]],
+        alpha: float,
+    ) -> list[dict[str, Any]]:
+        """加权合并向量检索和 BM25 检索结果.
+
+        final_score = alpha * norm_vector_score + (1-alpha) * norm_bm25_score
+        去重: 以 skill_id 为 key, 合并两个通道的分数.
+        """
+        # 归一化向量分数
+        vector_scores = self._normalize_scores(
+            [float(h.get("semantic_score", 0.0)) for h in vector_hits]
+        )
+        # 归一化 BM25 分数
+        bm25_scores = self._normalize_scores(
+            [float(h.get("bm25_score", 0.0)) for h in bm25_hits]
+        )
+
+        merged: dict[str, dict[str, Any]] = {}
+
+        # 处理向量检索结果
+        for i, hit in enumerate(vector_hits):
             skill = hit.get("skill")
             if not isinstance(skill, dict):
                 continue
-            if skill.get("status") != "active":
+            skill_id = str(skill.get("skill_id") or "")
+            if not skill_id:
                 continue
-            if float(skill.get("confidence", 0.0)) < min_confidence:
-                continue
+            norm_v = vector_scores[i]
+            final = alpha * norm_v
             result = dict(skill)
-            result["semantic_score"] = float(hit.get("semantic_score", 0.0))
-            skill_id = str(result.get("skill_id") or "")
+            result["semantic_score"] = final
+            result["vector_score"] = norm_v
+            result["bm25_score"] = 0.0
+            merged[skill_id] = result
+
+        # 处理 BM25 检索结果
+        for i, hit in enumerate(bm25_hits):
+            skill_id = str(hit.get("skill_id") or "")
             if not skill_id:
                 continue
-            merged_results[skill_id] = result
+            norm_b = bm25_scores[i]
+            bm25_contribution = (1.0 - alpha) * norm_b
+            existing = merged.get(skill_id)
+            if existing is not None:
+                # 同一 Skill 在两个通道都出现: 合并分数
+                existing["bm25_score"] = norm_b
+                existing["semantic_score"] = (
+                    float(existing["semantic_score"]) + bm25_contribution
+                )
+            else:
+                # 仅 BM25 通道命中
+                result = dict(hit)
+                result["semantic_score"] = bm25_contribution
+                result["vector_score"] = 0.0
+                result["bm25_score"] = norm_b
+                merged[skill_id] = result
 
-        for fallback in self._keyword_fallback_search(
-            query=query,
-            limit=max(limit * 2, limit),
-            min_confidence=min_confidence,
-            existing_skill_ids=set(merged_results),
-        ):
-            skill_id = str(fallback.get("skill_id") or "")
-            if not skill_id:
-                continue
-            existing = merged_results.get(skill_id)
-            if existing is None:
-                merged_results[skill_id] = fallback
-                continue
-            existing_score = float(existing.get("semantic_score", 0.0))
-            fallback_score = float(fallback.get("semantic_score", 0.0))
-            if fallback_score > existing_score:
-                merged_results[skill_id] = fallback
+        return list(merged.values())
 
+    async def search(
+        self, query: str, *, limit: int = 5, min_confidence: float = 0.0
+    ) -> list[dict[str, Any]]:
+        """Hybrid 检索 Skill.
+
+        RFC-005 需求四: 向量检索 + BM25 检索, 加权合并后排序返回.
+        final_score = alpha * norm_vector_score + (1-alpha) * norm_bm25_score
+        alpha 可通过 SKILL_HYBRID_VECTOR_WEIGHT 环境变量配置 (默认 0.7).
+        alpha=1.0 禁用 BM25 (纯向量), alpha=0.0 禁用向量 (纯 BM25).
+        过滤 status != "active" 和 confidence < min_confidence 的结果.
+        """
+        query_text = str(query or "").strip()
+        if not query_text:
+            return []
+
+        alpha = get_skill_hybrid_vector_weight()
+        # 钳制到 [0.0, 1.0]
+        alpha = max(0.0, min(1.0, alpha))
+
+        # 向量检索通道 (alpha=0.0 时禁用)
+        vector_hits: list[dict[str, Any]] = []
+        if alpha > 0.0:
+            raw_vector_hits = await self._semantic_search(query_text, limit=limit)
+            for hit in raw_vector_hits:
+                skill = hit.get("skill")
+                if not isinstance(skill, dict):
+                    continue
+                if skill.get("status") != "active":
+                    continue
+                if float(skill.get("confidence", 0.0)) < min_confidence:
+                    continue
+                vector_hits.append(hit)
+
+        # BM25 检索通道 (alpha=1.0 时禁用)
+        bm25_hits: list[dict[str, Any]] = []
+        if alpha < 1.0:
+            bm25_hits = self._keyword_fallback_search(
+                query=query_text,
+                limit=limit,
+                min_confidence=min_confidence,
+            )
+
+        # 加权合并、排序、截断
+        merged = self._merge_hybrid_results(vector_hits, bm25_hits, alpha)
         ranked_results = sorted(
-            merged_results.values(),
+            merged,
             key=lambda item: float(item.get("semantic_score", 0.0)),
             reverse=True,
         )
@@ -439,17 +517,19 @@ class SkillStore:
         query: str,
         limit: int,
         min_confidence: float,
-        existing_skill_ids: set[str],
     ) -> list[dict[str, Any]]:
-        """当语义检索排序不稳定时, 用关键词匹配兜底."""
+        """BM25 关键词检索通道.
+
+        RFC-005 需求四: 从"兜底补全"升级为 BM25 检索通道.
+        输出归一化分数 (bm25_score), 范围 [0, 1].
+        归一化方式: score / max_score (如果 max_score > 0), 否则所有分数为 0.
+        """
         query_text = str(query or "").strip().lower()
         if not query_text:
             return []
         candidates: list[tuple[float, dict[str, Any]]] = []
         query_tokens = [token for token in query_text.split() if token]
         for skill_id, skill in self._store.items():
-            if skill_id in existing_skill_ids:
-                continue
             if skill.get("status") != "active":
                 continue
             if float(skill.get("confidence", 0.0)) < min_confidence:
@@ -466,10 +546,18 @@ class SkillStore:
             if score <= 0:
                 continue
             result = dict(skill)
-            result["semantic_score"] = max(float(result.get("semantic_score", 0.0)), score)
+            result["bm25_score"] = score
             candidates.append((score, result))
         candidates.sort(key=lambda item: item[0], reverse=True)
-        return [item[1] for item in candidates[: max(0, limit)]]
+        top_hits = [item[1] for item in candidates[: max(0, limit)]]
+
+        # 归一化分数到 [0, 1] 区间
+        raw_scores = [float(h.get("bm25_score", 0.0)) for h in top_hits]
+        normalized_scores = self._normalize_scores(raw_scores)
+        for i, hit in enumerate(top_hits):
+            hit["bm25_score"] = normalized_scores[i]
+
+        return top_hits
 
     # ==================== 健康检查 ====================
 

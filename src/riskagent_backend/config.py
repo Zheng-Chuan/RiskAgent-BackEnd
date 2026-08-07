@@ -198,6 +198,16 @@ def get_skill_query_rewrite_cache_size() -> int:
     return int(get_settings().skill_query_rewrite_cache_size)
 
 
+# ---- Skill hybrid retrieval (RFC-005 需求四) ----
+def get_skill_hybrid_vector_weight() -> float:
+    """获取 Hybrid 检索向量权重 alpha, 默认 0.7.
+
+    RFC-005 需求四: final_score = alpha * vector_score + (1-alpha) * bm25_score
+    alpha=1.0 禁用 BM25 (纯向量), alpha=0.0 禁用向量 (纯 BM25).
+    """
+    return float(get_settings().skill_hybrid_vector_weight)
+
+
 __all__ = [
     "Settings",
     "get_settings",
@@ -230,4 +240,5 @@ __all__ = [
     "get_skill_query_rewrite_enabled",
     "get_skill_query_rewrite_timeout",
     "get_skill_query_rewrite_cache_size",
+    "get_skill_hybrid_vector_weight",
 ]
