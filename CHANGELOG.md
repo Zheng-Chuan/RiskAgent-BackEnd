@@ -4,6 +4,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-03: Phase 14 规划 + RFC-006 优先级提升
+
+- 新建 Phase 14: 性能验证与 LLM 成本模型（docs/phases/phase-14-performance-verification.md）
+- 更新 RFC-006: 基于 Phase 10 验证数据提升优先级，补充 133 次/5min 的实测证据
+- Phase 10 验证暴露的可靠性问题：信念重复、LLM 调用频率、成本模型缺失
+
 ## 2026-08-03: Phase 10 主动监控全链路验证完成
 
 - 5min 监控全链路验证通过（感知→告警→LLM处置→Trace completed）
