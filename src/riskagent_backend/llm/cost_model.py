@@ -39,6 +39,13 @@ PRICING_TABLE: dict[str, dict[str, float]] = {
         "prompt": 0.0,
         "completion": 0.0,
     },
+    # RFC-005 需求二: embedding 模型定价
+    # text-embedding-3-small: $0.02/1M tokens (OpenRouter 定价)
+    # embedding 调用无 completion tokens, completion 价格为 0
+    "text-embedding-3-small": {
+        "prompt": 0.00002,     # $0.02 per 1M tokens
+        "completion": 0.0,     # embedding 无输出 token
+    },
     "default": {
         "prompt": 0.00014,
         "completion": 0.00028,

@@ -326,6 +326,178 @@ class LlmClient:
                 await client.close()
             self._restore_dns()
 
+    async def embed(
+        self,
+        text: str,
+        model: Optional[str] = None,
+        agent_name: str = "",
+        stage: str = "embedding",
+    ) -> list[float]:
+        """
+        调用 Embedding API 生成语义向量.
+
+        RFC-005 需求二: 经 OpenRouter 调用 text-embedding-3-small (1536 维).
+        复用与 chat_completions 相同的超时、重试、成本追踪逻辑.
+
+        参数:
+            text: 需要向量化的文本
+            model: 可选,覆盖默认 embedding 模型
+            agent_name: 可选,调用方 Agent 名称（用于 token 维度统计）
+            stage: 调用阶段标签,默认 "embedding"
+
+        返回:
+            float 向量 (默认 1536 维)
+
+        异常:
+            LLMError: 当 API 调用失败、响应格式不正确或超过重试次数时抛出
+        """
+        _request_start = time.perf_counter()
+        if not isinstance(text, str) or not text.strip():
+            raise LLMError(code="INVALID_INPUT", message="text 不能为空")
+
+        used_model = (model or config.get_llm_embedding_model()).strip()
+        if not used_model:
+            raise LLMError(code="INVALID_CONFIG", message="LLM_EMBEDDING_MODEL 为空")
+
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "input": text,
+        }
+
+        # 应用 DNS 补丁(固定 IP)
+        self._apply_dns_patch()
+
+        # 准备 URL 和 headers
+        url = f"{self._base_url}/embeddings"
+        host_header = self._patched_host if self._resolve_ip else None
+        headers = _build_headers(host_header=host_header)
+
+        client = self._http_client
+        should_close = False
+        if client is None:
+            # embedding 调用通常较快, 超时适当缩短
+            timeout = aiohttp.ClientTimeout(
+                total=60.0,
+                connect=10.0,
+                sock_read=30.0,
+            )
+            client = aiohttp.ClientSession(timeout=timeout)
+            should_close = True
+
+        max_attempts = 3
+        last_error: Optional[LLMError] = None
+
+        try:
+            for attempt in range(max_attempts):
+                try:
+                    async with client.post(url, headers=headers, json=payload) as resp:
+                        if resp.status < 200 or resp.status >= 300:
+                            resp_text = await resp.text()
+                            err = LLMError(
+                                code="UPSTREAM_BAD_STATUS",
+                                message=resp_text,
+                                status_code=int(resp.status),
+                            )
+                            # 5xx 或 429 可重试
+                            if (resp.status >= 500 or resp.status == 429) and attempt < max_attempts - 1:
+                                last_error = err
+                                await asyncio.sleep(1.0 * (attempt + 1))
+                                continue
+                            raise err
+
+                        try:
+                            data = await resp.json()
+                        except Exception as e:
+                            raise LLMError(
+                                code="UPSTREAM_BAD_RESPONSE",
+                                message="响应不是合法 JSON",
+                                status_code=int(resp.status),
+                                cause=e,
+                            ) from e
+
+                        if not isinstance(data, dict):
+                            raise LLMError(
+                                code="UPSTREAM_BAD_RESPONSE",
+                                message="响应 JSON 不是对象",
+                                status_code=int(resp.status),
+                            )
+
+                        # 提取 embedding 向量
+                        embedding_data = data.get("data")
+                        if not isinstance(embedding_data, list) or not embedding_data:
+                            raise LLMError(
+                                code="UPSTREAM_BAD_RESPONSE",
+                                message="响应缺少 data 字段或为空",
+                                status_code=int(resp.status),
+                            )
+
+                        first_entry = embedding_data[0]
+                        if not isinstance(first_entry, dict):
+                            raise LLMError(
+                                code="UPSTREAM_BAD_RESPONSE",
+                                message="data[0] 不是对象",
+                                status_code=int(resp.status),
+                            )
+
+                        embedding = first_entry.get("embedding")
+                        if not isinstance(embedding, list) or not embedding:
+                            raise LLMError(
+                                code="UPSTREAM_BAD_RESPONSE",
+                                message="data[0] 缺少 embedding 字段或为空",
+                                status_code=int(resp.status),
+                            )
+
+                        # 采集真实 token 用量
+                        _elapsed_ms = (time.perf_counter() - _request_start) * 1000.0
+                        usage = data.get("usage")
+                        if usage and isinstance(usage, dict):
+                            from riskagent_backend.llm.token_tracker import record_token_usage
+                            record_token_usage(
+                                model=used_model,
+                                prompt_tokens=usage.get("prompt_tokens", 0),
+                                completion_tokens=0,
+                                total_tokens=usage.get("total_tokens", 0),
+                                latency_ms=_elapsed_ms,
+                                cached=False,
+                                agent_name=agent_name,
+                                stage=stage,
+                            )
+                        else:
+                            logger.warning(
+                                "Embedding response missing usage field",
+                                extra={"model": used_model, "status": resp.status},
+                            )
+
+                        return [float(x) for x in embedding]
+
+                except LLMError as e:
+                    last_error = e
+                    retryable = e.code in ("UPSTREAM_UNAVAILABLE", "UPSTREAM_TIMEOUT", "UPSTREAM_BAD_STATUS")
+                    if retryable and attempt < max_attempts - 1:
+                        await asyncio.sleep(1.0 * (attempt + 1))
+                        continue
+                    raise
+                except aiohttp.ClientError as e:
+                    last_error = LLMError(code="UPSTREAM_UNAVAILABLE", message=str(e), cause=e)
+                    if attempt < max_attempts - 1:
+                        await asyncio.sleep(1.0 * (attempt + 1))
+                        continue
+                    raise last_error
+                except asyncio.TimeoutError as e:
+                    last_error = LLMError(code="UPSTREAM_TIMEOUT", message=str(e), cause=e)
+                    if attempt < max_attempts - 1:
+                        await asyncio.sleep(1.0 * (attempt + 1))
+                        continue
+                    raise last_error
+
+            if last_error is not None:
+                raise last_error
+            raise LLMError(code="UNKNOWN", message="max retries exceeded")
+        finally:
+            if should_close:
+                await client.close()
+            self._restore_dns()
+
 
 def extract_first_text(response_json: dict[str, Any]) -> str:
     """

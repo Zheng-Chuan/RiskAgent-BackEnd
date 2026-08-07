@@ -134,6 +134,15 @@ def get_llm_resolve_ip() -> str:
     return (get_settings().llm_resolve_ip or "").strip()
 
 
+def get_llm_embedding_model() -> str:
+    """获取 LLM embedding 模型名称;优先读 LLM_EMBEDDING_MODEL,默认 text-embedding-3-small.
+
+    用于 RFC-005 需求二: 通过 OpenRouter 调用 text-embedding-3-small (1536 维).
+    """
+    value = (get_settings().llm_embedding_model or "").strip()
+    return value or "text-embedding-3-small"
+
+
 # ---- Knowledge ----
 def get_knowledge_db_path() -> str:
     """获取知识库 SQLite 文件路径, 默认为 repo_root/data/knowledge.sqlite."""
@@ -186,6 +195,7 @@ __all__ = [
     "get_llm_http_referer",
     "get_llm_app_title",
     "get_llm_resolve_ip",
+    "get_llm_embedding_model",
     "get_knowledge_db_path",
     "get_chroma_host",
     "get_chroma_port",

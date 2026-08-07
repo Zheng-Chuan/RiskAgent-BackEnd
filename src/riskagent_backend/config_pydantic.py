@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     llm_http_referer: str = Field(default="", description="LLM HTTP-Referer (可选)")
     llm_app_title: str = Field(default="", description="LLM X-Title (可选)")
     llm_resolve_ip: str = Field(default="", description="LLM API 固定 IP (可选)")
+    llm_embedding_model: str = Field(
+        default="text-embedding-3-small",
+        description="LLM embedding 模型名称 (经 OpenRouter 调用, 默认 1536 维)",
+    )
 
     # ---- MySQL 配置 ----
     mysql_host: str = Field(default="localhost", description="MySQL 主机")
