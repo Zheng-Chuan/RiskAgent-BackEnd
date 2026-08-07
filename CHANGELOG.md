@@ -4,6 +4,17 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-07: Phase 12 BDI 信念去重实施完成（RFC-006）
+
+- 6 个 Checkpoint 全部实施完毕
+- Belief 新增 processed/processed_at 字段，Intention 新增 source_belief_id 字段
+- _deliberate() 跳过已处理信念，避免重复审议
+- _cleanup_beliefs() 自动清理已处理且超时的信念
+- add_intention() 内容去重（description + tool_name + tool_params 三元组匹配）
+- get_bdi_state() 导出新字段到 run_trace.v2
+- 双层去重防护：信念层 + 意图层
+- 36 个测试全部通过（12 原有 + 24 新增）
+
 ## 2026-08-07: Phase 13 REST BFF K8s 验收完成
 
 - 9/9 API 端点验收通过（POST/GET/SSE/脱敏）

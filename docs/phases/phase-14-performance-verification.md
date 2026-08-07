@@ -34,7 +34,7 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 - 时间: 3 周
 - 优先级: 高
-- 依赖: Phase 10 已完成 ✅, RFC-006 BDI 去重需先行完成
+- 依赖: Phase 10 已完成 ✅, RFC-006 BDI 去重已完成 ✅（2026-08-07）
 
 ## 工作范围
 
@@ -159,7 +159,7 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 | 阶段 | 内容 | 依赖 | 预计工时 |
 |------|------|------|---------|
 | P0 | LLM 成本模型（Checkpoint 20.1.x） | Phase 10 完成 ✅ | 1 周 |
-| P1 | 系统压测（Checkpoint 20.2.x） | RFC-006 BDI 去重完成 | 1.5 周 |
+| P1 | 系统压测（Checkpoint 20.2.x） | RFC-006 BDI 去重已完成 ✅ | 1.5 周 |
 | P2 | SLO 定义（Checkpoint 20.3.x） | P0 + P1 | 0.5 周 |
 
 核心原则：先量化成本（P0），再压测验证（P1），最后定义基线（P2）. P0 不依赖 RFC-006，可并行启动.
@@ -217,4 +217,4 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 - Phase 10: [phase-10-active-monitoring.md](./phase-10-active-monitoring.md)（已完成 — 全链路验证通过 2026-08-03）
 - RFC-003: [../decisions/RFC-003-active-monitoring.md](../decisions/RFC-003-active-monitoring.md)（已完成）
-- RFC-006: [../decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md](../decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md)（Proposed — Phase 10 验证后优先级提升）
+- RFC-006: [../decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md](../decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md)（Accepted, Implemented — Phase 12 已完成 2026-08-07）

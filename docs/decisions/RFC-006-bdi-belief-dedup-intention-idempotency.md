@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| Status | Proposed (Phase 10 验证后优先级提升) |
+| Status | Accepted, Implemented |
 | Date | 2026-07-18 |
 | Author | RiskAgent-BackEnd 项目组 |
 
@@ -12,6 +12,7 @@
 |------|------|
 | 2026-07-18 | 初始创建，提出 BDI 信念去重与意图幂等性修复方案 |
 | 2026-08-03 | 基于 Phase 10 验证数据提升优先级，补充 133 次/5min 实测证据 |
+| 2026-08-07 | 实施完成。6 个 Checkpoint 全部实施完毕，36 个测试全部通过（12 原有 + 24 新增），状态更新为 Accepted, Implemented |
 
 ## 上下文
 
@@ -373,3 +374,29 @@ def add_intention(
 | 4 | `add_intention()` 内容去重 | 单测：相同 description+tool_params 的 pending 意图不重复创建 |
 | 5 | `_monitor_loop` 集成 | 集成测试：模拟 5 轮监控循环，验证同一异常信号只投递一次事件 |
 | 6 | `run_trace.v2` 兼容性 | 验证 `get_bdi_state()` 新增字段在 trace 中正确记录 |
+
+## 实施摘要（2026-08-07）
+
+### 实施结果
+
+| Checkpoint | 状态 | 验证方式 |
+|------------|------|----------|
+| 1. Belief/Intention 模型新增字段 | ✅ 完成 | `TestBeliefDedupFields` + `TestIntentionSourceBeliefId`（4 个测试） |
+| 2. `_deliberate()` 去重逻辑 | ✅ 完成 | `test_deliberate_skips_processed_belief` + `test_deliberate_marks_belief_processed`（2 个测试） |
+| 3. `_cleanup_beliefs()` 方法 | ✅ 完成 | `TestCleanupBeliefs`（4 个测试） |
+| 4. `add_intention()` 内容去重 | ✅ 完成 | `TestAddIntentionDedup`（4 个测试） |
+| 5. 5 轮去重集成测试 | ✅ 完成 | `test_dedup_5_rounds_same_signal`（1 个测试） |
+| 6. `get_bdi_state()` 导出新字段 | ✅ 完成 | `TestBdiStateExport`（3 个测试） |
+
+### 测试验证
+
+- **测试文件**：`tests/unit/test_bdi.py` + `tests/unit/test_deliberate_chain.py`
+- **测试结果**：36/36 通过（12 原有 + 24 新增），无回归
+- **运行命令**：`PYTHONPATH=src python -m pytest tests/unit/test_bdi.py tests/unit/test_deliberate_chain.py -v`
+
+### 代码变更文件
+
+| 文件 | 变更内容 |
+|------|----------|
+| `src/riskagent_backend/proactive_agents/base_models.py` | Belief 新增 `processed`/`processed_at` 字段；Intention 新增 `source_belief_id` 字段 |
+| `src/riskagent_backend/proactive_agents/base.py` | `_deliberate()` 跳过已处理信念并标记；`_cleanup_beliefs()` 自动清理；`add_intention()` 内容去重；`get_bdi_state()` 导出新字段 |

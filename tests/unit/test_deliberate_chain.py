@@ -170,3 +170,126 @@ async def test_deliberate_legacy_system_metrics_ignored() -> None:
 
     pending = agent.get_pending_intentions()
     assert len(pending) == 0
+
+
+# ------------------------------------------------------------------ #
+# RFC-006 BDI 信念去重 - 集成测试
+# ------------------------------------------------------------------ #
+
+class _DedupTestAgent(BaseProactiveAgent):
+    """测试信念去重的 Agent, 每轮注入相同异常信号.
+
+    _act 重写为 no-op (不改变意图状态), 保持 pending 以验证内容去重.
+    """
+
+    async def _perceive_environment(self) -> None:
+        self.add_belief(
+            content={
+                "source": "prometheus",
+                "metric": "error_rate",
+                "value": 0.5,
+                "severity": "critical",
+            },
+            source="intent_perception",
+            confidence=0.7,
+        )
+
+    async def _act(self) -> None:
+        """重写 _act: 不改变意图状态, 保持 pending 以验证内容去重."""
+        pass
+
+
+@pytest.mark.asyncio
+async def test_dedup_5_rounds_same_signal() -> None:
+    """RFC-006: 5 轮相同异常信号只创建 1 个 Intention, 信念均标记 processed.
+
+    验证:
+    1. 只投递一次事件 (只有一个 Intention 被创建)
+    2. 后续 4 轮不重复创建 Intention
+    3. 信念被标记为 processed
+    """
+    agent = _DedupTestAgent(
+        name="dedup_agent",
+        system_prompt="test",
+        enable_background_monitor=False,
+    )
+
+    for _ in range(5):
+        await agent._perceive_environment()
+        await agent._deliberate()
+        await agent._act()
+        agent._cleanup_beliefs()
+
+    # 1. 只创建了一个 Intention (内容去重 + 信念 processed 跳过)
+    assert len(agent._intentions) == 1
+
+    # 2. 后续 4 轮不重复创建 Intention (已由 len==1 证明)
+    intention = agent._intentions[0]
+    assert intention.source_belief_id is not None
+    assert intention.source_belief_id.startswith("belief_")
+    assert intention.tool_name == "submit_alerts"
+    assert intention.tool_params["severity"] == "critical"
+
+    # 3. 所有信念被标记为 processed
+    all_beliefs = agent.get_beliefs()
+    assert len(all_beliefs) == 5
+    for belief in all_beliefs:
+        assert belief.processed is True
+        assert belief.processed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_deliberate_skips_processed_belief() -> None:
+    """RFC-006: 已处理的信念在 _deliberate 中被跳过."""
+    import time
+
+    agent = _make_agent()
+    belief = agent.add_belief(
+        content={
+            "source": "prometheus",
+            "metric": "error_rate",
+            "value": 0.5,
+            "severity": "critical",
+        },
+        source="intent_perception",
+        confidence=0.7,
+    )
+    # 手动标记为已处理
+    belief.processed = True
+    belief.processed_at = time.time()
+
+    await agent._deliberate()
+
+    # 已处理的信念不应产生新意图
+    pending = agent.get_pending_intentions()
+    assert len(pending) == 0
+
+
+@pytest.mark.asyncio
+async def test_deliberate_marks_belief_processed() -> None:
+    """RFC-006: _deliberate 处理信念后标记 processed=True."""
+    agent = _make_agent()
+    agent.add_belief(
+        content={
+            "source": "prometheus",
+            "metric": "error_rate",
+            "value": 0.5,
+            "severity": "critical",
+        },
+        source="intent_perception",
+        confidence=0.7,
+    )
+
+    # 处理前: processed=False
+    assert agent._beliefs[0].processed is False
+    assert agent._beliefs[0].processed_at is None
+
+    await agent._deliberate()
+
+    # 处理后: processed=True, processed_at 已设置
+    assert agent._beliefs[0].processed is True
+    assert agent._beliefs[0].processed_at is not None
+
+    # 意图的 source_belief_id 指向该信念
+    intention = agent.get_pending_intentions()[0]
+    assert intention.source_belief_id == agent._beliefs[0].belief_id

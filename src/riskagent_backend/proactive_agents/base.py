@@ -204,14 +204,27 @@ class BaseProactiveAgent:
         target_agent: Optional[str] = None,
         tool_name: Optional[str] = None,
         tool_params: Optional[dict[str, Any]] = None,
+        source_belief_id: Optional[str] = None,
     ) -> Intention:
-        """添加意图."""
+        """添加意图.
+
+        内容去重: 如果已存在相同 description/tool_name/tool_params 的 pending 意图,
+        直接返回已有意图, 避免重复创建.
+        """
+        # 内容去重:检查是否已存在相同内容的 pending 意图
+        for existing in self.get_pending_intentions():
+            if (existing.description == description
+                    and existing.tool_name == tool_name
+                    and existing.tool_params == tool_params):
+                return existing
+
         intention = Intention(
             description=description,
             target_agent=target_agent,
             tool_name=tool_name,
             tool_params=tool_params,
             status="pending",
+            source_belief_id=source_belief_id,
         )
         self._intentions.append(intention)
         logger.debug(f"[{self._name}] Added intention: {intention.intention_id}")
@@ -228,13 +241,39 @@ class BaseProactiveAgent:
                 intention.status = status
                 return True
         return False
+
+    def _cleanup_beliefs(self, *, max_age_seconds: float = 300) -> int:
+        """清理已处理且超过保留时长的信念,避免信念列表无限增长.
+
+        Args:
+            max_age_seconds: 已处理信念的保留时长(秒),默认 300s.
+
+        Returns:
+            被清理的信念数量.
+        """
+        now = time.time()
+        before = len(self._beliefs)
+        self._beliefs = [
+            b for b in self._beliefs
+            if not (b.processed and b.processed_at is not None and (now - b.processed_at) >= max_age_seconds)
+        ]
+        removed = before - len(self._beliefs)
+        if removed > 0:
+            logger.debug(f"[{self._name}] Cleaned up {removed} stale beliefs")
+        return removed
     
     def get_bdi_state(self) -> dict[str, Any]:
         """获取 BDI 状态摘要."""
         return {
             "agent_name": self._name,
             "beliefs": [
-                {"belief_id": b.belief_id, "source": b.source, "confidence": b.confidence}
+                {
+                    "belief_id": b.belief_id,
+                    "source": b.source,
+                    "confidence": b.confidence,
+                    "processed": b.processed,
+                    "processed_at": b.processed_at,
+                }
                 for b in self._beliefs
             ],
             "desires": [
@@ -242,7 +281,12 @@ class BaseProactiveAgent:
                 for d in self._desires
             ],
             "intentions": [
-                {"intention_id": i.intention_id, "description": i.description, "status": i.status}
+                {
+                    "intention_id": i.intention_id,
+                    "description": i.description,
+                    "status": i.status,
+                    "source_belief_id": i.source_belief_id,
+                }
                 for i in self._intentions
             ],
         }
@@ -361,6 +405,7 @@ class BaseProactiveAgent:
                 await self._perceive_environment()
                 await self._deliberate()
                 await self._act()
+                self._cleanup_beliefs()
                 consecutive_errors = 0  # 成功则重置计数器
             except asyncio.CancelledError:
                 break
@@ -436,6 +481,9 @@ class BaseProactiveAgent:
 
         # 检查是否有需要主动处理的情况
         for belief in recent_beliefs:
+            # 跳过已处理的信念 (RFC-006 信念去重)
+            if belief.processed:
+                continue
             # 仅处理来自感知模块的信念 (泛化:不再硬编码 system_metrics)
             if belief.source not in _PERCEPTION_SOURCES:
                 continue
@@ -477,7 +525,11 @@ class BaseProactiveAgent:
                     "metric_value": value,
                     "source": belief.source,
                 },
+                source_belief_id=belief.belief_id,
             )
+            # 标记信念为已处理 (RFC-006 信念去重)
+            belief.processed = True
+            belief.processed_at = time.time()
             logger.info(
                 f"[{self._name}] Created proactive alert intention for {belief.source} "
                 f"severity={severity} metric={metric}"

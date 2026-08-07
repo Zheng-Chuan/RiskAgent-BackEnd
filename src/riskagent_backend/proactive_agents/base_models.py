@@ -15,12 +15,14 @@ from typing import Any, Optional
 @dataclass
 class Belief:
     """Agent 的信念:Agent 认为世界的状态."""
-    
+
     content: Any
     source: str
     confidence: float = 1.0
     belief_id: str = field(default_factory=lambda: f"belief_{uuid.uuid4().hex[:8]}")
     timestamp_ms: int = field(default_factory=lambda: time.time_ns() // 1000000)
+    processed: bool = False
+    processed_at: float | None = None
 
 
 @dataclass
@@ -36,7 +38,7 @@ class Desire:
 @dataclass
 class Intention:
     """Agent 的意图:Agent 承诺要执行的行动."""
-    
+
     description: str
     target_agent: Optional[str] = None
     tool_name: Optional[str] = None
@@ -44,6 +46,7 @@ class Intention:
     status: str = "pending"
     intention_id: str = field(default_factory=lambda: f"intention_{uuid.uuid4().hex[:8]}")
     created_timestamp_ms: int = field(default_factory=lambda: time.time_ns() // 1000000)
+    source_belief_id: Optional[str] = None
 
 
 @dataclass

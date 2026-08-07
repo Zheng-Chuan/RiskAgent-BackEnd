@@ -226,3 +226,238 @@ class TestBaseProactiveAgent:
         assert len(interactions) == 1
         assert interactions[0]["interaction_type"] == "thought"
         assert interactions[0]["latency_ms"] == 100
+
+
+# ------------------------------------------------------------------ #
+# RFC-006 BDI 信念去重 - 新增测试
+# ------------------------------------------------------------------ #
+
+class TestBeliefDedupFields:
+    """测试 Belief 的 processed/processed_at 新字段 (RFC-006)."""
+
+    def test_belief_processed_default_false(self) -> None:
+        """Belief 默认 processed=False."""
+        belief = Belief(content="test", source="test")
+        assert belief.processed is False
+
+    def test_belief_processed_at_default_none(self) -> None:
+        """Belief 默认 processed_at=None."""
+        belief = Belief(content="test", source="test")
+        assert belief.processed_at is None
+
+    def test_belief_processed_can_be_set(self) -> None:
+        """Belief 的 processed/processed_at 可被设置."""
+        import time
+        belief = Belief(content="test", source="test")
+        belief.processed = True
+        belief.processed_at = time.time()
+        assert belief.processed is True
+        assert belief.processed_at is not None
+
+
+class TestIntentionSourceBeliefId:
+    """测试 Intention 的 source_belief_id 新字段 (RFC-006)."""
+
+    def test_intention_source_belief_id_default_none(self) -> None:
+        """Intention 默认 source_belief_id=None."""
+        intention = Intention(description="test")
+        assert intention.source_belief_id is None
+
+    def test_intention_source_belief_id_can_be_set(self) -> None:
+        """Intention 的 source_belief_id 可被设置."""
+        intention = Intention(description="test", source_belief_id="belief_abc123")
+        assert intention.source_belief_id == "belief_abc123"
+
+
+class TestAddIntentionDedup:
+    """测试 add_intention() 内容去重 (RFC-006 Checkpoint 4)."""
+
+    def test_duplicate_intention_not_created(self) -> None:
+        """相同内容的 pending 意图不重复创建."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        first = agent.add_intention(
+            description="do something",
+            tool_name="tool_a",
+            tool_params={"param": "value"},
+        )
+        second = agent.add_intention(
+            description="do something",
+            tool_name="tool_a",
+            tool_params={"param": "value"},
+        )
+        # 应返回同一个意图,不创建新的
+        assert first.intention_id == second.intention_id
+        assert len(agent._intentions) == 1
+
+    def test_different_intention_created(self) -> None:
+        """不同内容的意图各自创建."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        agent.add_intention(description="do A", tool_name="tool_a")
+        agent.add_intention(description="do B", tool_name="tool_b")
+        assert len(agent._intentions) == 2
+
+    def test_completed_intention_allows_new_duplicate(self) -> None:
+        """已完成的意图不被去重 (get_pending_intentions 只返回 pending)."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        first = agent.add_intention(
+            description="do something",
+            tool_name="tool_a",
+            tool_params={"param": "value"},
+        )
+        # 将第一个意图标记为 completed
+        agent.update_intention_status(first.intention_id, "completed")
+        # 再次添加相同内容,因为第一个已不是 pending,应创建新的
+        second = agent.add_intention(
+            description="do something",
+            tool_name="tool_a",
+            tool_params={"param": "value"},
+        )
+        assert first.intention_id != second.intention_id
+        assert len(agent._intentions) == 2
+
+    def test_add_intention_with_source_belief_id(self) -> None:
+        """add_intention 传入 source_belief_id 被正确记录."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        intention = agent.add_intention(
+            description="test",
+            source_belief_id="belief_abc123",
+        )
+        assert intention.source_belief_id == "belief_abc123"
+
+
+class TestCleanupBeliefs:
+    """测试 _cleanup_beliefs() 清理逻辑 (RFC-006 Checkpoint 3)."""
+
+    def test_cleanup_removes_old_processed_beliefs(self) -> None:
+        """已处理且超过保留时长的信念被清理."""
+        import time
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        # 添加一个信念并标记为已处理
+        old_belief = agent.add_belief(content="old", source="test")
+        old_belief.processed = True
+        old_belief.processed_at = time.time() - 400  # 超过 300s 保留时长
+
+        # 添加一个未处理的信念
+        agent.add_belief(content="fresh", source="test")
+
+        removed = agent._cleanup_beliefs(max_age_seconds=300)
+        assert removed == 1
+        assert len(agent._beliefs) == 1
+        assert agent._beliefs[0].content == "fresh"
+
+    def test_cleanup_keeps_recent_processed_beliefs(self) -> None:
+        """已处理但未超过保留时长的信念不被清理."""
+        import time
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        recent_belief = agent.add_belief(content="recent", source="test")
+        recent_belief.processed = True
+        recent_belief.processed_at = time.time() - 100  # 未超过 300s
+
+        removed = agent._cleanup_beliefs(max_age_seconds=300)
+        assert removed == 0
+        assert len(agent._beliefs) == 1
+
+    def test_cleanup_keeps_unprocessed_beliefs(self) -> None:
+        """未处理的信念不被清理."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        agent.add_belief(content="unprocessed", source="test")
+
+        removed = agent._cleanup_beliefs(max_age_seconds=300)
+        assert removed == 0
+        assert len(agent._beliefs) == 1
+
+    def test_cleanup_returns_count(self) -> None:
+        """_cleanup_beliefs 返回被清理的数量."""
+        import time
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        for i in range(3):
+            b = agent.add_belief(content=f"old_{i}", source="test")
+            b.processed = True
+            b.processed_at = time.time() - 400
+
+        removed = agent._cleanup_beliefs(max_age_seconds=300)
+        assert removed == 3
+        assert len(agent._beliefs) == 0
+
+
+class TestBdiStateExport:
+    """测试 get_bdi_state() 导出新字段 (RFC-006 Checkpoint 6)."""
+
+    def test_bdi_state_belief_exports_processed_fields(self) -> None:
+        """get_bdi_state 导出 belief 的 processed/processed_at."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        agent.add_belief(content="test", source="test")
+
+        state = agent.get_bdi_state()
+        assert len(state["beliefs"]) == 1
+        belief_dict = state["beliefs"][0]
+        assert "processed" in belief_dict
+        assert "processed_at" in belief_dict
+        assert belief_dict["processed"] is False
+        assert belief_dict["processed_at"] is None
+
+    def test_bdi_state_intention_exports_source_belief_id(self) -> None:
+        """get_bdi_state 导出 intention 的 source_belief_id."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        agent.add_intention(
+            description="test",
+            source_belief_id="belief_abc123",
+        )
+
+        state = agent.get_bdi_state()
+        assert len(state["intentions"]) == 1
+        intention_dict = state["intentions"][0]
+        assert "source_belief_id" in intention_dict
+        assert intention_dict["source_belief_id"] == "belief_abc123"
+
+    def test_bdi_state_intention_source_belief_id_default_none(self) -> None:
+        """未设置 source_belief_id 时导出为 None."""
+        agent = BaseProactiveAgent(
+            name="test_agent",
+            system_prompt="test",
+            enable_background_monitor=False,
+        )
+        agent.add_intention(description="test")
+
+        state = agent.get_bdi_state()
+        assert state["intentions"][0]["source_belief_id"] is None
