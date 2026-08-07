@@ -170,8 +170,32 @@ def get_chroma_memory_collection() -> str:
     return (get_settings().chroma_memory_collection or "").strip() or "riskagent-memory"
 
 
+def get_chroma_skills_collection() -> str:
+    return (get_settings().chroma_skills_collection or "").strip() or "riskagent-skills"
+
+
 def get_chroma_persist_dir() -> str:
     return (get_settings().chroma_persist_dir or "").strip()
+
+
+# ---- Skill query rewrite (RFC-005 需求五) ----
+def get_skill_query_rewrite_enabled() -> bool:
+    """获取是否启用 query 改写, 默认 True.
+
+    RFC-005 需求五: 在 _build_query() 之后、search() 之前,
+    用 LLM 将短 query 扩展为检索导向 query.
+    """
+    return bool(get_settings().skill_query_rewrite_enabled)
+
+
+def get_skill_query_rewrite_timeout() -> float:
+    """获取 query 改写 LLM 调用超时时间(秒), 默认 3."""
+    return float(get_settings().skill_query_rewrite_timeout)
+
+
+def get_skill_query_rewrite_cache_size() -> int:
+    """获取 query 改写 LRU 缓存容量, 默认 256."""
+    return int(get_settings().skill_query_rewrite_cache_size)
 
 
 __all__ = [
@@ -201,5 +225,9 @@ __all__ = [
     "get_chroma_port",
     "get_chroma_collection",
     "get_chroma_memory_collection",
+    "get_chroma_skills_collection",
     "get_chroma_persist_dir",
+    "get_skill_query_rewrite_enabled",
+    "get_skill_query_rewrite_timeout",
+    "get_skill_query_rewrite_cache_size",
 ]

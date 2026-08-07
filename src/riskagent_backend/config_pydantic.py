@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     chroma_port: int = Field(default=8001, description="Chroma 端口")
     chroma_collection: str = Field(default="riskagent-alerts", description="Chroma 默认集合名")
     chroma_memory_collection: str = Field(default="riskagent-memory", description="Chroma 记忆集合名")
+    chroma_skills_collection: str = Field(default="riskagent-skills", description="Chroma Skill 语义检索集合名")
     chroma_persist_dir: str = Field(default="", description="Chroma 持久化目录(为空则使用 HTTP 客户端)")
 
     # ---- Knowledge 配置 ----
@@ -104,6 +105,17 @@ class Settings(BaseSettings):
     skill_min_confidence_injection: float = Field(default=0.3, description="注入最低置信度")
     skill_max_age_days: int = Field(default=90, description="Skill 最大年龄(天), 超期自动归档")
     skill_max_injection_tokens: int = Field(default=2000, description="Skill 注入 token 预算")
+
+    # ---- Skill query rewrite 配置 (RFC-005 需求五) ----
+    skill_query_rewrite_enabled: bool = Field(
+        default=True, description="是否启用 query 改写 (LLM 检索导向查询扩展)"
+    )
+    skill_query_rewrite_timeout: float = Field(
+        default=3.0, description="query 改写 LLM 调用超时(秒)"
+    )
+    skill_query_rewrite_cache_size: int = Field(
+        default=256, description="query 改写 LRU 缓存容量"
+    )
 
     # ---- 派生属性 ----
     @property

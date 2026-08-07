@@ -58,6 +58,46 @@ def _mock_skill_proposer_llm():
 
 
 @pytest.fixture(autouse=True, scope="function")
+def _mock_skill_injector_llm():
+    """防止 SkillInjector 测试发起真实 LLM API 调用 (RFC-005 需求五 query 改写).
+
+    通过 patching skill_injector 模块中的 LlmClient 引用,
+    使所有未注入 llm_client 的 SkillInjector 实例使用 mock 客户端.
+    mock 从 prompt 中提取 "原始查询:" 后的内容原样返回, 确保不改变现有测试的检索行为.
+    需要测试真实 query 改写的测试应通过构造函数注入自定义 mock.
+    """
+    try:
+        from riskagent_backend.skills import skill_injector as si_module
+
+        async def _fake_chat_completions(*, messages, **kwargs):
+            # 从 prompt 中提取 "原始查询:" 后的内容, 原样返回 (不改变检索行为)
+            for msg in messages:
+                if msg.get("role") == "user":
+                    content = msg.get("content", "")
+                    for line in content.split("\n"):
+                        if line.strip().startswith("原始查询:"):
+                            original = line.replace("原始查询:", "").strip()
+                            if original:
+                                return {
+                                    "choices": [
+                                        {"message": {"content": original}}
+                                    ]
+                                }
+            # fallback: 返回空, _rewrite_query 会 fallback 到原始 query
+            return {"choices": [{"message": {"content": ""}}]}
+
+        mock_client = MagicMock()
+        mock_client.chat_completions = _fake_chat_completions
+
+        original_llm_client = si_module.LlmClient
+        si_module.LlmClient = lambda *a, **kw: mock_client  # type: ignore[assignment]
+        yield
+        si_module.LlmClient = original_llm_client  # type: ignore[assignment]
+    except ImportError:
+        yield
+
+
+@pytest.fixture(autouse=True, scope="function")
 def reset_memory_store():
     """在每个测试前清理 MemoryStore 的 Redis 数据."""
     # 设置测试环境变量

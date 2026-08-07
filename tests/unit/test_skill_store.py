@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -538,3 +539,236 @@ async def test_health_check():
 
     store = SkillStore()
     assert await store.health_check() is True
+
+
+# ==================== Chroma 向量检索路径 (RFC-005 需求一) ====================
+
+
+def _make_mock_llm_client():
+    """创建 mock LLMClient, embed() 返回 1536 维向量."""
+    client = MagicMock()
+    client.embed = AsyncMock(return_value=[0.1] * 1536)
+    return client
+
+
+def _make_mock_chroma_store():
+    """创建 mock ChromaVectorStore."""
+    store = MagicMock()
+    store.upsert_skill_embedding = MagicMock()
+    store.query_skills = MagicMock(return_value=[])
+    store.delete_skill_embedding = MagicMock()
+    return store
+
+
+@pytest.mark.asyncio
+async def test_index_skill_writes_to_chroma():
+    """测试 _index_skill 通过 LLMClient.embed() 生成向量并写入 Chroma."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    created = await store.create(_make_skill())
+
+    # 验证 embed 被调用 (传入 summary 文本)
+    llm_client.embed.assert_called_once()
+    called_text = llm_client.embed.call_args[0][0]
+    assert "从持仓查询到限额核对的完整风险排查工作流" in called_text
+
+    # 验证 upsert_skill_embedding 被调用
+    chroma_store.upsert_skill_embedding.assert_called_once()
+    call_kwargs = chroma_store.upsert_skill_embedding.call_args.kwargs
+    assert call_kwargs["skill_id"] == created["skill_id"]
+    assert call_kwargs["embedding"] == [0.1] * 1536
+    assert call_kwargs["metadata"]["skill_id"] == created["skill_id"]
+    assert call_kwargs["metadata"]["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_search_uses_chroma_ann():
+    """测试 search() 调用 Chroma ANN 检索."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    skill1 = await store.create(_make_skill(name="交易台风险排查", summary="风险排查工作流"))
+    await store.create(_make_skill(name="合规报告", summary="合规审计工作流"))
+
+    # Mock query_skills 返回 skill1
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(
+            doc_id=skill1["skill_id"],
+            similarity=0.95,
+            document="风险排查工作流",
+            metadata={"skill_id": skill1["skill_id"], "status": "active"},
+        ),
+    ])
+
+    hits = await store.search("风险排查", limit=5)
+
+    # 验证 query_skills 被调用
+    chroma_store.query_skills.assert_called_once()
+    call_kwargs = chroma_store.query_skills.call_args.kwargs
+    assert call_kwargs["query_embedding"] == [0.1] * 1536
+    assert call_kwargs["top_k"] == 5
+
+    # 验证结果
+    assert len(hits) >= 1
+    assert hits[0]["skill_id"] == skill1["skill_id"]
+    assert hits[0]["semantic_score"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_search_fallback_to_keyword_when_chroma_query_fails():
+    """测试 Chroma query 失败时 fallback 到关键词检索."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    chroma_store.query_skills = MagicMock(side_effect=RuntimeError("Chroma unavailable"))
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    await store.create(_make_skill(name="风险排查", summary="风险排查工作流", tags=["risk"]))
+
+    hits = await store.search("风险排查")
+    assert len(hits) >= 1
+    assert hits[0]["name"] == "风险排查"
+
+
+@pytest.mark.asyncio
+async def test_search_fallback_when_embed_fails():
+    """测试 embed() 失败时 _index_skill fallback 到 SemanticIndexer."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = MagicMock()
+    llm_client.embed = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    # create 会 fallback 到 SemanticIndexer
+    created = await store.create(_make_skill(name="风险排查", summary="风险排查工作流"))
+
+    # Chroma upsert 不应被调用
+    chroma_store.upsert_skill_embedding.assert_not_called()
+
+    # SemanticIndexer 应该有索引
+    assert created["skill_id"] in store._indexer.index
+
+    # search 也会 fallback (embed 失败 → SemanticIndexer)
+    hits = await store.search("风险排查")
+    assert len(hits) >= 1
+
+
+@pytest.mark.asyncio
+async def test_delete_removes_from_chroma():
+    """测试 delete 同步删除 Chroma 向量."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    created = await store.create(_make_skill())
+    result = await store.delete(created["skill_id"])
+
+    assert result is True
+    chroma_store.delete_skill_embedding.assert_called_once()
+    call_kwargs = chroma_store.delete_skill_embedding.call_args.kwargs
+    assert call_kwargs["skill_id"] == created["skill_id"]
+
+
+@pytest.mark.asyncio
+async def test_restore_from_persistence_rebuilds_chroma_index():
+    """测试 restore_from_persistence 重新生成 embedding 写入 Chroma."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    mock_persistence = MagicMock()
+    mock_persistence.load_skills = AsyncMock(return_value=[
+        _make_skill(skill_id="skill_restored_1", name="恢复技能1", summary="恢复技能1摘要"),
+        _make_skill(skill_id="skill_restored_2", name="恢复技能2", summary="恢复技能2摘要"),
+    ])
+    store._set_persistence(mock_persistence)
+
+    count = await store.restore_from_persistence()
+    assert count == 2
+
+    # 验证 embed 被调用 2 次 (每个 skill 一次)
+    assert llm_client.embed.call_count == 2
+    # 验证 upsert 被调用 2 次
+    assert chroma_store.upsert_skill_embedding.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_find_similar_uses_chroma_search():
+    """测试 find_similar 通过 Chroma 检索工作."""
+    from riskagent_backend.knowledge.chroma_store import SimilarDoc
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    existing = await store.create(
+        _make_skill(name="交易台风险排查", summary="风险排查工作流")
+    )
+
+    # Mock query_skills 返回已存储的 skill
+    chroma_store.query_skills = MagicMock(return_value=[
+        SimilarDoc(
+            doc_id=existing["skill_id"],
+            similarity=0.9,
+            document="风险排查工作流",
+            metadata={"skill_id": existing["skill_id"], "status": "active"},
+        ),
+    ])
+
+    candidate = _make_skill(name="交易台风险排查", summary="风险排查工作流")
+    similar = await store.find_similar(candidate, threshold=0.5)
+    assert len(similar) >= 1
+    assert similar[0]["skill_id"] == existing["skill_id"]
+
+
+@pytest.mark.asyncio
+async def test_chroma_enabled_property():
+    """测试 _chroma_enabled 属性正确判断依赖注入状态."""
+    from riskagent_backend.skills import SkillStore
+
+    # 无依赖注入 → False
+    store_no_chroma = SkillStore()
+    assert store_no_chroma._chroma_enabled is False
+
+    # 有依赖注入 → True
+    llm_client = _make_mock_llm_client()
+    chroma_store = _make_mock_chroma_store()
+    store_with_chroma = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+    assert store_with_chroma._chroma_enabled is True
+
+    # 只有 LLMClient → False
+    store_partial = SkillStore(llm_client=llm_client)
+    assert store_partial._chroma_enabled is False
+
+
+@pytest.mark.asyncio
+async def test_search_empty_query_with_chroma():
+    """测试 Chroma 路径下空查询返回空列表."""
+    from riskagent_backend.skills import SkillStore
+
+    llm_client = MagicMock()
+    # embed 对空文本抛异常 (与真实 LlmClient 行为一致)
+    llm_client.embed = AsyncMock(side_effect=ValueError("text 不能为空"))
+    chroma_store = _make_mock_chroma_store()
+    store = SkillStore(llm_client=llm_client, chroma_store=chroma_store)
+
+    await store.create(_make_skill(name="风险排查", summary="风险排查工作流"))
+    hits = await store.search("")
+    assert hits == []
+    # embed 抛异常后 fallback, query_skills 不应被调用
+    chroma_store.query_skills.assert_not_called()

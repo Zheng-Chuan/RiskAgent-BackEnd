@@ -2,19 +2,23 @@
 Skill 存储系统.
 
 提供 Skill 的 CRUD 和语义检索能力.
-参考 memory/memory_store.py 和 memory/semantic_indexer.py 的模式.
+
+RFC-005 需求一: Skill 语义索引迁移至 Chroma riskagent-skills collection.
+- 当注入 LLMClient + ChromaVectorStore 时, 使用 Chroma 做 ANN 检索.
+- 未注入时, 降级到 SemanticIndexer + 关键词兜底 (向后兼容).
+- SemanticIndexer 仅作为 fallback, 记忆系统仍独立使用它.
 
 设计约束:
 - 多Agent架构不变量: Skill 系统是增强每个 Agent 的基础设施, 不替代多 Agent 协作.
-- 初始使用内存存储, 与 SemanticIndexer 一致; Redis 持久化作为可选 (Phase 6).
-- 语义检索复用 SemanticIndexer, 实例化独立 indexer.
+- search() 签名不变, 上层调用方无感知.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
-from typing import Any
+from typing import Any, Optional
 
 from riskagent_backend.memory.persistence_backend import PersistenceBackend
 from riskagent_backend.memory.semantic_indexer import SemanticIndexer
@@ -23,21 +27,41 @@ from riskagent_backend.skills.skill_contract import (
     validate_skill,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class SkillStore:
     """Skill 存储.
 
     提供分层能力:
     1. 内存存储: dict[skill_id, skill_dict]
-    2. 语义检索: 复用 SemanticIndexer (独立实例)
-    3. Redis 持久化: 可选 (Phase 6 处理永久化)
+    2. 语义检索: Chroma ANN (注入时) 或 SemanticIndexer fallback
+    3. MySQL 持久化: 可选
+
+    Args:
+        redis_url: Redis URL (可选, 未使用).
+        llm_client: LLM 客户端, 用于 embed() 生成 1536 维向量.
+        chroma_store: Chroma 向量存储, 用于 riskagent-skills collection.
     """
 
-    def __init__(self, redis_url: str | None = None) -> None:
+    def __init__(
+        self,
+        redis_url: str | None = None,
+        *,
+        llm_client: Optional[Any] = None,
+        chroma_store: Optional[Any] = None,
+    ) -> None:
         self._store: dict[str, dict[str, Any]] = {}
         self._indexer: SemanticIndexer = SemanticIndexer()
         self._redis_url = redis_url
         self._persistence: PersistenceBackend | None = None
+        self._llm_client = llm_client
+        self._chroma_store = chroma_store
+
+    @property
+    def _chroma_enabled(self) -> bool:
+        """是否启用 Chroma 向量检索路径."""
+        return self._llm_client is not None and self._chroma_store is not None
 
     @property
     def persistence(self) -> PersistenceBackend:
@@ -86,7 +110,7 @@ class SkillStore:
         return " ".join(parts)
 
     def _build_indexable(self, skill: dict[str, Any]) -> dict[str, Any]:
-        """将 Skill 转换为 SemanticIndexer 可索引的条目."""
+        """将 Skill 转换为 SemanticIndexer 可索引的条目 (fallback 路径)."""
         return {
             "entry_id": str(skill.get("skill_id")),
             "kind": "semantic_case",
@@ -98,8 +122,43 @@ class SkillStore:
             "skill": dict(skill),
         }
 
+    def _build_skill_metadata(self, skill: dict[str, Any]) -> dict[str, Any]:
+        """构建 Chroma metadata, 用于过滤."""
+        return {
+            "skill_id": str(skill.get("skill_id", "")),
+            "name": str(skill.get("name", "")),
+            "status": str(skill.get("status", "")),
+            "confidence": float(skill.get("confidence", 0.0)),
+        }
+
     async def _index_skill(self, skill: dict[str, Any]) -> None:
-        """索引 Skill 到语义索引器."""
+        """索引 Skill 到语义索引器.
+
+        Chroma 路径: LLMClient.embed(summary) → ChromaVectorStore.upsert_skill_embedding().
+        Fallback 路径: SemanticIndexer.index_entry().
+        """
+        if self._chroma_enabled:
+            try:
+                skill_id = str(skill.get("skill_id", ""))
+                text = self._build_skill_text(skill)
+                if not text.strip():
+                    return
+                embedding = await self._llm_client.embed(text)
+                metadata = self._build_skill_metadata(skill)
+                self._chroma_store.upsert_skill_embedding(
+                    skill_id=skill_id,
+                    embedding=embedding,
+                    document=text,
+                    metadata=metadata,
+                )
+                return
+            except Exception as exc:
+                logger.warning(
+                    "Chroma upsert failed for skill %s, falling back to SemanticIndexer: %s",
+                    skill.get("skill_id"),
+                    exc,
+                )
+        # Fallback: SemanticIndexer
         await self._indexer.index_entry(self._build_indexable(skill))
 
     async def _reindex(self, skill: dict[str, Any]) -> None:
@@ -153,6 +212,12 @@ class SkillStore:
             return False
         del self._store[skill_id]
         self._indexer.index.pop(skill_id, None)
+        # Chroma 路径: 同步删除向量
+        if self._chroma_enabled:
+            try:
+                self._chroma_store.delete_skill_embedding(skill_id=skill_id)
+            except Exception as exc:
+                logger.warning("Chroma delete failed for skill %s: %s", skill_id, exc)
         return True
 
     async def list_all(
@@ -170,16 +235,47 @@ class SkillStore:
 
     # ==================== 语义检索 ====================
 
+    async def _semantic_search(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
+        """统一语义检索入口.
+
+        Chroma 路径: LLMClient.embed(query) → ChromaVectorStore.query_skills() → 从内存查回 skill.
+        Fallback 路径: SemanticIndexer.search().
+
+        返回格式与 SemanticIndexer.search() 一致:
+        [{"skill": skill_dict, "semantic_score": float, ...}]
+        """
+        if self._chroma_enabled:
+            try:
+                query_embedding = await self._llm_client.embed(query)
+                similar_docs = self._chroma_store.query_skills(
+                    query_embedding=query_embedding,
+                    top_k=limit,
+                )
+                hits: list[dict[str, Any]] = []
+                for doc in similar_docs:
+                    skill = self._store.get(doc.doc_id)
+                    if not isinstance(skill, dict):
+                        continue
+                    hits.append({
+                        "skill": dict(skill),
+                        "semantic_score": float(doc.similarity),
+                    })
+                return hits
+            except Exception as exc:
+                logger.warning("Chroma query failed, falling back to SemanticIndexer: %s", exc)
+        # Fallback: SemanticIndexer
+        return await self._indexer.search(query, limit=limit)
+
     async def search(
         self, query: str, *, limit: int = 5, min_confidence: float = 0.0
     ) -> list[dict[str, Any]]:
         """语义检索 Skill.
 
-        使用 SemanticIndexer 做向量化检索.
+        使用 Chroma ANN 检索 (注入时) 或 SemanticIndexer fallback.
         过滤 confidence < min_confidence 的结果.
         过滤 status != "active" 的结果.
         """
-        hits = await self._indexer.search(query, limit=limit)
+        hits = await self._semantic_search(query, limit=limit)
         merged_results: dict[str, dict[str, Any]] = {}
         for hit in hits:
             skill = hit.get("skill")
@@ -232,7 +328,7 @@ class SkillStore:
         text = self._build_skill_text(skill)
         if not text.strip():
             return []
-        hits = await self._indexer.search(text, limit=20)
+        hits = await self._semantic_search(text, limit=20)
         results: list[dict[str, Any]] = []
         for hit in hits:
             hit_skill = hit.get("skill")
@@ -320,6 +416,9 @@ class SkillStore:
 
     async def restore_from_persistence(self) -> int:
         """从 MySQL 加载所有 Skill 到内存.
+
+        Chroma 路径: 加载后重新生成 embedding 写入 Chroma (重建索引).
+        Fallback 路径: 重建 SemanticIndexer 索引.
 
         Returns:
             恢复的 Skill 数量

@@ -115,3 +115,85 @@ class ChromaVectorStore:
         inc_counter("rm_chroma_queries_total", labels={"collection": self._collection_name})
         inc_counter("rm_chroma_hits_total", labels={"collection": self._collection_name}, value=len(results))
         return results
+
+    # ==================== Skill 向量存储 ====================
+
+    def _skills_collection(self):
+        """获取或创建 riskagent-skills collection."""
+        client = self._client()
+        skills_name = config.get_chroma_skills_collection()
+        return client.get_or_create_collection(
+            name=skills_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+    def upsert_skill_embedding(
+        self,
+        *,
+        skill_id: str,
+        embedding: list[float],
+        document: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        """写入或更新 Skill 向量到 riskagent-skills collection.
+
+        embedding 由外部 LLMClient.embed() 生成 (1536 维),
+        非内部 embed_text_dense 计算.
+        """
+        started = time.monotonic()
+        col = self._skills_collection()
+        col.upsert(
+            ids=[skill_id],
+            documents=[document],
+            metadatas=[metadata],
+            embeddings=[embedding],
+        )
+        skills_name = config.get_chroma_skills_collection()
+        observe_ms("rm_chroma_upsert", (time.monotonic() - started) * 1000.0, labels={"collection": skills_name})
+        inc_counter("rm_chroma_upserts_total", labels={"collection": skills_name})
+
+    def query_skills(
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int = 5,
+    ) -> list[SimilarDoc]:
+        """ANN 检索 riskagent-skills collection, 返回 Top-K 相似 Skill.
+
+        query_embedding 由外部 LLMClient.embed() 生成.
+        """
+        k = max(1, int(top_k))
+        started = time.monotonic()
+        col = self._skills_collection()
+        out = col.query(
+            query_embeddings=[query_embedding],
+            n_results=k,
+            include=["metadatas", "documents", "distances"],
+        )
+        ids = (out.get("ids") or [[]])[0]
+        docs = (out.get("documents") or [[]])[0]
+        metas = (out.get("metadatas") or [[]])[0]
+        dists = (out.get("distances") or [[]])[0]
+
+        results: list[SimilarDoc] = []
+        for i in range(min(len(ids), len(docs), len(metas), len(dists))):
+            doc_id = str(ids[i])
+            doc = str(docs[i] or "")
+            meta = metas[i] if isinstance(metas[i], dict) else {}
+            dist = float(dists[i]) if dists[i] is not None else 1.0
+            similarity = max(0.0, min(1.0, 1.0 - dist))
+            results.append(SimilarDoc(doc_id=doc_id, similarity=similarity, document=doc, metadata=meta))
+        skills_name = config.get_chroma_skills_collection()
+        observe_ms("rm_chroma_query", (time.monotonic() - started) * 1000.0, labels={"collection": skills_name})
+        inc_counter("rm_chroma_queries_total", labels={"collection": skills_name})
+        inc_counter("rm_chroma_hits_total", labels={"collection": skills_name}, value=len(results))
+        return results
+
+    def delete_skill_embedding(self, *, skill_id: str) -> None:
+        """从 riskagent-skills collection 删除指定 Skill 向量."""
+        started = time.monotonic()
+        col = self._skills_collection()
+        col.delete(ids=[skill_id])
+        skills_name = config.get_chroma_skills_collection()
+        observe_ms("rm_chroma_delete", (time.monotonic() - started) * 1000.0, labels={"collection": skills_name})
+        inc_counter("rm_chroma_deletes_total", labels={"collection": skills_name})

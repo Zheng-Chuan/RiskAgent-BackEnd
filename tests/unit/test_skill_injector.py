@@ -1,8 +1,9 @@
 """SkillInjector 单测."""
 
+import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -514,6 +515,306 @@ async def test_intent_from_dict_primary_intent_type():
 
     assert result["skill_count"] >= 1
 
+
+# ==================== RFC-005 需求五: Query Rewriting 测试 ====================
+
+
+def _make_mock_llm_client(response_text: str = "") -> MagicMock:
+    """构造 mock LlmClient, chat_completions 返回指定文本."""
+    mock = MagicMock()
+    mock.chat_completions = AsyncMock(
+        return_value={
+            "choices": [{"message": {"content": response_text}}]
+        }
+    )
+    return mock
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_normal():
+    """_rewrite_query 正常改写: LLM 返回扩展后的 query."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("监控交易台敞口风险 检测持仓超限 风险指标异常")
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("监控敞口")
+
+    assert rewritten == "监控交易台敞口风险 检测持仓超限 风险指标异常"
+    assert mock_client.chat_completions.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_cache_hit():
+    """LRU 缓存命中: 相同 query 不重复调用 LLM."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("扩展后的检索查询")
+
+    injector = SkillInjector(store, llm_client=mock_client)
+
+    # 第一次调用 - LLM 被调用
+    result1 = await injector._rewrite_query("测试查询")
+    assert result1 == "扩展后的检索查询"
+    assert mock_client.chat_completions.call_count == 1
+
+    # 第二次调用相同 query - 缓存命中, LLM 不被调用
+    result2 = await injector._rewrite_query("测试查询")
+    assert result2 == "扩展后的检索查询"
+    assert mock_client.chat_completions.call_count == 1  # 仍然为 1
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_llm_timeout_fallback(monkeypatch):
+    """LLM 超时 → fallback 到原始 query."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    # 设置极短超时
+    monkeypatch.setenv("SKILL_QUERY_REWRITE_TIMEOUT", "0.1")
+
+    store = SkillStore()
+
+    # 构造一个会 sleep 1 秒的 mock (超过 0.1s 超时)
+    async def slow_chat(*args, **kwargs):
+        await asyncio.sleep(1.0)
+        return {"choices": [{"message": {"content": "不应到达"}}]}
+
+    mock_client = MagicMock()
+    mock_client.chat_completions = slow_chat
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("原始查询")
+
+    assert rewritten == "原始查询"  # fallback 到原始 query
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_llm_empty_fallback():
+    """LLM 返回空 → fallback 到原始 query."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("")  # 空响应
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("原始查询")
+
+    assert rewritten == "原始查询"  # fallback 到原始 query
+    assert mock_client.chat_completions.call_count == 1  # LLM 被调用了
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_disabled(monkeypatch):
+    """SKILL_QUERY_REWRITE_ENABLED=false → 跳过改写."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    monkeypatch.setenv("SKILL_QUERY_REWRITE_ENABLED", "false")
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("不应被调用")
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("原始查询")
+
+    assert rewritten == "原始查询"  # 原样返回
+    assert mock_client.chat_completions.call_count == 0  # LLM 未被调用
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_llm_exception_fallback():
+    """LLM 抛异常 → fallback 到原始 query."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+
+    async def error_chat(*args, **kwargs):
+        raise RuntimeError("LLM 服务不可用")
+
+    mock_client = MagicMock()
+    mock_client.chat_completions = error_chat
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("原始查询")
+
+    assert rewritten == "原始查询"  # fallback 到原始 query
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_same_as_original_no_warning():
+    """LLM 返回与原始 query 相同时, 正常缓存返回 (不视为 fallback)."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("原始查询")  # 返回相同的 query
+
+    injector = SkillInjector(store, llm_client=mock_client)
+    rewritten = await injector._rewrite_query("原始查询")
+
+    assert rewritten == "原始查询"
+    assert mock_client.chat_completions.call_count == 1  # LLM 被调用了
+
+    # 缓存命中: 第二次不调用 LLM
+    rewritten2 = await injector._rewrite_query("原始查询")
+    assert rewritten2 == "原始查询"
+    assert mock_client.chat_completions.call_count == 1  # 仍然为 1
+
+
+@pytest.mark.asyncio
+async def test_retrieve_skills_uses_rewritten_query():
+    """retrieve_applicable_skills() 使用改写后的 query 调用 search."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    mock_client = _make_mock_llm_client("扩展后的检索查询")
+
+    # 捕获传给 search 的 query
+    captured_query = []
+    mock_hits = [{
+        "skill_id": "skill_test",
+        "name": "测试",
+        "summary": "测试摘要",
+        "confidence": 0.9,
+    }]
+
+    async def capture_search(query, *args, **kwargs):
+        captured_query.append(query)
+        return mock_hits
+
+    injector = SkillInjector(
+        store, min_confidence=0.3, max_skills=3, llm_client=mock_client
+    )
+
+    with patch.object(store, "search", new=capture_search):
+        result = await injector.retrieve_applicable_skills(
+            task=_make_task(),
+            skill_enabled=True,
+        )
+
+    assert len(captured_query) == 1
+    assert captured_query[0] == "扩展后的检索查询"  # 使用改写后的 query
+    assert mock_client.chat_completions.call_count == 1  # LLM 被调用了
+    assert result["skill_count"] >= 1
+
+
+# ==================== LRU 缓存单元测试 ====================
+
+
+def test_lru_cache_basic_get_put():
+    """LRU 缓存基本 get/put 操作."""
+    from riskagent_backend.skills.skill_injector import _QueryRewriteLRUCache
+
+    cache = _QueryRewriteLRUCache(maxsize=3)
+
+    cache.put(hash("a"), "rewritten_a")
+    cache.put(hash("b"), "rewritten_b")
+
+    assert cache.get(hash("a")) == "rewritten_a"
+    assert cache.get(hash("b")) == "rewritten_b"
+    assert cache.get(hash("c")) is None  # 未插入
+    assert len(cache) == 2
+
+
+def test_lru_cache_eviction():
+    """LRU 缓存容量超限时淘汰最久未使用的条目."""
+    from riskagent_backend.skills.skill_injector import _QueryRewriteLRUCache
+
+    cache = _QueryRewriteLRUCache(maxsize=2)
+
+    cache.put(hash("a"), "rewritten_a")
+    cache.put(hash("b"), "rewritten_b")
+
+    # 访问 a, 使 a 成为最近使用
+    assert cache.get(hash("a")) == "rewritten_a"
+
+    # 插入 c, 容量超限, 淘汰 b (最久未使用)
+    cache.put(hash("c"), "rewritten_c")
+
+    assert cache.get(hash("a")) == "rewritten_a"  # a 仍在
+    assert cache.get(hash("b")) is None  # b 已被淘汰
+    assert cache.get(hash("c")) == "rewritten_c"  # c 在
+    assert len(cache) == 2
+
+
+def test_lru_cache_overwrite_existing():
+    """LRU 缓存覆写已存在的键时更新值并移到队尾 (MRU)."""
+    from riskagent_backend.skills.skill_injector import _QueryRewriteLRUCache
+
+    cache = _QueryRewriteLRUCache(maxsize=2)
+
+    cache.put(hash("a"), "v1")
+    cache.put(hash("b"), "v2")
+
+    # 覆写 a, a 移到队尾 (MRU), b 变成 LRU
+    cache.put(hash("a"), "v1_updated")
+
+    # 插入 c, b 应被淘汰 (a 刚被覆写, 是 MRU)
+    cache.put(hash("c"), "v3")
+
+    assert cache.get(hash("a")) == "v1_updated"  # a 仍在, 值已更新
+    assert cache.get(hash("b")) is None  # b 被淘汰
+    assert cache.get(hash("c")) == "v3"  # c 在
+
+
+def test_lru_cache_clear():
+    """LRU 缓存清空."""
+    from riskagent_backend.skills.skill_injector import _QueryRewriteLRUCache
+
+    cache = _QueryRewriteLRUCache(maxsize=5)
+    cache.put(hash("a"), "v1")
+    cache.put(hash("b"), "v2")
+    assert len(cache) == 2
+
+    cache.clear()
+    assert len(cache) == 0
+    assert cache.get(hash("a")) is None
+
+
+@pytest.mark.asyncio
+async def test_rewrite_query_cache_eviction_integration(monkeypatch):
+    """集成测试: LRU 缓存淘汰后, 被淘汰的 query 再次调用会触发 LLM."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    # 设置小缓存容量
+    monkeypatch.setenv("SKILL_QUERY_REWRITE_CACHE_SIZE", "2")
+
+    store = SkillStore()
+    call_count = [0]
+
+    async def counting_chat(*args, **kwargs):
+        call_count[0] += 1
+        # 从 prompt 提取原始查询, 返回扩展版本
+        messages = kwargs.get("messages", [])
+        for msg in messages:
+            if msg.get("role") == "user":
+                content = msg.get("content", "")
+                for line in content.split("\n"):
+                    if line.strip().startswith("原始查询:"):
+                        original = line.replace("原始查询:", "").strip()
+                        return {
+                            "choices": [{"message": {"content": f"扩展_{original}"}}]
+                        }
+        return {"choices": [{"message": {"content": "扩展"}}]}
+
+    mock_client = MagicMock()
+    mock_client.chat_completions = counting_chat
+
+    injector = SkillInjector(store, llm_client=mock_client)
+
+    # 插入 3 个不同的 query (容量=2, 第一个会被淘汰)
+    await injector._rewrite_query("query1")
+    await injector._rewrite_query("query2")
+    await injector._rewrite_query("query3")
+    assert call_count[0] == 3  # 3 次 LLM 调用
+
+    # query1 已被淘汰, 再次调用会触发 LLM
+    await injector._rewrite_query("query1")
+    assert call_count[0] == 4  # 第 4 次 LLM 调用
+
+    # query3 仍在缓存中 (最近使用), 不会触发 LLM
+    await injector._rewrite_query("query3")
+    assert call_count[0] == 4  # 仍为 4
 
 @pytest.mark.asyncio
 async def test_payload_style_task():

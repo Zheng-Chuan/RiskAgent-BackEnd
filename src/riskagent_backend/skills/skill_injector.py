@@ -12,15 +12,53 @@ Skill 注入器.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
-from typing import Any
+from collections import OrderedDict
+from typing import Any, Optional
 
+from riskagent_backend import config
+from riskagent_backend.llm import LlmClient, extract_first_text
 from riskagent_backend.skills.skill_governor import SkillGovernor
 from riskagent_backend.skills.skill_store import SkillStore
 
 logger = logging.getLogger(__name__)
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]+")
+
+
+class _QueryRewriteLRUCache:
+    """query 改写结果的 LRU 缓存.
+
+    RFC-005 需求五: 缓存 query → 改写结果映射, 避免相同 query 重复调用 LLM.
+    缓存键: hash(original_query), 缓存值: 改写后的 query 字符串.
+    """
+
+    def __init__(self, maxsize: int = 256) -> None:
+        self._maxsize: int = max(1, maxsize)
+        self._cache: OrderedDict[int, str] = OrderedDict()
+
+    def get(self, key: int) -> Optional[str]:
+        """获取缓存值, 命中时移到队尾 (最近使用)."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return None
+
+    def put(self, key: int, value: str) -> None:
+        """写入缓存, 超容量时淘汰队首 (最久未使用)."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        self._cache[key] = value
+        if len(self._cache) > self._maxsize:
+            self._cache.popitem(last=False)
+
+    def clear(self) -> None:
+        """清空缓存."""
+        self._cache.clear()
+
+    def __len__(self) -> int:
+        return len(self._cache)
 
 
 class SkillInjector:
@@ -33,12 +71,18 @@ class SkillInjector:
         min_confidence: float = 0.3,
         max_skills: int = 3,
         governor: SkillGovernor | None = None,
+        llm_client: LlmClient | None = None,
     ) -> None:
         self._store = skill_store
         self._min_confidence = min_confidence
         self._max_skills = max_skills
         self._governor = governor
+        self._llm_client = llm_client
         self._last_injected_skill_ids: list[str] = []
+        # RFC-005 需求五: query 改写 LRU 缓存
+        self._rewrite_cache = _QueryRewriteLRUCache(
+            maxsize=config.get_skill_query_rewrite_cache_size()
+        )
 
     @property
     def last_injected_skill_ids(self) -> list[str]:
@@ -87,6 +131,9 @@ class SkillInjector:
                 "injected_skill_ids": [],
                 "injection_summary": "No query keywords extracted for skill retrieval",
             }
+
+        # RFC-005 需求五: LLM query 改写 (扩展短查询为检索导向查询)
+        query = await self._rewrite_query(query)
 
         try:
             hits = await self._store.search(
@@ -293,6 +340,111 @@ class SkillInjector:
             parts.append(desc.strip())
 
         return " ".join(parts)
+
+    # ==================== RFC-005 需求五: Query Rewriting ====================
+
+    async def _rewrite_query(self, query: str) -> str:
+        """用 LLM 将短 query 扩展为检索导向 query.
+
+        弥补 embedding 对短查询的弱点: 短 query (如 "监控敞口") 的
+        embedding 向量信息密度低, 向量检索召回不稳定. 改写为包含同义词、
+        近义词和上下文描述的检索导向 query 后可显著提升召回质量.
+
+        Fallback 策略 (不阻断检索链路):
+        - SKILL_QUERY_REWRITE_ENABLED=false → 跳过改写, 返回原始 query
+        - LRU 缓存命中 → 返回缓存结果, 不调用 LLM
+        - LLM 超时 (默认 3s) → 返回原始 query, 记录 warning
+        - LLM 返回空/非法 → 返回原始 query, 记录 warning
+        - LLM 抛异常 → 返回原始 query, 记录 warning
+        """
+        if not config.get_skill_query_rewrite_enabled():
+            return query
+
+        # 1. 检查 LRU 缓存
+        cache_key = hash(query)
+        cached = self._rewrite_cache.get(cache_key)
+        if cached is not None:
+            logger.debug("Query rewrite cache hit: %s", query[:50])
+            return cached
+
+        # 2. 调用 LLM 改写 (带超时)
+        timeout_s = config.get_skill_query_rewrite_timeout()
+        try:
+            rewritten = await asyncio.wait_for(
+                self._call_llm_rewrite(query),
+                timeout=timeout_s,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Query rewrite timed out (%.1fs), using original query: %s",
+                timeout_s, query[:50],
+            )
+            return query
+        except Exception as exc:
+            logger.warning(
+                "Query rewrite failed, using original query: %s", exc
+            )
+            return query
+
+        # 3. 校验改写结果
+        if not rewritten or not rewritten.strip():
+            logger.warning(
+                "Query rewrite returned empty, using original query: %s",
+                query[:50],
+            )
+            return query
+
+        rewritten = rewritten.strip()
+
+        # 4. 写入 LRU 缓存 (包括与原始 query 相同的情况, 避免重复调用)
+        self._rewrite_cache.put(cache_key, rewritten)
+
+        if rewritten == query:
+            logger.debug(
+                "Query rewrite returned same as original (no expansion): %s",
+                query[:50],
+            )
+        else:
+            logger.debug(
+                "Query rewritten: '%s' -> '%s'", query[:50], rewritten[:50]
+            )
+
+        return rewritten
+
+    async def _call_llm_rewrite(self, query: str) -> str:
+        """调用 LLM 改写 query, 返回改写后的文本.
+
+        LLM prompt 参考 AutoSkill 的 extraction prompt 设计.
+        """
+        client = self._llm_client or LlmClient()
+        prompt = (
+            "你是一个检索查询改写器。将用户的短查询扩展为检索导向的查询，要求：\n"
+            "1. 保留原始意图\n"
+            "2. 扩展同义词和近义词\n"
+            "3. 补充领域上下文\n"
+            "4. 输出为一行短语，不超过 50 字\n\n"
+            f"原始查询: {query}\n\n"
+            "改写后的查询:"
+        )
+        resp = await client.chat_completions(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是一个检索查询改写器。"
+                        "将用户的短查询扩展为检索导向的查询，"
+                        "保留原始意图，扩展同义词和近义词，补充领域上下文。"
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=64,
+            use_cache=False,
+            agent_name="skill_injector",
+            stage="query_rewrite",
+        )
+        return extract_first_text(resp).strip()
 
     @staticmethod
     def _build_injection_item(
