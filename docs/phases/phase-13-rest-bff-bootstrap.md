@@ -2,7 +2,7 @@
 
 ## 状态
 
-开发中, 基础任务接口, memory 视图接口, TaskGraph 图快照接口和 SSE 事件流代码已完成, 当前进入本地 K8s 验收阶段.
+✓ 已完成 — K8s 验收全部通过（2026-08-07）
 
 ## 核心目标
 
@@ -301,6 +301,42 @@ text/event-stream
 - 文档: 本阶段规划文档
 - 文档: PRD 需求补充
 - 测试: REST BFF 基本契约测试, memory 接口测试与 SSE 事件流测试
+
+## 验收结果
+
+验收日期: 2026-08-07
+验收环境: K8s（Helm Chart 部署）
+
+### API 端点验收（9/9 PASS）
+
+| # | 端点 | 结果 |
+| :--- | :--- | :--- |
+| 1 | `POST /api/tasks` | ✅ 202, 返回 task_id + pending |
+| 2 | `GET /api/tasks/{task_id}` | ✅ pending→running→completed 完整生命周期, 含 steps/graph/result/error |
+| 3 | `GET /api/tasks/{task_id}/graph` | ✅ DAG: 2 nodes (delegate + finalize) + 1 edge |
+| 4 | `GET /api/tasks/{task_id}/memory` | ✅ 4 个记忆项, 3 个 agent（critic/orchestrator/data_retrieval_agent）|
+| 5 | `GET /api/stream` | ✅ SSE 事件流含 agent_snapshot/memory_snapshot/graph_snapshot/heartbeat 四类事件 |
+| 6 | `GET /api/agents` | ✅ 5 个 Agent 状态 |
+| 7 | `GET /api/memory` | ✅ 脱敏记忆项 + summary |
+| 8 | `GET /health` | ✅ {"status":"ok"} |
+| 9 | 脱敏验证 | ✅ 全部响应无明文 API Key |
+
+### 前端联调验收（5/5 PASS）
+
+| # | 验收项 | 结果 |
+| :--- | :--- | :--- |
+| 1 | 前端页面正常加载 | ✅ HTTP 200, 标题 "RiskAgent 多智能体协作平台" |
+| 2 | 前端控制台零错误 | ✅ 无 error/warning/log |
+| 3 | API 请求路径与后端端点匹配 | ✅ 7 个端点全部匹配 |
+| 4 | 任务提交后状态变化 | ✅ pending→running, Agent 状态变化, 记忆新增, SSE 实时推送 |
+| 5 | 验收截图 | ✅ 6 张已保存（results/phase13-*.png）|
+
+### 关键发现
+
+- 前端通过 nginx 反向代理将 `/api/*` 转发到后端 mcp-server, 集群内通
+- SSE 实时推送正常: 记忆计数从 18→19→20 实时增长, Agent 状态实时更新
+- 任务执行中 data_retrieval_agent 触发降级模式（agent not found → degraded）, 任务仍 completed
+- LLM Fallback 降级机制按设计预期工作
 
 ## 相关文档
 

@@ -4,6 +4,14 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-07: Phase 13 REST BFF K8s 验收完成
+
+- 9/9 API 端点验收通过（POST/GET/SSE/脱敏）
+- 5/5 前端联调验收通过（页面加载/控制台/API 路径匹配/任务提交/SSE 实时推送）
+- 前端通过 nginx 反向代理对接后端，集群内通
+- LLM Fallback 降级机制按设计预期工作
+- 6 张验收截图已保存
+
 ## 2026-08-03: Phase 14 规划 + RFC-006 优先级提升
 
 - 新建 Phase 14: 性能验证与 LLM 成本模型（docs/phases/phase-14-performance-verification.md）

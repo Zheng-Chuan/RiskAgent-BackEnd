@@ -84,7 +84,7 @@
 | Phase 10 | 5min 主动感知与自主运维 | ✓ 完成 — 全链路验证通过（2026-08-03） | [phase-10-active-monitoring.md](./phases/phase-10-active-monitoring.md) |
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | 规划中 — RFC-005 Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | Phase 12 | BDI 信念去重与意图幂等性修复 | 规划中 — RFC-006 Proposed（Phase 10 验证后优先级提升） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
-| Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | 开发中 | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
+| Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
 | Phase 14 | 性能验证与 LLM 成本模型 | 规划中 — 依赖 RFC-006 完成 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
 
 ---
