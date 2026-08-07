@@ -51,6 +51,7 @@ class SkillInjector:
         task: dict[str, Any],
         intent: str | None = None,
         skill_enabled: bool = True,
+        summary_only: bool = True,
     ) -> dict[str, Any]:
         """检索匹配当前任务的 Skill, 返回注入结构.
 
@@ -60,6 +61,11 @@ class SkillInjector:
         3. 调用 skill_store.search(query, limit=max_skills, min_confidence=min_confidence)
         4. 过滤 status != "active" 的结果 (SkillStore.search 已内置过滤)
         5. 构建 few-shot 注入结构
+
+        Args:
+            summary_only: True 时只注入 summary 列表 (name + summary, 约 0.5-1K tokens),
+                          Orchestrator 在 ReAct 循环中通过 skill_view 工具按需获取完整内容.
+                          False 时注入完整 Skill (向后兼容).
         """
         if not skill_enabled:
             self._last_injected_skill_ids = []
@@ -105,7 +111,7 @@ class SkillInjector:
                 hits=hits,
             )
 
-        skills = [self._build_injection_item(hit) for hit in hits]
+        skills = [self._build_injection_item(hit, summary_only=summary_only) for hit in hits]
 
         # 治理过滤: 置信度/状态/数量/token 预算控制
         if self._governor and skills:
@@ -289,8 +295,28 @@ class SkillInjector:
         return " ".join(parts)
 
     @staticmethod
-    def _build_injection_item(skill: dict[str, Any]) -> dict[str, Any]:
-        """构建单个 Skill 的 few-shot 注入结构."""
+    def _build_injection_item(
+        skill: dict[str, Any], *, summary_only: bool = True
+    ) -> dict[str, Any]:
+        """构建单个 Skill 的注入结构.
+
+        Args:
+            summary_only: True 时只输出 skill_id, name, summary (约 0.5-1K tokens),
+                          Orchestrator 在 ReAct 循环中通过 skill_view 工具按需获取完整内容.
+                          False 时输出完整 Skill (steps, applicable_conditions, failure_boundary 等).
+        """
+        skill_id = str(skill.get("skill_id") or "")
+        name = str(skill.get("name") or "")
+        summary = str(skill.get("summary") or "")
+
+        if summary_only:
+            return {
+                "skill_id": skill_id,
+                "name": name,
+                "summary": summary,
+            }
+
+        # 完整模式 (向后兼容)
         steps = skill.get("steps")
         if not isinstance(steps, list):
             steps = []
@@ -304,8 +330,9 @@ class SkillInjector:
             conds = [str(c) for c in conds]
 
         return {
-            "skill_id": str(skill.get("skill_id") or ""),
-            "name": str(skill.get("name") or ""),
+            "skill_id": skill_id,
+            "name": name,
+            "summary": summary,
             "applicable_conditions": conds,
             "steps": steps,
             "failure_boundary": str(skill.get("failure_boundary") or ""),

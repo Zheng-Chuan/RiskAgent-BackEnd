@@ -141,6 +141,15 @@ _TOOL_REGISTRY: dict[str, ToolMeta] = {
         allowed_targets=("manager",),
         side_effect_policy=SideEffectPolicy(require_approval=True, require_reason=True, min_severity="INFO"),
     ),
+    "skill_view": ToolMeta(
+        action="skill_view",
+        capability="read_only",
+        owner="orchestrator",
+        description="view full skill content (steps, applicable_conditions, failure_boundary)",
+        risk_level="low",
+        default_timeout_ms=2000,
+        allowed_targets=("orchestrator",),
+    ),
 }
 
 

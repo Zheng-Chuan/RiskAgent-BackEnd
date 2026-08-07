@@ -27,6 +27,7 @@ from riskagent_backend.orchestration.tool_registry import SideEffectPolicy, Tool
 from riskagent_backend.services import alert_rules_service
 from riskagent_backend.services.breach_service import build_abs_delta_breaches
 from riskagent_backend.services.exposure_service import compute_exposure
+from riskagent_backend.tools.skill_view_tool import skill_view_handler
 from riskagent_backend.tools.tool_helpers import (
     normalize_as_of,
     normalize_limit_offset,
@@ -49,6 +50,7 @@ class ToolResult:
 _ENGINEER_ALLOWLIST: dict[str, Callable[[dict[str, Any]], ToolResult]] = {}
 _ANALYST_ALLOWLIST: dict[str, Callable[[dict[str, Any]], ToolResult]] = {}
 _MANAGER_ALLOWLIST: dict[str, Callable[[dict[str, Any]], ToolResult]] = {}
+_ORCHESTRATOR_ALLOWLIST: dict[str, Callable[[dict[str, Any]], ToolResult]] = {}
 
 RBAC_POLICY_VERSION = "rbac_policy.v1"
 _RUN_BUDGET_STATE: dict[str, dict[str, int]] = {}
@@ -315,6 +317,12 @@ _MANAGER_ALLOWLIST.update(
     }
 )
 
+_ORCHESTRATOR_ALLOWLIST.update(
+    {
+        "skill_view": _wrap("skill_view", skill_view_handler),
+    }
+)
+
 
 def _is_approved(params: dict[str, Any]) -> bool:
     approval = params.get("approval")
@@ -380,7 +388,7 @@ def _build_command_approval_request(*, cmd: dict[str, Any], meta: ToolMeta | Non
 
 
 def _is_allowed_by_role(*, meta: ToolMeta, target_agent: str) -> bool:
-    if target_agent in ("system_engineer", "risk_analyst"):
+    if target_agent in ("system_engineer", "risk_analyst", "orchestrator"):
         return meta.capability == "read_only"
     if target_agent == "manager":
         return meta.capability in ("read_only", "side_effect")
@@ -390,7 +398,7 @@ def _is_allowed_by_role(*, meta: ToolMeta, target_agent: str) -> bool:
 def _is_allowed_by_meta(*, meta: ToolMeta, target_agent: str) -> bool:
     if isinstance(meta.allowed_targets, tuple) and len(meta.allowed_targets) > 0:
         return target_agent in set(meta.allowed_targets)
-    if meta.owner in {"system_engineer", "risk_analyst", "manager"}:
+    if meta.owner in {"system_engineer", "risk_analyst", "manager", "orchestrator"}:
         return target_agent == meta.owner
     return True
 
@@ -835,6 +843,8 @@ def execute_agent_command(cmd: dict[str, Any]) -> dict[str, Any]:
         if target == "risk_analyst"
         else _MANAGER_ALLOWLIST
         if target == "manager"
+        else _ORCHESTRATOR_ALLOWLIST
+        if target == "orchestrator"
         else {}
     )
     handler = allowlist.get(action)

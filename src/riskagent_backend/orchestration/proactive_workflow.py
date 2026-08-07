@@ -75,6 +75,7 @@ from riskagent_backend.skills import (
     SkillUsageTracker,
 )
 from riskagent_backend.services.runtime_task_store import RuntimeTaskStore, get_runtime_task_store
+from riskagent_backend.tools.skill_view_tool import set_skill_store
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,8 @@ class ProactiveBackEndWorkflow:
         self._run_trace_store = get_run_trace_store()
         self._skill_store = SkillStore()
         self._skill_usage_tracker = SkillUsageTracker(self._skill_store)
+        # 注入 SkillStore 到 skill_view 工具, 供 Orchestrator 在 ReAct 循环中按需调用
+        set_skill_store(self._skill_store)
         self._session_segmenter = SessionSegmenter()
 
         self._agents_started = False

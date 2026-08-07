@@ -246,6 +246,7 @@ async def test_injection_structure_correctness():
     result = await injector.retrieve_applicable_skills(
         task=_make_task(),
         skill_enabled=True,
+        summary_only=False,
     )
 
     assert result["skill_count"] >= 1
@@ -349,6 +350,142 @@ async def test_search_exception_returns_safe_structure():
 
 
 # ==================== 额外: intent 从 dict 提取 ====================
+
+
+# ==================== 9. summary_only 模式注入 ====================
+
+
+@pytest.mark.asyncio
+async def test_summary_only_default_returns_summary_fields():
+    """默认 summary_only=True 时只返回 skill_id, name, summary."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    await store.create(
+        _make_skill(
+            name="Summary测试技能",
+            summary="这是一个摘要",
+            confidence=0.85,
+        )
+    )
+
+    injector = SkillInjector(store, min_confidence=0.3, max_skills=3)
+    result = await injector.retrieve_applicable_skills(
+        task=_make_task(),
+        skill_enabled=True,
+    )
+
+    assert result["skill_count"] >= 1
+    item = result["skills"][0]
+
+    # summary_only 模式只应包含这三个字段
+    assert set(item.keys()) == {"skill_id", "name", "summary"}
+    assert item["name"] == "Summary测试技能"
+    assert item["summary"] == "这是一个摘要"
+
+
+@pytest.mark.asyncio
+async def test_summary_only_false_returns_full_fields():
+    """summary_only=False 时返回完整 Skill 结构."""
+    from riskagent_backend.skills import SkillInjector, SkillStore
+
+    store = SkillStore()
+    await store.create(
+        _make_skill(
+            name="完整模式测试",
+            applicable_conditions=["条件1"],
+            steps=[{"description": "步骤1", "expected_outcome": "结果1"}],
+            failure_boundary="边界X",
+            confidence=0.8,
+        )
+    )
+
+    injector = SkillInjector(store, min_confidence=0.3, max_skills=3)
+    result = await injector.retrieve_applicable_skills(
+        task=_make_task(),
+        skill_enabled=True,
+        summary_only=False,
+    )
+
+    assert result["skill_count"] >= 1
+    item = result["skills"][0]
+
+    # 完整模式应包含所有字段
+    assert "skill_id" in item
+    assert "name" in item
+    assert "summary" in item
+    assert "applicable_conditions" in item
+    assert "steps" in item
+    assert "failure_boundary" in item
+    assert "confidence" in item
+    assert item["name"] == "完整模式测试"
+    assert item["applicable_conditions"] == ["条件1"]
+    assert len(item["steps"]) == 1
+    assert item["failure_boundary"] == "边界X"
+
+
+def test_build_injection_item_summary_only_true():
+    """_build_injection_item(summary_only=True) 只输出 skill_id, name, summary."""
+    from riskagent_backend.skills import SkillInjector
+
+    skill = {
+        "skill_id": "skill_abc123",
+        "name": "测试技能",
+        "summary": "摘要内容",
+        "steps": [{"description": "步骤1"}],
+        "applicable_conditions": ["条件1"],
+        "failure_boundary": "边界",
+        "confidence": 0.9,
+    }
+
+    item = SkillInjector._build_injection_item(skill, summary_only=True)
+
+    assert set(item.keys()) == {"skill_id", "name", "summary"}
+    assert item["skill_id"] == "skill_abc123"
+    assert item["name"] == "测试技能"
+    assert item["summary"] == "摘要内容"
+
+
+def test_build_injection_item_summary_only_false():
+    """_build_injection_item(summary_only=False) 输出完整结构."""
+    from riskagent_backend.skills import SkillInjector
+
+    skill = {
+        "skill_id": "skill_def456",
+        "name": "完整测试",
+        "summary": "完整摘要",
+        "steps": [{"description": "步骤A", "expected_outcome": "结果A"}],
+        "applicable_conditions": ["条件A"],
+        "failure_boundary": "边界A",
+        "confidence": 0.7,
+    }
+
+    item = SkillInjector._build_injection_item(skill, summary_only=False)
+
+    assert item["skill_id"] == "skill_def456"
+    assert item["name"] == "完整测试"
+    assert item["summary"] == "完整摘要"
+    assert item["applicable_conditions"] == ["条件A"]
+    assert len(item["steps"]) == 1
+    assert item["steps"][0]["description"] == "步骤A"
+    assert item["failure_boundary"] == "边界A"
+    assert item["confidence"] == pytest.approx(0.7)
+
+
+def test_build_injection_item_default_is_summary_only():
+    """_build_injection_item 默认参数为 summary_only=True."""
+    from riskagent_backend.skills import SkillInjector
+
+    skill = {
+        "skill_id": "skill_default",
+        "name": "默认测试",
+        "summary": "默认摘要",
+        "steps": [{"description": "步骤1"}],
+    }
+
+    item = SkillInjector._build_injection_item(skill)
+
+    assert set(item.keys()) == {"skill_id", "name", "summary"}
 
 
 @pytest.mark.asyncio
