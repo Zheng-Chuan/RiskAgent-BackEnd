@@ -85,7 +85,7 @@
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | 规划中 — RFC-005 Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
-| Phase 14 | 性能验证与 LLM 成本模型 | 规划中 — 依赖 RFC-006 完成 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
+| Phase 14 | 性能验证与 LLM 成本模型 | 方向二十已完成 — LLM 成本模型 4 Checkpoint 完成，24 测试通过（2026-08-07）；压测/SLO 规划中 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
 
 ---
 
@@ -104,6 +104,7 @@
 | K8s 全量迁移 | Accepted | [RFC-004](./decisions/RFC-004-k8s-migration.md) |
 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary 字段） | Proposed | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | BDI 信念去重与意图幂等性修复 | Accepted, Implemented | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| LLM 成本模型与三级熔断 | Implemented | [Phase 14 方向二十](./phases/phase-14-performance-verification.md) |
 
 ---
 

@@ -84,6 +84,7 @@ class BaseAgent:
         temperature: float = 0.2,
         max_tokens: int | None = 512,
         use_json_mode: bool = True,
+        stage: str = "",
     ) -> AgentResult:
         """
         向 LLM 发起请求并解析 JSON 响应.
@@ -160,6 +161,7 @@ class BaseAgent:
                 gov_meta=gov_meta,
                 started=started,
                 use_json_mode=use_json_mode,
+                stage=stage,
             )
 
         except LLMError as e:
@@ -205,6 +207,7 @@ class BaseAgent:
         started: float,
         max_attempts: int = 3,
         use_json_mode: bool = True,
+        stage: str = "",
     ) -> AgentResult:
         """带重试机制的 LLM 调用(支持智能修复).
         
@@ -268,9 +271,12 @@ class BaseAgent:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         response_format=response_format,
+                        agent_name=self._name,
+                        stage=stage,
                     )
                 except TypeError as exc:
-                    if "response_format" not in str(exc):
+                    err_msg = str(exc)
+                    if "response_format" not in err_msg and "agent_name" not in err_msg and "stage" not in err_msg:
                         raise
                     # 兼容旧测试里的 fake client 签名
                     resp = await client.chat_completions(

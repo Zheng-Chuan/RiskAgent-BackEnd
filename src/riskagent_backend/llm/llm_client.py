@@ -153,6 +153,8 @@ class LlmClient:
         max_tokens: Optional[int] = None,
         use_cache: bool = True,
         response_format: Optional[dict[str, Any]] = None,
+        agent_name: str = "",
+        stage: str = "",
     ) -> dict[str, Any]:
         """
         调用 Chat Completions.
@@ -166,6 +168,8 @@ class LlmClient:
             response_format: 可选,强制模型输出特定格式
                 - {"type": "json_object"} 启用 JSON Mode
                 - {"type": "json_schema", "json_schema": {...}} 启用结构化输出
+            agent_name: 可选,调用方 Agent 名称（用于 token 维度统计）
+            stage: 可选,调用阶段标签（thought/reasoning/evidence/action/final_answer 等）
 
         返回:
             原始响应 JSON(dict)
@@ -283,6 +287,8 @@ class LlmClient:
                                 total_tokens=usage.get("total_tokens", 0),
                                 latency_ms=_elapsed_ms,
                                 cached=False,
+                                agent_name=agent_name,
+                                stage=stage,
                             )
                         else:
                             logger.warning(

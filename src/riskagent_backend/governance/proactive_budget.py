@@ -55,6 +55,17 @@ class ProactiveBudgetManager:
         if self._used_tokens() + estimated_tokens > self._token_budget:
             return ProactiveBudgetDecision(False, "proactive_token_budget_exceeded", evidence)
 
+        # 成本熔断检查（Checkpoint 20.1.4）
+        try:
+            from riskagent_backend.governance.cost_circuit_breaker import get_cost_circuit_breaker
+            cost_breaker = get_cost_circuit_breaker()
+            cost_check = cost_breaker.check()
+            if cost_check["should_block"]:
+                evidence["cost_circuit_breaker"] = cost_check
+                return ProactiveBudgetDecision(False, cost_check["reason"], evidence)
+        except Exception:
+            pass  # 成本熔断器不可用时不阻断
+
         self._event_timestamps.append(now)
         self._active_runs[run_id] = now
         self._token_reservations.append((now, estimated_tokens))

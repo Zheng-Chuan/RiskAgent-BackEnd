@@ -23,6 +23,8 @@ from riskagent_backend.observability.metrics import (
     set_gauge,
 )
 
+from riskagent_backend.llm.cost_model import get_pricing
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,6 +87,8 @@ class TokenUsageRecord:
     cached: bool = False
     prefix_cache_savings: int = 0
     tier_breakdown: dict[str, int] = field(default_factory=dict)
+    agent_name: str = ""        # 调用方 Agent 名称
+    stage: str = ""             # 调用阶段 (thought/reasoning/evidence/action/final_answer 等)
 
 
 @dataclass
@@ -144,8 +148,15 @@ class TokenTracker:
         cached: bool = False,
         prefix_cache_savings: int = 0,
         tier_breakdown: dict[str, int] | None = None,
+        agent_name: str = "",
+        stage: str = "",
     ) -> None:
-        """记录一次 LLM 调用的 token 用量."""
+        """记录一次 LLM 调用的 token 用量.
+
+        Args:
+            agent_name: 调用方 Agent 名称（可选，用于维度聚合）
+            stage: 调用阶段标签（可选，如 thought/reasoning/evidence/action/final_answer）
+        """
         try:
             model_str = str(model) if model is not None else "unknown"
             p_tokens = _safe_int(prompt_tokens)
@@ -214,6 +225,8 @@ class TokenTracker:
                 cached=cached_bool,
                 prefix_cache_savings=cache_savings,
                 tier_breakdown=normalized_tiers,
+                agent_name=str(agent_name) if agent_name else "",
+                stage=str(stage) if stage else "",
             )
 
             with self._lock:
@@ -298,8 +311,25 @@ class TokenTracker:
             entry["cost_estimate"] = self._estimate_cost(
                 prompt_tokens=model_prompt,
                 completion_tokens=model_completion,
+                model=model,
             )
             by_model[model] = entry
+
+        # by_agent_stage 维度聚合（Checkpoint 20.1.1）
+        by_agent_stage: dict[str, dict[str, int]] = {}
+        for r in records:
+            key = f"{r.agent_name}:{r.stage}" if r.agent_name or r.stage else "unknown:unknown"
+            if key not in by_agent_stage:
+                by_agent_stage[key] = {
+                    "total_tokens": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "calls": 0,
+                }
+            by_agent_stage[key]["total_tokens"] += r.total_tokens
+            by_agent_stage[key]["prompt_tokens"] += r.prompt_tokens
+            by_agent_stage[key]["completion_tokens"] += r.completion_tokens
+            by_agent_stage[key]["calls"] += 1
 
         return {
             "window_hours": max(1, self._window_s // 3600),
@@ -313,6 +343,7 @@ class TokenTracker:
             "tier_breakdown": tier_breakdown,
             "cost_estimate": cost_estimate,
             "by_model": by_model,
+            "by_agent_stage": by_agent_stage,
             "alert_threshold_hourly": self._hourly_threshold,
             "alert_threshold_daily": self._daily_threshold,
             "hourly_alert_triggered": bool(hourly_alert),
@@ -433,13 +464,15 @@ class TokenTracker:
         return breakdown
 
     @staticmethod
-    def _estimate_cost(*, prompt_tokens: int, completion_tokens: int) -> float:
-        """根据环境变量估算成本.
+    def _estimate_cost(*, prompt_tokens: int, completion_tokens: int, model: str = "default") -> float:
+        """根据内置定价表 + 环境变量覆盖估算成本.
 
-        环境变量单位统一为每 1K token 的价格, 默认 0 表示未配置.
+        优先使用环境变量覆盖（LLM_COST_PROMPT_PER_1K / LLM_COST_COMPLETION_PER_1K），
+        未配置环境变量时使用 cost_model 内置定价表。
         """
-        prompt_price_per_1k = _safe_env_float("LLM_COST_PROMPT_PER_1K", 0.0)
-        completion_price_per_1k = _safe_env_float("LLM_COST_COMPLETION_PER_1K", 0.0)
+        pricing = get_pricing(model)
+        prompt_price_per_1k = _safe_env_float("LLM_COST_PROMPT_PER_1K", pricing["prompt"])
+        completion_price_per_1k = _safe_env_float("LLM_COST_COMPLETION_PER_1K", pricing["completion"])
         prompt_cost = (_safe_int(prompt_tokens) / 1000.0) * prompt_price_per_1k
         completion_cost = (_safe_int(completion_tokens) / 1000.0) * completion_price_per_1k
         return round(prompt_cost + completion_cost, 6)
@@ -479,6 +512,8 @@ def record_token_usage(
     cached: bool = False,
     prefix_cache_savings: int = 0,
     tier_breakdown: dict[str, int] | None = None,
+    agent_name: str = "",
+    stage: str = "",
 ) -> None:
     """便捷函数 - 记录一次 LLM token 用量."""
     get_token_tracker().record(
@@ -490,6 +525,8 @@ def record_token_usage(
         cached=cached,
         prefix_cache_savings=prefix_cache_savings,
         tier_breakdown=tier_breakdown,
+        agent_name=agent_name,
+        stage=stage,
     )
 
 

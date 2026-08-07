@@ -4,6 +4,15 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-07: Phase 14 LLM 成本模型实施完成（方向二十）
+
+- Checkpoint 20.1.1: TokenTracker 新增 agent_name + stage 维度统计
+- Checkpoint 20.1.2: cost_model.py 内置 OpenRouter 定价表，cost_estimate 不再为 0
+- Checkpoint 20.1.3: 成本预估表 5min/1h/24h/7d 四窗口，去重场景成本降低 80%
+- Checkpoint 20.1.4: CostCircuitBreaker 三级熔断（5min/1h/24h），集成 ProactiveBudgetManager
+- 新增 /api/llm/cost-model API 端点
+- 24 个新增测试，742/747 现有测试无回归
+
 ## 2026-08-07: Phase 12 BDI 信念去重实施完成（RFC-006）
 
 - 6 个 Checkpoint 全部实施完毕

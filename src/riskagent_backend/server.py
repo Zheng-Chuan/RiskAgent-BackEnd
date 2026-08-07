@@ -207,6 +207,38 @@ async def llm_usage_endpoint(request: Request) -> Response:
     return JSONResponse(summary)
 
 
+@mcp.custom_route("/api/llm/cost-model", methods=["GET"], include_in_schema=False)
+async def llm_cost_model_endpoint(request: Request) -> Response:
+    """返回 LLM 成本预估表（5min / 1h / 24h / 7d 四窗口）.
+
+    基于 TokenTracker 实测数据，推算不同时间窗口的总成本，
+    同时提供启用去重（RFC-006）前后的对比预估。
+    """
+    del request
+    try:
+        from riskagent_backend.llm.cost_model import (
+            generate_cost_estimate_table,
+            get_pricing,
+        )
+        from riskagent_backend.llm.token_tracker import get_token_tracker
+
+        summary = get_token_tracker().summary()
+        table_no_dedup = generate_cost_estimate_table(summary, dedup_enabled=False)
+        table_with_dedup = generate_cost_estimate_table(summary, dedup_enabled=True)
+        result = {
+            "baseline_5min": summary,
+            "cost_estimate_no_dedup": table_no_dedup,
+            "cost_estimate_with_dedup": table_with_dedup,
+            "pricing": get_pricing("deepseek/deepseek-chat"),
+        }
+        return JSONResponse(result)
+    except Exception as e:
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500,
+        )
+
+
 @mcp.custom_route("/api/tasks", methods=["POST"], include_in_schema=False)
 async def create_task_endpoint(request: Request) -> Response:
     """浏览器友好的任务提交端点."""

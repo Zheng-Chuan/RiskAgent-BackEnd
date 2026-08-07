@@ -744,6 +744,8 @@ Only return the thought text, no JSON format."""
                 temperature=0.7,
                 max_tokens=128,
                 use_cache=False,
+                agent_name=self._name,
+                stage="thought",
             )
             latency_ms = int((time.time() - start_time) * 1000)
             
@@ -817,6 +819,8 @@ Only return the reasoning text, no JSON format."""
                 temperature=0.7,
                 max_tokens=256,
                 use_cache=False,
+                agent_name=self._name,
+                stage="reasoning",
             )
             latency_ms = int((time.time() - start_time) * 1000)
             
@@ -879,6 +883,7 @@ Evidence (as JSON with keys like "sources", "data", "references"):"""
             user_prompt=prompt,
             fallback={"sources": [], "data": {}},
             max_tokens=256,
+            stage="evidence",
         )
         latency_ms = int((time.time() - start_time) * 1000)
         
@@ -921,6 +926,7 @@ Return as JSON with "action_type" and "action" (dict with params)."""
             user_prompt=prompt,
             fallback={"action_type": "finalize", "action": {"answer": "任务已完成"}},
             max_tokens=256,
+            stage="action",
         )
         latency_ms = int((time.time() - start_time) * 1000)
         
@@ -1020,6 +1026,7 @@ Generate a comprehensive final answer as JSON."""
             user_prompt=prompt,
             fallback={"summary": "任务已完成", "conclusion": "基于推理链完成"},
             max_tokens=512,
+            stage="final_answer",
         )
         
         return result.output
