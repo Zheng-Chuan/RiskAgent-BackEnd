@@ -56,7 +56,7 @@
   - Token 总消耗下降 48.40% (远超 20% 目标)
   - 缓存命中率 83.33%
   - 前缀缓存节省 1,213 tokens
-  - 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`
+  - 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（注: 该路径已删除，报告内容已纳入 Phase 9 验收文档）
   - Phase 9 Checkpoint 15.3.3 已通过
 
 ## 与其他文档关系

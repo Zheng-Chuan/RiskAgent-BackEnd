@@ -14,7 +14,7 @@
 - 记忆检索会真实参与规划 恢复和 lesson 沉淀
 - `run_trace.v2` 会记录 task message version_snapshot plan step command receipt approval memory final
 - replay 和评测会直接消费统一 trace
-- benchmark v2 已收敛为 `Simple Medium Complex Recovery Approval Memory Safety` 七类
+- benchmark v2 已收敛为 `basic simple medium complex collaboration memory reasoning recovery approval safety prompt_layering real_world` 十二类，共 90 条用例
 
 ## 当前口径
 

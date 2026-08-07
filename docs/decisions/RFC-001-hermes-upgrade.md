@@ -12,7 +12,7 @@
 - 统一记忆架构（Private + Shared + Long-term Experience）
 - 事件驱动协作（双入口 + ModeratorAgent + MessageBus）
 - HITL 审批与恢复（审批状态机 + step 级恢复）
-- 全链路追踪与评测（run_trace.v2 + Replay CLI + 42 条基准用例）
+- 全链路追踪与评测（run_trace.v2 + Replay CLI + 90 条基准用例，覆盖 12 类场景）
 
 Hermes 的目标仍然是将系统从**"精密执行引擎"升级为"自我改进的智能风控平台"**, 但当前应按代码和证据如实记录阶段性状态, 不再把所有支柱统一表述为已完全完成。
 

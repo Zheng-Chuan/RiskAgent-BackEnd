@@ -2,8 +2,9 @@
 
 | 字段 | 值 |
 |------|-----|
-| Status | Accepted |
+| Status | Accepted, Implemented |
 | Date | 2026-07-18 |
+| Implemented | 2026-08-03 |
 | Author | RiskAgent Team |
 
 ## 背景
@@ -36,3 +37,4 @@
 
 ## Update Log
 - 2026-07-18: RFC 创建，Status=Accepted
+- 2026-08-03: 实施完成。Helm Chart 已创建（deploy/k8s/），包含 8 个服务的 K8s 部署模板。Phase 10 主动监控全链路在 K8s (riskagent-e2e) 验证通过。docker-compose.yml 完整保留用于本地开发。零 .py 代码变更，仅新增部署配置。Status 更新为 Accepted, Implemented。

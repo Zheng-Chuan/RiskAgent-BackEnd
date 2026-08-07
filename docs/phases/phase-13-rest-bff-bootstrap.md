@@ -329,7 +329,7 @@ text/event-stream
 | 2 | 前端控制台零错误 | ✅ 无 error/warning/log |
 | 3 | API 请求路径与后端端点匹配 | ✅ 7 个端点全部匹配 |
 | 4 | 任务提交后状态变化 | ✅ pending→running, Agent 状态变化, 记忆新增, SSE 实时推送 |
-| 5 | 验收截图 | ✅ 6 张已保存（results/phase13-*.png）|
+| 5 | 验收截图 | ✅ 7 张已保存（results/phase13-*.png）|
 
 ### 关键发现
 

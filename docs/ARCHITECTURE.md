@@ -74,8 +74,22 @@
   - [8.7 主链执行](#section-8-7)
   - [8.8 频率控制与预算熔断](#section-8-8)
   - [8.9 关键代码出处](#section-8-9)
-- [9. 评估体系](#section-9)
-  - [9.1 参考框架与基准](#section-9-1)
+- [10. REST BFF 服务层](#section-10)
+  - [10.1 端点概览](#section-10-1)
+  - [10.2 运行时任务注册表](#section-10-2)
+  - [10.3 SSE 事件流与快照去重](#section-10-3)
+  - [10.4 脱敏机制](#section-10-4)
+  - [10.5 nginx 反向代理](#section-10-5)
+  - [10.6 缺点与风险](#section-10-6)
+- [11. LLM 成本治理](#section-11)
+  - [11.1 TokenTracker](#section-11-1)
+  - [11.2 cost_model.py 定价表](#section-11-2)
+  - [11.3 CostCircuitBreaker 三级熔断](#section-11-3)
+  - [11.4 与 ProactiveBudgetManager 集成](#section-11-4)
+  - [11.5 暴露端点](#section-11-5)
+  - [11.6 缺点与风险](#section-11-6)
+- [12. 评估体系](#section-12)
+  - [12.1 参考框架与基准](#section-12-1)
   - [9.2 评估维度与指标体系](#section-9-2)
   - [9.3 指标计算方式](#section-9-3)
   - [9.4 LLM 辅助评估](#section-9-4)
@@ -429,6 +443,21 @@ if step_approval_result is not None:
 审批状态机：`pending` → `approved`（放行）/ `rejected`（blocked）/ `expired`（blocked）。只有 `approved` 和 `resumed` 状态才允许继续执行。
 
 对于 `tool_call` 节点，审批在 `Receipt` 层处理：`execute_agent_command()` 内部通过 ToolExecutor 的五道关卡检查 RBAC 权限和审批要求。
+
+### HITL_AUTO_APPROVE 自动审批机制（Phase 10 引入）
+
+当环境变量 `HITL_AUTO_APPROVE=1`（默认值）时，`side_effect` 工具的审批参数会被自动注入，无需人工介入即可执行处置动作。代码位置：[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)。
+
+**工作原理**：
+- `execute_node()` 在处理 `tool_call` 节点时检查 `HITL_AUTO_APPROVE` 环境变量
+- 当 `HITL_AUTO_APPROVE=1` 时，自动将 `approval_state` 设为 `approved`，跳过 `pending → approved` 的人工等待
+- 主动监控场景下不使用 `ask_human` 节点人类升级，改用自动审批，消除全链路阻塞
+- 审批记录仍会写入 `approval_trace`，确保审计可追溯
+
+**设计权衡**：
+- 自动审批适用于主动监控等需要快速响应的场景，避免因人工等待导致全链路阻塞
+- 高风险操作仍可通过设置 `HITL_AUTO_APPROVE=0` 恢复人工审批模式
+- Phase 10 验证中，此机制替代了原计划的 `ask_human` 人类升级流程
 
 <a id="section-2-5"></a>
 ## 2.5 意外中断的上下文恢复机制
@@ -2721,8 +2750,138 @@ proactive_event → workflow.start_from_event()
 | 升级管理 | [perception/](../src/riskagent_backend/perception/) | `EscalationManager` |
 | 预算熔断 | [scheduling/](../src/riskagent_backend/scheduling/) | `ProactiveBudgetManager` |
 
-<a id="section-9"></a>
-# 9. 评估体系
+<a id="section-10"></a>
+# 10. REST BFF 服务层
+
+REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层，为浏览器提供友好的 REST API 和 SSE 事件流，打通 `提交任务 → 轮询状态 → 展示智能体 → 展示结果` 的联调闭环。
+
+<a id="section-10-1"></a>
+## 10.1 端点概览
+
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/tasks` | POST | 提交任务，返回 task_id + pending |
+| `/api/tasks/{task_id}` | GET | 获取任务详情（状态、步骤、结果、错误） |
+| `/api/tasks/{task_id}/graph` | GET | 获取 TaskGraph DAG 快照（节点、边、图级状态） |
+| `/api/tasks/{task_id}/memory` | GET | 获取任务维度的记忆视图 |
+| `/api/agents` | GET | 获取最小智能体状态列表（派生态，弱一致） |
+| `/api/memory` | GET | 获取最近结构化记忆快照和聚合摘要 |
+| `/api/stream` | GET | SSE 事件流，实时推送 agent_snapshot / memory_snapshot / graph_snapshot / heartbeat |
+
+<a id="section-10-2"></a>
+## 10.2 运行时任务注册表
+
+[runtime_task_store.py](../src/riskagent_backend/services/runtime_task_store.py) 维护运行中任务的状态快照，解决运行中任务无可轮询状态的问题：
+
+- 任务创建时注册 `task_id` / `run_id` / `status=pending`
+- 工作流执行中更新 `status=running` / `steps` / `graph_snapshot`
+- 任务完成后更新 `status=completed` / `result` / `error`
+- 任务详情的权威来源优先级：运行时注册表 > MemoryStore.get_run_context > RunTraceStore.get_snapshot
+
+<a id="section-10-3"></a>
+## 10.3 SSE 事件流与快照去重
+
+`GET /api/stream` 返回 `text/event-stream`，推送四类事件：
+
+| 事件类型 | 内容 |
+|----------|------|
+| `agent_snapshot` | 智能体状态列表 |
+| `memory_snapshot` | 记忆快照和聚合摘要 |
+| `graph_snapshot` | TaskGraph DAG 快照 |
+| `heartbeat` | 心跳保活 |
+
+**快照去重**：SSE 推送前对快照做内容哈希比对，相同快照不重复推送，避免前端重连抖动和无效事件洪泛。
+
+<a id="section-10-4"></a>
+## 10.4 脱敏机制
+
+所有 API 响应在返回前经过脱敏处理，确保不暴露 Redis 原始结构或明文敏感信息：
+
+- `_mask_secret_text()`：对 API Key、密码等敏感字段做掩码处理
+- `_sanitize_public_text()`：对公开文本做安全清洗，移除潜在敏感信息
+- 验收标准：全部响应无明文 API Key
+
+<a id="section-10-5"></a>
+## 10.5 nginx 反向代理
+
+前端通过 nginx 反向代理将 `/api/*` 请求转发到后端 mcp-server 服务（K8s ClusterIP）。nginx 配置不在本仓库，前端代码也不在本仓库。
+
+<a id="section-10-6"></a>
+## 10.6 缺点与风险
+
+| 缺点 | 风险等级 | 说明 |
+|------|---------|------|
+| **ClusterIP 无 Ingress** | 中 | 当前仅 K8s ClusterIP 暴露，外部访问需 port-forward 或 Ingress 控制器 |
+| **前端代码不在本仓库** | 中 | 前端 MVP 页面代码独立维护，接口变更需手动同步 |
+| **运行时注册表与持久化状态短暂不一致** | 低 | 运行时注册表是内存态，任务完成后异步持久化到 MemoryStore |
+| **智能体状态是派生态** | 低 | `GET /api/agents` 来源于工作流单例角色对象和最近 trace，不能承诺强一致 |
+
+<a id="section-11"></a>
+# 11. LLM 成本治理
+
+LLM 成本治理是 Phase 14 新增的治理层，对多 Agent 调用的 token 消耗和成本进行全维度统计、预估和熔断控制。
+
+<a id="section-11-1"></a>
+## 11.1 TokenTracker
+
+TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑动窗口设计：
+
+- **维度**：每个 Agent 的每个执行阶段（intent / plan / execute / finalize 等）独立统计
+- **滑动窗口**：5min / 1h / 24h 三个窗口同时维护
+- **数据结构**：内存中的 `deque` + `defaultdict`，按时间戳自动淘汰过期记录
+
+<a id="section-11-2"></a>
+## 11.2 cost_model.py 定价表
+
+[cost_model.py](../src/riskagent_backend/governance/cost_model.py) 内置 OpenRouter 定价表：
+
+- 按 `model_name` 查询 `prompt_price_per_1k` 和 `completion_price_per_1k`
+- 支持 USD 和 CNY 双币种换算
+- 定价表可通过 `/api/llm/cost-model` 端点查询
+
+<a id="section-11-3"></a>
+## 11.3 CostCircuitBreaker 三级熔断
+
+CostCircuitBreaker 实现三级熔断机制，防止 LLM 成本失控：
+
+| 级别 | 时间窗口 | 触发条件 | 熔断行为 |
+|------|---------|---------|----------|
+| L1 | 5min | token 超过 5min 预算 | 暂停非关键 LLM 调用 |
+| L2 | 1h | token 超过 1h 预算 | 降级为纯规则处置 |
+| L3 | 24h | token 超过 24h 预算 | 完全停止主动监控，仅响应用户任务 |
+
+熔断后系统自动降级，恢复条件为窗口滑过后预算余量恢复。
+
+<a id="section-11-4"></a>
+## 11.4 与 ProactiveBudgetManager 集成
+
+CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
+
+- `ProactiveBudgetManager` 负责频控和 token budget 上限
+- `CostCircuitBreaker` 负责成本维度的熔断
+- 两者协同：频控先触发（防止瞬时风暴），成本熔断后触发（防止累计超标）
+
+<a id="section-11-5"></a>
+## 11.5 暴露端点
+
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/llm/usage` | GET | 查询 by_agent_stage 维度的 token 统计 |
+| `/api/llm/cost-model` | GET | 查询内置定价表和成本预估 |
+
+成本预估表支持 5min / 1h / 24h / 7d 四种时间窗口的预估。
+
+<a id="section-11-6"></a>
+## 11.6 缺点与风险
+
+| 缺点 | 风险等级 | 说明 |
+|------|---------|------|
+| **纯内存存储** | 中 | TokenTracker 和 CostCircuitBreaker 数据存储在内存中，服务重启后丢失统计数据 |
+| **定价表需手动更新** | 低 | OpenRouter 定价变更时需手动更新 cost_model.py |
+| **预估精度依赖历史数据** | 低 | 新部署时无历史数据，预估精度较低 |
+
+<a id="section-12"></a>
+# 12. 评估体系
 
 本项目的评估体系采用 **自动化指标 + LLM 辅助评估 + 质量门禁** 三层架构，覆盖 7 大维度、40+ 项指标。
 
@@ -2940,7 +3099,7 @@ class GateResult:
 
 | 文件 | 用途 |
 |---|---|
-| `cases.jsonl` | 标准测试用例（22 条） |
+| `cases.jsonl` | 标准测试用例（21 条） |
 | `labels.adjudicated.jsonl` | 仲裁后标注结果 |
 | `labels.annotator_a.jsonl` | 标注员 A 的标注 |
 | `labels.annotator_b.jsonl` | 标注员 B 的标注 |
@@ -2949,18 +3108,20 @@ class GateResult:
 
 | 类别 | 场景 | 用例数 |
 |---|---|---|
-| `basic` | 基础查询 | 1 |
-| `simple` | 简单任务 | 1 |
-| `medium` | 中等复杂度 | 1 |
-| `complex` | 复杂分析 | 1 |
-| `collaboration` | 多 Agent 协作 | 1 |
-| `memory` | 记忆复用 | 1 |
-| `reasoning` | 推理能力 | 1 |
-| `recovery` | 故障恢复 | 1 |
-| `approval` | 审批流程 | 1 |
-| `safety` | 安全合规 | 2 |
-| `prompt_layering` | 分层 Prompt | 1 |
-| `real_world` | 真实场景 | 1 |
+| `basic` | 基础查询 | 10 |
+| `simple` | 简单任务 | 8 |
+| `medium` | 中等复杂度 | 8 |
+| `complex` | 复杂分析 | 10 |
+| `collaboration` | 多 Agent 协作 | 8 |
+| `memory` | 记忆复用 | 4 |
+| `reasoning` | 推理能力 | 8 |
+| `recovery` | 故障恢复 | 4 |
+| `approval` | 审批流程 | 4 |
+| `safety` | 安全合规 | 12 |
+| `prompt_layering` | 分层 Prompt | 6 |
+| `real_world` | 真实场景 | 8 |
+
+**总计**: 90 条
 
 **场景分类**（cases.jsonl 中的 scenario_class）：
 - Simple / Medium / Complex / Recovery / Approval / Memory / Safety
@@ -3008,7 +3169,7 @@ class GateResult:
 |---|---|---|
 | **启发式指标占比高** | 高 | 多个维度（理解度、协作、效率）依赖启发式规则而非真实测量，可能给出虚高分数 |
 | **LLM Judge 一致性不稳定** | 高 | LLM 评估器本身有随机性，相同输入可能给出不同分数，缺乏 Kappa/Fleiss 等一致性度量 |
-| **Gold 数据集规模小** | 中 | 仅 22 条标准用例，统计显著性不足，容易过拟合 |
+| **Gold 数据集规模小** | 中 | 仅 21 条标准用例，统计显著性不足，容易过拟合 |
 | **缺乏端到端基准对比** | 中 | 没有与业界标准 benchmark（如 GAIA 官方数据集）的定量对比 |
 | **效率指标粗糙** | 中 | token_efficiency 用 output_size / tokens 计算，不能真实反映 token 价值 |
 | **协作指标依赖 trace 完整性** | 中 | 如果 trace 记录不完整，协作指标会系统性偏低 |
@@ -3028,6 +3189,6 @@ class GateResult:
 | 门禁阈值配置 | [default.json](../eval/gates/default.json) | blocking + warning 阈值 |
 | 报告生成 | [report.py](../eval/core/report.py) | `ReportGenerator` |
 | 标注一致性 | [compute_iaa.py](../eval/scripts/compute_iaa.py) | `compute_simple_agreement()` |
-| Gold 数据集 | [cases.jsonl](../eval/datasets/gold/cases.jsonl) | 22 条标准用例 |
+| Gold 数据集 | [cases.jsonl](../eval/datasets/gold/cases.jsonl) | 21 条标准用例 |
 | Benchmark 数据集 | [eval/benchmarks/](../eval/benchmarks/) | 12 类场景基准 |
 | CLI 入口 | [cli.py](../eval/cli.py) | 命令行评估工具 |
