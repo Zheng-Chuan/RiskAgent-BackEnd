@@ -196,7 +196,7 @@ Phase 14 [部分完成] → LLM 成本模型已完成（4 个 Checkpoint，三�
     |  集成 ProactiveBudget，新增 /api/llm/cost-model 端点
     |  系统压测和 SLO 待实施
     |
-Phase 11 [RFC-005 Proposed] → Skill 语义检索升级（6 个选型决策未定）
+Phase 11 [RFC-005 Accepted] → Skill 语义检索升级（6 项需求方案设计完成，选型决策已确认，待实施）
 ```
 
 扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent。

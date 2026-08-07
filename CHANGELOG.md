@@ -4,6 +4,24 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-07: RFC-005 Skill 语义检索升级提案 Accepted
+
+- RFC-005 Status 从 Proposed 更新为 Accepted
+- 6 个选型决策全部确认：
+  1. OpenRouter embedding 模型：text-embedding-3-small（1536 维）
+  2. 向量库：复用 Chroma，新建 riskagent-skills collection
+  3. EmbeddingClient：在 LLMClient 中新增 embed() 方法
+  4. summary 生成：纯 LLM 生成，参考 AutoSkill extraction prompt
+  5. 向前兼容：清空旧 Skill，不考虑向前兼容
+  6. Phase 归属：Phase 11
+- 新增 3 项优化方案设计：
+  - 需求四：Hybrid 检索（向量 + BM25 加权合并，复用 _keyword_fallback_search）
+  - 需求五：Query Rewriting（LLM 改写为检索导向 query，LRU 缓存 + fallback）
+  - 需求六：Agent 自主发现（skill_view 工具，summary 列表 + 按需加载）
+- 实施顺序更新：需求三→需求二→需求一→需求四→需求五→需求六
+- Drawbacks 新增 3 项（BM25 延迟 / Query Rewrite LLM 调用 / skill_view ReAct 步数）
+- PRD Phase 11 状态更新，README 当前进展新增 Phase 11
+
 ## 2026-08-07: Phase 14 LLM 成本模型实施完成（方向二十）
 
 - Checkpoint 20.1.1: TokenTracker 新增 agent_name + stage 维度统计
