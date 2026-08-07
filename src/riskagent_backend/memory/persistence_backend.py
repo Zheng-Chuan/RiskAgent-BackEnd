@@ -121,10 +121,15 @@ def _build_skill_row(skill: dict[str, Any]) -> dict[str, Any]:
 
 def _parse_skill_row(row: dict[str, Any]) -> dict[str, Any]:
     """将 skill_store 表行映射回 Skill dict."""
+    # 防御性填充: 旧数据 summary 为 NULL/空时, 用 name 作为 fallback,
+    # 避免 summary 必填校验破坏后续 update() 操作 (RFC-005 兼容性修复)
+    raw_summary = row.get("summary") or ""
+    if not raw_summary.strip():
+        raw_summary = str(row.get("name") or "unnamed_skill")
     return {
         "skill_id": row.get("skill_id"),
         "name": row.get("name") or "",
-        "summary": row.get("summary") or "",
+        "summary": raw_summary,
         "tags": _deserialize_json(row.get("tags")) or [],
         "applicable_conditions": _deserialize_json(row.get("applicable_conditions")) or [],
         "steps": _deserialize_json(row.get("steps")) or [],

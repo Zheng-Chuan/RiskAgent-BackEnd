@@ -200,6 +200,10 @@ class SkillStore:
         merged["skill_id"] = skill_id
         merged["created_at"] = existing["created_at"]
         merged["updated_at"] = int(time.time() * 1000)
+        # 防御性填充: 旧数据 summary 为空时, 用 name 作为 fallback,
+        # 避免 summary 必填校验破坏 update() 操作 (RFC-005 兼容性修复)
+        if not str(merged.get("summary") or "").strip():
+            merged["summary"] = str(merged.get("name") or "unnamed_skill")
         validated = validate_skill(merged)
         self._store[skill_id] = validated
         await self._reindex(validated)

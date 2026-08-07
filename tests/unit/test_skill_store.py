@@ -109,6 +109,40 @@ async def test_update_invalid_patch_raises():
         await store.update(created["skill_id"], {"status": "unknown"})
 
 
+@pytest.mark.asyncio
+async def test_update_empty_summary_does_not_raise():
+    """测试旧数据 summary 为空时 update() 不抛异常 (RFC-005 兼容性修复).
+
+    模拟 SQL 迁移后旧 Skill 的 summary 为空字符串,
+    patch 不含 summary 时, update 应正常完成.
+    """
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    created = await store.create(_make_skill())
+    # 模拟旧数据: 将内存中的 summary 置空
+    store._store[created["skill_id"]]["summary"] = ""
+    # patch 不含 summary, 不应抛出 bad_summary
+    updated = await store.update(created["skill_id"], {"status": "archived"})
+    assert updated["status"] == "archived"
+    # summary 应被防御性填充为 name
+    assert updated["summary"] == created["name"]
+
+
+@pytest.mark.asyncio
+async def test_update_empty_summary_patch_provides_summary():
+    """测试旧数据 summary 为空但 patch 提供了新 summary 时正常更新."""
+    from riskagent_backend.skills import SkillStore
+
+    store = SkillStore()
+    created = await store.create(_make_skill())
+    # 模拟旧数据: 将内存中的 summary 置空
+    store._store[created["skill_id"]]["summary"] = ""
+    new_summary = "更新后的摘要"
+    updated = await store.update(created["skill_id"], {"summary": new_summary})
+    assert updated["summary"] == new_summary
+
+
 # ==================== delete ====================
 
 
