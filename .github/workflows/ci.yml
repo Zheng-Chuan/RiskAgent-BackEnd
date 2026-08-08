@@ -27,15 +27,13 @@ jobs:
         run: PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short
         continue-on-error: true # Experimental: tolerate known pre-existing test failures
 
-  build:
-    name: Build Docker Image
+  build-and-deploy:
+    name: Build & Deploy to kind
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       packages: write
-    outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Compute image tag
@@ -53,38 +51,36 @@ jobs:
           echo "$GITHUB_TOKEN" | docker login "$DOCKER_REGISTRY" -u "$ACTOR" --password-stdin
           docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKER_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"
           docker push "${DOCKER_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"
-
-  deploy:
-    name: Deploy to kind (CI E2E)
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_TARGET != 'cloud'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # --- kind deploy (default) ---
       - name: Create kind cluster
+        if: vars.DEPLOY_TARGET != 'cloud'
         uses: helm/kind-action@v1
         with:
           version: v0.24.0
           cluster_name: ci-test
           wait: 60s
       - name: Load Docker image to kind
+        if: vars.DEPLOY_TARGET != 'cloud'
         run: |
-          kind load docker-image ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }} --name ci-test
+          kind load docker-image ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }} --name ci-test
       - name: Deploy via Helm
+        if: vars.DEPLOY_TARGET != 'cloud'
         run: |
           helm upgrade --install riskagent deploy/k8s/ \
             -f deploy/k8s/values-ci.yaml \
-            --set image.tag=${{ needs.build.outputs.image_tag }} \
+            --set image.tag=${{ steps.meta.outputs.image_tag }} \
             --set image.pullPolicy=Never \
             --create-namespace -n riskagent
       - name: Wait for pods ready
+        if: vars.DEPLOY_TARGET != 'cloud'
         run: |
           kubectl wait --for=condition=ready pods -l component=mcp-server -n riskagent --timeout=300s
       - name: Smoke test - health check
+        if: vars.DEPLOY_TARGET != 'cloud'
         run: |
           kubectl port-forward svc/mcp-server 8000:8000 -n riskagent &
           sleep 5
           curl -s http://localhost:8000/health || echo "Health check completed"
       - name: Show pod status
-        if: always()
+        if: always() && vars.DEPLOY_TARGET != 'cloud'
         run: kubectl get pods -n riskagent -o wide
