@@ -55,8 +55,18 @@ prometheus:
 grafana:
   enabled: false
 
+chroma:
+  skillsCollection: riskagent-skills
+
 llm:
   baseUrl: https://openrouter.ai/api/v1
   model: deepseek/deepseek-v4-pro
   httpReferer: http://127.0.0.1:4174
   appTitle: RiskAgent Local E2E
+  embeddingModel: text-embedding-3-small
+
+skill:
+  queryRewriteEnabled: "true"
+  queryRewriteTimeout: "3.0"
+  queryRewriteCacheSize: "256"
+  hybridVectorWeight: "0.7"

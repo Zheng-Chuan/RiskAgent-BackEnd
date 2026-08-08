@@ -28,6 +28,12 @@ data:
   LLM_MODEL: {{ .Values.llm.model | default "deepseek/deepseek-v4-pro" | quote }}
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}
   LLM_APP_TITLE: {{ .Values.llm.appTitle | default "" | quote }}
+  LLM_EMBEDDING_MODEL: {{ .Values.llm.embeddingModel | default "text-embedding-3-small" | quote }}
+  CHROMA_SKILLS_COLLECTION: {{ .Values.chroma.skillsCollection | default "riskagent-skills" | quote }}
+  SKILL_QUERY_REWRITE_ENABLED: {{ .Values.skill.queryRewriteEnabled | default "true" | quote }}
+  SKILL_QUERY_REWRITE_TIMEOUT: {{ .Values.skill.queryRewriteTimeout | default "3.0" | quote }}
+  SKILL_QUERY_REWRITE_CACHE_SIZE: {{ .Values.skill.queryRewriteCacheSize | default "256" | quote }}
+  SKILL_HYBRID_VECTOR_WEIGHT: {{ .Values.skill.hybridVectorWeight | default "0.7" | quote }}
   PROMETHEUS_URL: {{ printf "http://%s:%s" (.Values.prometheus.host | default "prometheus") (.Values.prometheus.port | default "9090" | toString) | quote }}
   RISKAGENT_NAMESPACE: {{ .Release.Namespace | quote }}
   DEPLOYMENT_ENV: "k8s"

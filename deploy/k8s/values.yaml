@@ -53,6 +53,7 @@ chroma:
   port: "8000"
   collection: riskagent-alerts
   memoryCollection: riskagent-memory
+  skillsCollection: riskagent-skills
   image: chromadb/chroma:0.5.0
   resources:
     requests:
@@ -117,6 +118,14 @@ llm:
   model: deepseek/deepseek-v4-pro
   httpReferer: ""
   appTitle: ""
+  embeddingModel: text-embedding-3-small
+
+# Skill 语义检索配置 (RFC-005)
+skill:
+  queryRewriteEnabled: "true"
+  queryRewriteTimeout: "3.0"
+  queryRewriteCacheSize: "256"
+  hybridVectorWeight: "0.7"
 
 # Prometheus 配置
 prometheus:
