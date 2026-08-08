@@ -1,5 +1,8 @@
 .PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm
 
+IMAGE_TAG ?= latest
+K8S_NAMESPACE ?= riskagent
+
 help:
 	@echo "RiskAgent-BackEnd Development Commands"
 	@echo "====================================="
@@ -163,10 +166,10 @@ phpmyadmin:
 .PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status docker-build
 
 docker-build: ## Build Docker image for K8s deployment
-	docker build -t riskagent/backend:latest -f Dockerfile .
+	docker build -t riskagent/backend:$(IMAGE_TAG) -f Dockerfile .
 
 k8s-deploy: ## Deploy to Kubernetes via Helm (prod)
-	helm upgrade --install riskagent deploy/k8s/ -f deploy/k8s/values-prod.yaml --create-namespace -n riskagent
+	helm upgrade --install riskagent deploy/k8s/ -f deploy/k8s/values-prod.yaml --set image.tag=$(IMAGE_TAG) --create-namespace -n $(K8S_NAMESPACE)
 
 k8s-deploy-dev: ## Deploy to Kubernetes via Helm (dev)
 	helm upgrade --install riskagent deploy/k8s/ -f deploy/k8s/values-dev.yaml --create-namespace -n riskagent

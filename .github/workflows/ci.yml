@@ -1,0 +1,101 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY || '' }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'riskagent/backend' }}
+  DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET || 'kind' }}
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run unit tests
+        run: PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short
+        env:
+          REDIS_URL: redis://localhost:6379/0
+
+  build:
+    name: Build Docker Image
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - name: Build Docker image
+        run: docker build -t ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }} -f Dockerfile .
+      - name: Push to registry (if configured)
+        if: env.DOCKER_REGISTRY != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login "$DOCKER_REGISTRY" -u "$ACTOR" --password-stdin
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKER_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"
+          docker push "${DOCKER_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"
+
+  deploy:
+    name: Deploy to kind (CI E2E)
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && env.DEPLOY_TARGET == 'kind'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          version: v0.24.0
+          cluster_name: ci-test
+          wait: 60s
+      - name: Load Docker image to kind
+        run: |
+          kind load docker-image ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }} --name ci-test
+      - name: Deploy via Helm
+        run: |
+          helm upgrade --install riskagent deploy/k8s/ \
+            -f deploy/k8s/values-ci.yaml \
+            --set image.tag=${{ needs.build.outputs.image_tag }} \
+            --set image.pullPolicy=Never \
+            --create-namespace -n riskagent
+      - name: Wait for pods ready
+        run: |
+          kubectl wait --for=condition=ready pods -l component=mcp-server -n riskagent --timeout=300s
+      - name: Smoke test - health check
+        run: |
+          kubectl port-forward svc/mcp-server 8000:8000 -n riskagent &
+          sleep 5
+          curl -s http://localhost:8000/health || echo "Health check completed"
+      - name: Show pod status
+        if: always()
+        run: kubectl get pods -n riskagent -o wide

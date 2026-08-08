@@ -1,0 +1,68 @@
+image:
+  repository: riskagent/backend
+  tag: ci  # CI 中通过 --set image.tag 覆盖
+  pullPolicy: Never  # kind load 模式，不从 registry 拉取
+
+ingress:
+  enabled: false
+
+mcp:
+  replicas: "1"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "384Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+mysql:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  persistence:
+    size: "2Gi"
+
+redis:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  persistence:
+    size: "1Gi"
+
+chroma:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    size: "1Gi"
+  skillsCollection: riskagent-skills
+
+prometheus:
+  enabled: false
+
+grafana:
+  enabled: false
+
+llm:
+  baseUrl: https://openrouter.ai/api/v1
+  model: deepseek/deepseek-chat
+  embeddingModel: text-embedding-3-small
+
+skill:
+  queryRewriteEnabled: "true"
+  queryRewriteTimeout: "3.0"
+  queryRewriteCacheSize: "256"
+  hybridVectorWeight: "0.7"
