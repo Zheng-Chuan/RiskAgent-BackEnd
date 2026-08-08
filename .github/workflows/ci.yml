@@ -68,7 +68,7 @@ jobs:
   deploy:
     name: Deploy to kind (CI E2E)
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && env.DEPLOY_TARGET == 'kind'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_TARGET != 'cloud'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
