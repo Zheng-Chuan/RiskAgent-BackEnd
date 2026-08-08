@@ -4,6 +4,20 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-08: Phase 11 Skill 语义检索升级实施完成（RFC-005 Implemented）
+
+### Phase 11: Skill 语义检索升级（RFC-005 Implemented）
+
+- 需求三：Skill 新增 summary 摘要字段（纯 LLM 生成，30-80 字）
+- 需求二：LLMClient.embed() 方法（text-embedding-3-small, 1536 维, OpenRouter）
+- 需求六：skill_view 工具（Orchestrator 按需调用，summary 列表注入）
+- 需求一：Chroma riskagent-skills collection 向量库迁移
+- 需求五：Query Rewriting（LLM 改写 + LRU 缓存 + fallback）
+- 需求四：Hybrid 检索（向量 + BM25 加权合并, α=0.7）
+- K8s 部署验证通过（ConfigMap 6 个新环境变量 + MySQL migration summary 列 + Docker k8s-local-v4）
+- 158 个 Skill 专项测试全部通过
+- 已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级正常工作
+
 ## 2026-08-07: RFC-005 Skill 语义检索升级提案 Accepted
 
 - RFC-005 Status 从 Proposed 更新为 Accepted

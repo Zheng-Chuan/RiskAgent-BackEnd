@@ -196,7 +196,10 @@ Phase 14 [部分完成] → LLM 成本模型已完成（4 个 Checkpoint，三�
     |  集成 ProactiveBudget，新增 /api/llm/cost-model 端点
     |  系统压测和 SLO 待实施
     |
-Phase 11 [RFC-005 Accepted] → Skill 语义检索升级（6 项需求方案设计完成，选型决策已确认，待实施）
+Phase 11 [Implemented 2026-08-08] → Skill 语义检索升级全部完成（RFC-005 Implemented）
+    |  6 项需求全部实施：Chroma 向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view 工具
+    |  158/158 Skill 专项测试通过，K8s 部署验证通过（Helm revision 18）
+    |  已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级机制正常工作
 ```
 
 扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent。

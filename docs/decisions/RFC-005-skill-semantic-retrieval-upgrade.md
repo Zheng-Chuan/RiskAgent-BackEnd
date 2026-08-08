@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| Status | Accepted |
+| Status | Implemented |
 | Date | 2026-07-22 |
 | Author | RiskAgent-BackEnd 项目组 |
 
@@ -12,6 +12,7 @@
 |------|------|
 | 2026-07-22 | 初始创建，提出 Skill 语义检索升级三项需求 |
 | 2026-08-07 | Status 从 Proposed 更新为 Accepted；6 个待解决问题全部填写决策结果；新增需求四（Hybrid 检索）、需求五（Query Rewriting）、需求六（skill_view 工具）三项优化方案设计；更新实施顺序与 Drawbacks |
+| 2026-08-08 | Status 从 Accepted 更新为 Implemented；6 项需求全部实施完成：需求三 summary 字段（commit 249fe2e）、需求二远程 Embedding（commit c7b80d0）、需求六 skill_view 工具（commit 5e2833d）、需求一 Chroma 向量库迁移、需求五 Query Rewriting（commit 57daf39）、需求四 Hybrid 检索（commit 4cbd799）、审查修复（commit 16c2886）；K8s 部署验证通过（Helm revision 18，Docker 镜像 k8s-local-v4）；158/158 Skill 专项测试通过；6 个集成点全部验证 PASS；已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级机制正常工作 |
 
 ## 上下文
 

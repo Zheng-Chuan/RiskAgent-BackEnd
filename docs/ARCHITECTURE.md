@@ -1831,18 +1831,22 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
     v
 [SkillStore]                       # 存储
     | 内存 dict[skill_id, skill]
-    | SemanticIndexer 语义索引
-    | MySQL 持久化 (异步)
+    | Chroma 向量库 (riskagent-skills collection, 1536维 embedding)
+    | MySQL 持久化 (异步, 含 summary 列)
     v
 [planning 阶段]
     |
     v
 [SkillInjector]                    # 检索与注入
-    | search(query) 语义检索
+    | _build_query() 提取查询文本
+    | _rewrite_query() LLM 改写为检索导向 query (LRU 缓存 + fallback)
+    | search(rewritten_query) → 向量检索(Chroma ANN) + BM25 加权合并 (α=0.7)
     | 过滤 status=active, confidence>=0.3
-    | 注入到 orchestrator prompt (few-shot)
+    | 注入 summary 列表到 orchestrator prompt (轻量注入)
     v
-[OrchestratorAgent 规划]
+[OrchestratorAgent 规划 + ReAct 循环]
+    | 参考 summary 列表
+    | 需要详细 Skill 时调用 skill_view(skill_id) 按需加载
     | 参考 Skill 的 steps 和 failure_boundary
     v
 [TaskGraphExecutor 执行]
@@ -1881,6 +1885,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
   "schema_version": "skill.v1",
   "skill_id": "skill_a1b2c3d4e5f6",
   "name": "监控交易台敞口和系统状态",
+  "summary": "当交易台敞口超限或系统健康指标异常时，自动获取敞口数据并定位 breach 原因",
   "tags": ["monitoring", "risk", "delta_one"],
   "applicable_conditions": [
     "任务涉及交易台敞口监控",
@@ -1935,14 +1940,20 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 | 层 | 存储 | 作用 | 持久化 |
 |---|---|---|---|
 | **内存** | `dict[skill_id, skill]` | 运行时快速读写 | 重启丢失 |
-| **语义索引** | `SemanticIndexer` (进程内) | 语义检索 | 重启丢失,可从内存重建 |
-| **MySQL** | `skills` 表 | 永久持久化 | 重启不丢失 |
+| **向量库** | Chroma `riskagent-skills` collection (1536维) | 语义向量检索 (ANN) | 重启不丢失 |
+| **MySQL** | `skill_store` 表 (含 `summary` 列) | 永久持久化 | 重启不丢失 |
 
 **Redis 不存储 Skill**：与记忆模块不同,Skill 不用 Redis,直接走 MySQL 持久化。
 
+**Phase 11 升级（RFC-005 Implemented）**：
+- 向量库从进程内 `SemanticIndexer`（词袋模型,128 维）升级为 Chroma `riskagent-skills` collection（text-embedding-3-small, 1536 维远程 embedding）
+- MySQL `skill_store` 表新增 `summary` 列,存储 LLM 生成的一句话摘要
+- Embedding 基于 `summary` 字段生成（而非全字段拼接）,提升语义密度
+- 检索采用 Hybrid 模式：向量 ANN 检索 + BM25 关键词加权合并 (α=0.7)
+
 **关键设计**：
 - **异步落盘**：create/update 后 fire-and-forget 到 MySQL,不阻塞主流程
-- **启动恢复**：`restore_from_persistence()` 从 MySQL 加载到内存
+- **启动恢复**：`restore_from_persistence()` 从 MySQL 加载到内存 + 重建 Chroma 向量索引
 - **批量落盘**：`flush_to_persistence()` 批量同步所有 Skill
 
 <a id="section-6-4"></a>
@@ -1993,16 +2004,19 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
     if not skill_enabled:
         return {"skill_enabled": False, ...}
     
-    # 3. 提取查询关键词
+    # 3. 提取查询文本
     query = self._build_query(task=task, intent=intent)
     
-    # 4. 语义检索
-    hits = await self._store.search(query, limit=3, min_confidence=0.3)
+    # 4. Query Rewriting（LLM 改写为检索导向 query, LRU 缓存 + fallback）
+    rewritten_query = await self._rewrite_query(query)
     
-    # 5. 构建 few-shot 注入结构
+    # 5. Hybrid 检索（向量 ANN + BM25 加权合并, α=0.7）
+    hits = await self._store.search(rewritten_query, limit=3, min_confidence=0.3)
+    
+    # 6. 构建 summary 列表注入（轻量注入, name + summary）
     skills = [self._build_injection_item(hit) for hit in hits]
     
-    # 6. 治理过滤
+    # 7. 治理过滤
     if self._governor:
         skills = await self._governor.enforce_injection_limits(skills)
     
@@ -2024,10 +2038,17 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 - **Confidence**: 0.92
 ```
 
+**Phase 11 升级（RFC-005 Implemented）**：
+- **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
+- **Hybrid 检索**：向量 ANN 检索（Chroma, 1536 维）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化
+- **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
+- **Fallback 降级**：OpenRouter 余额不足（402）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
+
 **关键设计**：
 - **max_skills=3**：防止 prompt 膨胀
 - **min_confidence=0.3**：过滤低置信度 Skill
-- **关键词兜底**：语义检索不稳定时用关键词重叠补全
+- **Hybrid 检索**：向量 + BM25 加权合并替代纯语义检索, 提升召回稳定性
+- **skill_view 工具**：Orchestrator 按需调用, 从一次性全量注入 → summary 列表 + 按需加载
 - **治理过滤**：SkillGovernor 控制 token 预算
 
 <a id="section-6-6"></a>
