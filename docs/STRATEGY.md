@@ -49,19 +49,19 @@ RiskAgent-BackEnd：金融风控的自学习多智能体系统
 cp .env.example .env  # 配置 LLM Provider 和基础设施
 
 # 启动依赖服务
-make docker-up
+make up
 
 # 初始化知识库
-make kb-init
+make ingest-knowledge
 
 # 运行系统
-make run
+make setup-mcp
 
 # 执行评测
-make eval-quick
+make eval-run RUN_TAG=run1
 
 # 回放历史运行
-make replay RUN_ID=<run_id>
+python -m riskagent_backend.cli.replay <run_id>
 ```
 
 ---

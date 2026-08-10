@@ -2789,6 +2789,8 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 | `/api/memory` | GET | 获取最近结构化记忆快照和聚合摘要 |
 | `/api/stream` | GET | SSE 事件流，实时推送 agent_snapshot / memory_snapshot / graph_snapshot / heartbeat |
 
+除上述 7 个 BFF 端点外，server.py 还提供 5 个基础设施端点：`/health`、`/ready`、`/metrics`、`/api/llm/usage`、`/api/llm/cost-model`
+
 <a id="section-10-2"></a>
 ## 10.2 运行时任务注册表
 

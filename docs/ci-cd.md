@@ -2,10 +2,10 @@
 
 ## 概述
 
-本项目使用单文件 GitHub Actions workflow（`.github/workflows/ci.yml`），包含 3 个 Job 组成的流水线：
+本项目使用单文件 GitHub Actions workflow（`.github/workflows/ci.yml`），包含 2 个 Job 组成的流水线：
 
 ```
-test (单元测试) → build (Docker 镜像) → deploy (kind 部署 + 冒烟测试)
+test (单元测试) → build-and-deploy (Docker 构建 + kind 部署 + 冒烟测试)
 ```
 
 ## 触发条件
@@ -13,33 +13,32 @@ test (单元测试) → build (Docker 镜像) → deploy (kind 部署 + 冒烟�
 | 事件 | 执行的 Job | 说明 |
 |------|-----------|------|
 | Pull Request → main | `test` | 仅运行单元测试，快速反馈 |
-| Push → main | `test` → `build` → `deploy` | 全链路执行：测试、构建、部署 |
+| Push → main | `test` → `build-and-deploy` | 全链路执行：测试、构建、部署 |
 
 ## Job 说明
 
 ### 1. test — 单元测试
 
 - **运行环境**：`ubuntu-latest` + Python 3.13
-- **依赖服务**：Redis 7 (GitHub service container)，因为 `tests/conftest.py` 中 `reset_memory_store` fixture 依赖 `REDIS_URL=redis://localhost:6379/0`
+- **依赖服务**：无外部依赖（单元测试 conftest 已 mock LLM 调用）
 - **命令**：`PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short`
 
-### 2. build — Docker 镜像构建
+### 2. build-and-deploy — Docker 构建 + kind 集群部署
 
 - **触发条件**：仅在 main 分支 push 时执行（PR 时跳过）
+- **前提**：需 test job 通过
 - **镜像 Tag**：`sha-<12位 commit SHA>`，保证可追溯
 - **可选推送**：当 `vars.DOCKER_REGISTRY` 不为空时，推送到远端 registry（如 GHCR）；为空时仅本地构建，供后续 kind load 使用
 - **权限**：`packages: write`（用于 GHCR 推送）
-
-### 3. deploy — kind 集群部署
-
-- **触发条件**：main push 且 `vars.DEPLOY_TARGET == 'kind'`
+- **部署条件**：`vars.DEPLOY_TARGET != 'cloud'`
 - **流程**：
-  1. 使用 `helm/kind-action` 创建临时 kind 集群
-  2. `kind load docker-image` 将构建好的镜像加载到 kind 节点
-  3. Helm 部署：使用 `deploy/k8s/values-ci.yaml` + `--set image.tag` + `--set image.pullPolicy=Never`
-  4. `kubectl wait` 等待 mcp-server Pod 就绪
-  5. 冒烟测试：port-forward + curl 健康检查
-  6. 无论成功失败，输出 Pod 状态
+  1. 构建 Docker 镜像（`sha-<12位 commit SHA>` tag）
+  2. 使用 `helm/kind-action` 创建临时 kind 集群
+  3. `kind load docker-image` 将构建好的镜像加载到 kind 节点
+  4. Helm 部署：使用 `deploy/k8s/values-ci.yaml` + `--set image.tag` + `--set image.pullPolicy=Never`
+  5. `kubectl wait` 等待 mcp-server Pod 就绪
+  6. 冒烟测试：port-forward + curl 健康检查
+  7. 无论成功失败，输出 Pod 状态
 
 ## 扩展点
 

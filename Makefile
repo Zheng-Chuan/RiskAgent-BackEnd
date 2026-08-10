@@ -40,11 +40,11 @@ help:
 	@echo "make kb-query         - Query vector database, usage: make kb-query QUERY='...' TOP_K=5"
 	@echo ""
 	@echo "Evaluation Commands:"
-	@echo "make eval-run         - Run benchmark, usage: make eval-run RUN_TAG=run1 REPEATS=2"
+	@echo "make eval-run         - Run benchmark, usage: make eval-run RUN_TAG=run1"
 	@echo "make eval-compare     - Compare two runs, usage: make eval-compare BASE=run1 CAND=run2"
 	@echo "make eval-gate        - Apply quality gate, usage: make eval-gate RUN_TAG=run1"
 	@echo "make eval-prompt-benchmark - Run Phase 8 one-shot prompt layering benchmark"
-	@echo "make check-llm        - Verify Volcengine LLM connection (.env: LLM_API_KEY)"
+	@echo "make check-llm        - Verify OpenRouter LLM connection (.env: LLM_API_KEY)"
 
 install:
 	pip install -r requirements.txt
@@ -78,13 +78,13 @@ kb-query:
 	python ./scripts/knowledge/kb.py query --query "$(QUERY)" --top-k "$(if $(TOP_K),$(TOP_K),5)"
 
 eval-run:
-	python -m scripts.eval.run_benchmark --bench "$(if $(BENCH),$(BENCH),eval/benchmarks/explainability_cases.jsonl)" --run-tag "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --model "$(MODEL)" --policy-version "$(POLICY_VERSION)" --prompt-version "$(PROMPT_VERSION)" --hitl "$(if $(HITL),$(HITL),1)" --budget-profile "$(BUDGET_PROFILE)" --repeats "$(if $(REPEATS),$(REPEATS),1)"
+	python -m eval.cli run --category "$(if $(CATEGORY),$(CATEGORY),all)" --output "$(if $(OUTPUT),$(OUTPUT),results/run_$(if $(RUN_TAG),$(RUN_TAG),baseline).json)" $(if $(MODEL),--model $(MODEL))
 
 eval-compare:
-	python -m scripts.eval.compare_runs --base "$(BASE)" --cand "$(CAND)"
+	python -m eval.cli compare --current "$(BASE)" $(if $(CAND),--history "$(CAND)")
 
 eval-gate:
-	python -m scripts.eval.quality_gate --run "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --gate "$(if $(GATE),$(GATE),eval/gates/default.json)"
+	python -m eval.cli gate --run-id "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --gate-config "$(if $(GATE),$(GATE),eval/gates/default.json)"
 
 eval-prompt-benchmark:
 	python eval/scripts/run_prompt_layering_benchmark.py $(ARGS)

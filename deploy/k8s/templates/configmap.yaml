@@ -13,7 +13,7 @@ data:
   REDIS_PORT: {{ .Values.redis.port | default "6379" | quote }}
   REDIS_DB: {{ .Values.redis.db | default "0" | quote }}
   CHROMA_HOST: {{ .Values.chroma.host | default "chroma" | quote }}
-  CHROMA_PORT: {{ .Values.chroma.port | default "8000" | quote }}
+  CHROMA_PORT: {{ .Values.chroma.port | default "8001" | quote }}
   CHROMA_COLLECTION: {{ .Values.chroma.collection | default "riskagent-alerts" | quote }}
   CHROMA_MEMORY_COLLECTION: {{ .Values.chroma.memoryCollection | default "riskagent-memory" | quote }}
   APP_ENV: {{ .Values.app.env | default "production" | quote }}
@@ -24,6 +24,7 @@ data:
   SEMANTIC_MEMORY_ENABLED: {{ .Values.memory.semanticEnabled | default "true" | quote }}
   MEMORY_TTL_S: {{ .Values.memory.ttl | default "86400" | quote }}
   MEMORY_MAX_LEN: {{ .Values.memory.maxLen | default "2000" | quote }}
+  HITL_AUTO_APPROVE: "true"
   LLM_BASE_URL: {{ .Values.llm.baseUrl | default "https://openrouter.ai/api/v1" | quote }}
   LLM_MODEL: {{ .Values.llm.model | default "deepseek/deepseek-v4-pro" | quote }}
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}

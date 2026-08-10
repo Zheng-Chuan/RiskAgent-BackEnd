@@ -15,7 +15,7 @@
 - 需求五：Query Rewriting（LLM 改写 + LRU 缓存 + fallback）
 - 需求四：Hybrid 检索（向量 + BM25 加权合并, α=0.7）
 - K8s 部署验证通过（ConfigMap 6 个新环境变量 + MySQL migration summary 列 + Docker k8s-local-v4）
-- 158 个 Skill 专项测试全部通过
+- 222 个 Skill 相关测试全部通过
 - 已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级正常工作
 
 ## 2026-08-07: RFC-005 Skill 语义检索升级提案 Accepted
@@ -43,7 +43,7 @@
 - Checkpoint 20.1.3: 成本预估表 5min/1h/24h/7d 四窗口，去重场景成本降低 80%
 - Checkpoint 20.1.4: CostCircuitBreaker 三级熔断（5min/1h/24h），集成 ProactiveBudgetManager
 - 新增 /api/llm/cost-model API 端点
-- 24 个新增测试，742/747 现有测试无回归
+- 37 个新增测试，836 单元测试（总计 1067 测试）无回归
 
 ## 2026-08-07: Phase 12 BDI 信念去重实施完成（RFC-006）
 
@@ -62,7 +62,7 @@
 - 5/5 前端联调验收通过（页面加载/控制台/API 路径匹配/任务提交/SSE 实时推送）
 - 前端通过 nginx 反向代理对接后端，集群内通
 - LLM Fallback 降级机制按设计预期工作
-- 6 张验收截图已保存
+- 7 张验收截图已保存
 
 ## 2026-08-03: Phase 14 规划 + RFC-006 优先级提升
 
@@ -130,7 +130,7 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 - Token 总消耗下降 48.40% (远超 20% 目标)
 - 缓存命中率 83.33%
 - 前缀缓存节省 1,213 tokens
-- 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`
+- 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（已删除，结论已沉淀到 CHANGELOG）
 - Phase 9 Checkpoint 15.3.3 已通过
 
 ### Phase 9 Checkpoint 完成情况
@@ -206,7 +206,7 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 - 删除 eval/results/（3 个 A/B 实验结果和成本报告，结论已沉淀到 CHANGELOG）
 
 ### 验证
-- 679 单元测试全部收集，零回归
+- 836 单元测试全部收集，零回归
 
 ## 2026-07-18: K8s 全量迁移
 

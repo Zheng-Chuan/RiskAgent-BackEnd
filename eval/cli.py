@@ -26,6 +26,7 @@ from eval.core.report import ReportGenerator
 from eval.comparison.benchmark import HistoryComparator, BenchmarkComparator
 
 logger = logging.getLogger(__name__)
+# 默认只加载 7 个主要类别，完整 12 类需通过 --all-categories 参数或逐个指定
 _PRIMARY_BENCHMARK_CATEGORIES = {"simple", "medium", "complex", "recovery", "approval", "memory", "safety"}
 _PRIMARY_BENCHMARK_FILES = {
     "simple": "queries.jsonl",

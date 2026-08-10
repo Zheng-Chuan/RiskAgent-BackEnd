@@ -87,7 +87,7 @@ class Settings(BaseSettings):
 
     # ---- HITL 配置 ----
     hitl_redis_stream: str = Field(default="risk_monitor:approval", description="HITL Redis Stream 名称")
-    hitl_auto_approve: bool = Field(default=False, description="是否自动审批")
+    hitl_auto_approve: bool = Field(default=True, description="是否自动审批")
 
     # ---- Chroma 配置 ----
     chroma_host: str = Field(default="localhost", description="Chroma 主机")
