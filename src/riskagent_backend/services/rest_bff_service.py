@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import time
 from typing import Any
 
 from riskagent_backend.contracts.run_context import new_run_context
@@ -24,6 +23,11 @@ from riskagent_backend.services.runtime_task_store import (
     build_empty_task_graph_snapshot,
     build_task_graph_snapshot,
     get_runtime_task_store,
+)
+from riskagent_backend.services.task_status import (
+    normalize_step_status as _normalize_step_status,
+    normalize_task_status as _normalize_task_status,
+    now_ms as _now_ms,
 )
 from riskagent_backend.utils.ids import new_run_id
 
@@ -68,34 +72,6 @@ _AGENT_SPECS = (
         "capabilities": ["analyze", "monitor", "report"],
     },
 )
-
-
-def _now_ms() -> int:
-    return int(time.time() * 1000)
-
-
-def _normalize_task_status(status: Any) -> str:
-    raw = str(status or "pending").strip().lower()
-    if raw in {"pending", "running", "completed", "failed", "cancelled"}:
-        return raw
-    if raw == "stopped":
-        return "cancelled"
-    if raw in {"blocked", "pending_approval"}:
-        return "failed"
-    return "pending"
-
-
-def _normalize_step_status(status: Any) -> str:
-    raw = str(status or "pending").strip().lower()
-    if raw in {"pending", "running", "completed", "failed", "cancelled"}:
-        return raw
-    if raw == "stopped":
-        return "cancelled"
-    if raw == "skipped":
-        return "cancelled"
-    if raw == "blocked":
-        return "failed"
-    return "pending"
 
 
 def _build_step_title(trace_item: dict[str, Any]) -> str:

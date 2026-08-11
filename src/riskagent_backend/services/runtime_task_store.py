@@ -9,10 +9,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-import time
 from typing import Any
 
 from riskagent_backend.contracts.task_graph import normalize_task_graph
+from riskagent_backend.services.task_status import (
+    normalize_step_status as _normalize_step_status,
+    normalize_task_status as _normalize_task_status,
+    now_ms as _now_ms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,34 +29,6 @@ _GRAPH_STATUSES = {
     "blocked",
     "skipped",
 }
-
-
-def _now_ms() -> int:
-    return int(time.time() * 1000)
-
-
-def _normalize_task_status(status: Any) -> str:
-    raw = str(status or "pending").strip().lower()
-    if raw in {"pending", "running", "completed", "failed", "cancelled"}:
-        return raw
-    if raw == "stopped":
-        return "cancelled"
-    if raw in {"blocked", "pending_approval"}:
-        return "failed"
-    return "pending"
-
-
-def _normalize_step_status(status: Any) -> str:
-    raw = str(status or "pending").strip().lower()
-    if raw in {"pending", "running", "completed", "failed", "cancelled"}:
-        return raw
-    if raw == "stopped":
-        return "cancelled"
-    if raw == "skipped":
-        return "cancelled"
-    if raw == "blocked":
-        return "failed"
-    return "pending"
 
 
 def _normalize_graph_status(status: Any) -> str:
