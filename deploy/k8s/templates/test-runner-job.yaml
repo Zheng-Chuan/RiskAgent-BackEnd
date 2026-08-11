@@ -32,7 +32,10 @@ spec:
                 name: {{ .Release.Name }}-secrets
         - name: wait-for-redis
           image: redis:7-alpine
-          command: ['sh', '-c', 'until redis-cli -h redis ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done']
+          command: ['sh', '-c', 'until redis-cli -h redis ${REDIS_PASSWORD:+-a "$REDIS_PASSWORD"} ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done']
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
         - name: wait-for-chroma
           image: curlimages/curl:8.7.1
           command: ['sh', '-c', 'until curl -sf http://chroma:8000/api/v1/heartbeat >/dev/null 2>&1; do echo waiting for chroma; sleep 2; done']

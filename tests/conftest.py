@@ -108,7 +108,7 @@ def _mock_skill_injector_llm():
 def reset_memory_store():
     """在每个测试前清理 MemoryStore 的 Redis 数据."""
     # 设置测试环境变量
-    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+    os.environ.setdefault("REDIS_URL", "redis://:9s-R5At6itSHSWex6L8how@localhost:6379/0")
 
     # 清理全局 MemoryStore 实例,强制重新创建
     try:

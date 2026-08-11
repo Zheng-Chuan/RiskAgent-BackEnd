@@ -27,13 +27,17 @@ spec:
         - name: redis
           image: "{{ .Values.global.imageRegistry }}redis:7-alpine"
           imagePullPolicy: IfNotPresent
-          # 开启 AOF 持久化并配置快照策略
+          # 开启 AOF 持久化并配置快照策略; 设置了 redis.password 时启用 requirepass
           command:
             - redis-server
             - --appendonly
             - "yes"
             - --save
             - 60 1000
+{{- if .Values.redis.password }}
+            - --requirepass
+            - {{ .Values.redis.password | quote }}
+{{- end }}
           ports:
             - name: redis
               containerPort: 6379
@@ -41,11 +45,18 @@ spec:
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -c
+                - 'redis-cli ${REDIS_PASSWORD:+-a "$REDIS_PASSWORD"} ping | grep -q PONG'
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 5
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: REDIS_PASSWORD
           volumeMounts:
             - name: data
               mountPath: /data

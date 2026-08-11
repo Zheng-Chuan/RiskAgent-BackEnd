@@ -49,7 +49,10 @@ spec:
           command:
             - sh
             - -c
-            - 'until redis-cli -h redis ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done'
+            - 'until redis-cli -h redis ${REDIS_PASSWORD:+-a "$REDIS_PASSWORD"} ping 2>/dev/null | grep -q PONG; do echo waiting for redis; sleep 2; done'
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
         # 3. 等待 Chroma 就绪（替代 depends_on: chroma: condition: service_healthy）
         - name: wait-for-chroma
           image: "{{ .Values.global.imageRegistry }}curlimages/curl:8.7.1"
