@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any
+
+from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 
 
 def build_workflow_result(
@@ -400,7 +401,7 @@ def build_workflow_output(
             for item in approval_trace
         )
     elif approval_required:
-        approval_approved = os.getenv("HITL_AUTO_APPROVE", "1").strip() not in {"0", "false", "False"}
+        approval_approved = hitl_auto_approve_enabled()
 
     effective_run_id = result.get("run_id") if isinstance(result.get("run_id"), str) and result.get("run_id") else run_id
     effective_status = result.get("status")

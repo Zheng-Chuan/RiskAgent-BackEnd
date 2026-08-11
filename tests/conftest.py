@@ -16,6 +16,9 @@ if str(_SRC_ROOT) not in sys.path:
 # 测试环境显式开启鉴权逃生舱 (鉴权默认 fail-closed, 见 services/auth_service.py)
 # 鉴权行为本身的测试通过 monkeypatch 显式控制这两个环境变量
 os.environ.setdefault("RISKAGENT_ALLOW_UNAUTHENTICATED", "1")
+# 测试环境显式开启 HITL 自动审批 (安全默认关闭, 见 orchestration/hitl_policy.py)
+# 审批行为本身的测试通过 monkeypatch 显式设置 HITL_AUTO_APPROVE
+os.environ.setdefault("HITL_AUTO_APPROVE", "1")
 
 
 @pytest.fixture(autouse=True, scope="function")

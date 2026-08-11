@@ -26,7 +26,7 @@ data:
   SEMANTIC_MEMORY_ENABLED: {{ .Values.memory.semanticEnabled | default "true" | quote }}
   MEMORY_TTL_S: {{ .Values.memory.ttl | default "86400" | quote }}
   MEMORY_MAX_LEN: {{ .Values.memory.maxLen | default "2000" | quote }}
-  HITL_AUTO_APPROVE: "true"
+  HITL_AUTO_APPROVE: {{ .Values.hitl.autoApprove | default "false" | quote }}
   LLM_BASE_URL: {{ .Values.llm.baseUrl | default "https://openrouter.ai/api/v1" | quote }}
   LLM_MODEL: {{ .Values.llm.model | default "deepseek/deepseek-v4-pro" | quote }}
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}

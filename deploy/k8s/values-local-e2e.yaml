@@ -75,3 +75,8 @@ skill:
 # 生产环境严禁此配置 (values.yaml 默认 false)
 security:
   allowUnauthenticated: "true"
+
+# 本地 E2E 演示: 无人值守验收流程需要自动审批
+# 生产环境必须为 false (values.yaml 默认)
+hitl:
+  autoApprove: "true"

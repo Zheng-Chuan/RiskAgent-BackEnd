@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from typing import Any, Awaitable, Callable
 
@@ -16,6 +15,7 @@ from riskagent_backend.contracts.approval import (
     normalize_approval_record,
     normalize_approval_request,
 )
+from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 from riskagent_backend.orchestration.tool_executor import execute_agent_command, new_agent_command
 from riskagent_backend.orchestration.tool_registry import get_tool_meta
 from riskagent_backend.proactive_agents import ProactiveAgentResult
@@ -176,10 +176,9 @@ class NodeExecutor:
         if meta is None:
             return {"status": "failed", "error": f"unknown_tool:{tool_name}", "failure_classification": "dependency"}
         params = dict(node.get("params")) if isinstance(node.get("params"), dict) else {}
-        # 当 HITL_AUTO_APPROVE 启用时，自动为 side_effect 工具注入审批
+        # 当 HITL_AUTO_APPROVE 显式启用时，自动为 side_effect 工具注入审批
         if meta.capability == "side_effect":
-            auto_approve = os.getenv("HITL_AUTO_APPROVE", "1").strip() not in {"0", "false", "False"}
-            if auto_approve and not isinstance(params.get("approval"), dict):
+            if hitl_auto_approve_enabled() and not isinstance(params.get("approval"), dict):
                 params["approval"] = {"approved": True, "state": "approved"}
         task_budget = task.get("tool_budget") if isinstance(task.get("tool_budget"), dict) else {}
         if task_budget and "_budget" not in params:

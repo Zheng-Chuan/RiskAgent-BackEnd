@@ -112,6 +112,11 @@ security:
   apiToken: ""
   allowUnauthenticated: "false"
 
+# HITL 审批配置
+# autoApprove: 副作用操作是否自动审批; 生产环境必须为 false (人工审批)
+hitl:
+  autoApprove: "false"
+
 # 记忆配置
 memory:
   semanticEnabled: "true"

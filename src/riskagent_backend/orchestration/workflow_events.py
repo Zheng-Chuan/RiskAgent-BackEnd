@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
+
+from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 
 
 def default_candidate_agents_for_event(event: dict[str, Any]) -> list[str]:
@@ -70,7 +71,7 @@ def requires_manual_approval(
     receipts: list[dict[str, Any]] | None,
     approval_records: list[dict[str, Any]] | None,
 ) -> bool:
-    auto_approve = os.getenv("HITL_AUTO_APPROVE", "1").strip() not in {"0", "false", "False"}
+    auto_approve = hitl_auto_approve_enabled()
     if isinstance(approval_records, list):
         for record in approval_records:
             if not isinstance(record, dict):
