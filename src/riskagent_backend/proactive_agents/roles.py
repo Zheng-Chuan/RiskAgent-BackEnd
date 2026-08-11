@@ -72,7 +72,7 @@ class ProactiveIntentAgent(BaseProactiveAgent):
         """感知环境 - 监控业务指标异常."""
         try:
             from riskagent_backend.perception.data_sources import PrometheusDataSource
-            filtered = self._collect_and_filter([PrometheusDataSource()])
+            filtered = await self._collect_and_filter_async([PrometheusDataSource()])
             if not filtered:
                 return
             for sig in filtered:
@@ -213,7 +213,7 @@ class ProactiveOrchestratorAgent(BaseProactiveAgent):
         """主动感知 - 监控编排指标."""
         try:
             from riskagent_backend.perception.data_sources import PrometheusDataSource
-            filtered = self._collect_and_filter([PrometheusDataSource()])
+            filtered = await self._collect_and_filter_async([PrometheusDataSource()])
             if not filtered:
                 return
             for sig in filtered:
@@ -318,7 +318,7 @@ class ProactiveCriticAgent(BaseProactiveAgent):
         """主动感知 - 监控计划执行质量."""
         try:
             from riskagent_backend.perception.data_sources import PrometheusDataSource
-            filtered = self._collect_and_filter([PrometheusDataSource()])
+            filtered = await self._collect_and_filter_async([PrometheusDataSource()])
             if not filtered:
                 return
             for sig in filtered:
@@ -541,7 +541,7 @@ class ProactiveSystemEngineerAgent(BaseProactiveAgent):
             else:
                 infra_source = DockerDataSource()
 
-            filtered = self._collect_and_filter([
+            filtered = await self._collect_and_filter_async([
                 infra_source,
                 RedisDataSource(),
                 MySQLDataSource(),
@@ -667,7 +667,7 @@ class ProactiveRiskAnalystAgent(BaseProactiveAgent):
                 PrometheusDataSource,
             )
 
-            filtered = self._collect_and_filter([
+            filtered = await self._collect_and_filter_async([
                 MySQLDataSource(),
                 PrometheusDataSource(),
             ])

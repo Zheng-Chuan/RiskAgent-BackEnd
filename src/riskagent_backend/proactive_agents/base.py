@@ -460,6 +460,14 @@ class BaseProactiveAgent:
                 logger.warning(f"[{self._name}] 数据源采集失败 {ds.__class__.__name__}: {e}")
         return self._filter_engine.filter_batch(all_signals)
 
+    async def _collect_and_filter_async(self, data_sources: list) -> list:
+        """_collect_and_filter 的异步包装.
+
+        数据源 collect() 可能包含阻塞操作 (subprocess.run / 同步 DB 客户端),
+        卸载到线程池执行, 避免阻塞事件循环导致监控循环卡死.
+        """
+        return await asyncio.to_thread(self._collect_and_filter, data_sources)
+
     async def _perceive_environment(self) -> None:
         """感知环境 - 更新信念(子类可重写)."""
         pass
