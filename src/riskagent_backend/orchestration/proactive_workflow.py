@@ -38,6 +38,11 @@ from riskagent_backend.orchestration.task_graph_executor import TaskGraphExecuto
 from riskagent_backend.observability.metrics import inc_counter, observe_ms
 from riskagent_backend.utils.ids import new_run_id
 
+from riskagent_backend.orchestration.workflow_intent import (
+    recognize_intent_and_retrieve_memory,
+)
+from riskagent_backend.orchestration.workflow_setup import setup_run_and_load_resume
+from riskagent_backend.orchestration.workflow_state import WorkflowRunState
 from riskagent_backend.orchestration.workflow_agent_results import (
     build_orchestrator_failure_reason,
     ensure_proactive_result,
@@ -56,10 +61,6 @@ from riskagent_backend.orchestration.workflow_result_builder import (
     build_workflow_output,
 )
 from riskagent_backend.orchestration.workflow_resume import (
-    apply_resume_context,
-    apply_approval_decision_to_resume_request,
-    merge_resume_memory_into_planning_memory,
-    validate_resume_request_completeness,
     should_replan,
     build_replan_reason,
     should_runtime_replan,
@@ -68,7 +69,6 @@ from riskagent_backend.orchestration.workflow_resume import (
 )
 from riskagent_backend.orchestration.workflow_memory import (
     persist_plan_memory,
-    persist_intent_memory,
 )
 from riskagent_backend.orchestration.workflow_events import (
     default_candidate_agents_for_event,
@@ -356,190 +356,44 @@ class ProactiveBackEndWorkflow:
         logger.info(f"[ProactiveWorkflow] Starting for task: {task.get('task_id') or run_id}")
         
         try:
-            # ===== Step 1: Setup & Resume Handling =====
-            if not await runtime_task_store.get_task(task_id=task_id):
-                task_payload = task.get("payload") if isinstance(task.get("payload"), dict) else {}
-                description = str(
-                    task.get("description")
-                    or task_payload.get("content")
-                    or task_payload.get("text")
-                    or task_id
-                )
-                await runtime_task_store.create_task(
-                    task_id=task_id,
-                    session_id=str(task.get("session_id") or "") or None,
-                    description=description,
-                )
-            await runtime_task_store.mark_running(task_id=task_id, run_id=run_id)
-            await runtime_task_store.set_current_agent(task_id=task_id, agent_id="intent")
-            await self.start_agents()
             memory_store = get_memory_store()
-            memory_enabled = task.get("memory_enabled", True) is not False
-            private_memory_enabled = memory_enabled and task.get("private_memory_enabled", True) is not False
-            resume_request = task.get("resume") if isinstance(task.get("resume"), dict) else {}
-            if memory_enabled and isinstance(resume_request.get("run_id"), str) and not isinstance(resume_request.get("task_graph"), dict):
-                loaded_resume = await memory_store.build_resume_payload(
-                    run_id=resume_request["run_id"],
-                    resume_from_step_id=resume_request.get("resume_from_step_id"),
-                )
-                if isinstance(loaded_resume, dict):
-                    merged_resume = dict(loaded_resume)
-                    merged_resume.update(resume_request)
-                    resume_request = merged_resume
-            resume_request = apply_approval_decision_to_resume_request(
-                resume_request=resume_request,
-            )
-            if resume_request:
-                normalized_resume_request = dict(resume_request)
-                normalized_resume_request["memory_state"] = (
-                    list(normalized_resume_request.get("memory_state"))
-                    if isinstance(normalized_resume_request.get("memory_state"), list)
-                    else []
-                )
-                normalized_resume_request["shared_memory_board"] = (
-                    list(normalized_resume_request.get("shared_memory_board"))
-                    if isinstance(normalized_resume_request.get("shared_memory_board"), list)
-                    else []
-                )
-                normalized_resume_request["private_memory_state"] = (
-                    dict(normalized_resume_request.get("private_memory_state"))
-                    if isinstance(normalized_resume_request.get("private_memory_state"), dict)
-                    else {}
-                )
-                normalized_resume_request["run_summary"] = (
-                    dict(normalized_resume_request.get("run_summary"))
-                    if isinstance(normalized_resume_request.get("run_summary"), dict)
-                    else {}
-                )
-                normalized_resume_request["approval_decision"] = (
-                    dict(normalized_resume_request.get("approval_decision"))
-                    if isinstance(normalized_resume_request.get("approval_decision"), dict)
-                    else {}
-                )
-                resume_request = normalized_resume_request
-            resume_validation = validate_resume_request_completeness(
-                resume_request=resume_request,
-            )
-            if resume_request and not resume_validation["is_complete"]:
-                logger.warning(
-                    "[ProactiveWorkflow] Resume request incomplete: missing=%s invalid=%s",
-                    resume_validation.get("missing_fields"),
-                    resume_validation.get("invalid_fields"),
-                )
-                return {
-                    "status": "failed",
-                    "run_id": run_id,
-                    "entry_type": run_context.get("entry_type"),
-                    "run_context": run_context,
-                    "task_id": task.get("task_id"),
-                    "task": task,
-                    "route_decision": route_decision or {},
-                    "intent": {},
-                    "task_graph": (
-                        dict(resume_request.get("task_graph"))
-                        if isinstance(resume_request.get("task_graph"), dict)
-                        else {}
-                    ),
-                    "task_graph_execution": {
-                        "status": "failed",
-                        "completed_steps": [],
-                        "skipped_steps": [],
-                        "failed_step_id": None,
-                        "blocked_step_id": None,
-                        "trace": [],
-                        "errors": ["resume_context_incomplete"],
-                        "resume_history": [
-                            {
-                                "resume_from_step_id": resume_request.get("resume_from_step_id"),
-                                "mode": "step_resume",
-                                "validation": resume_validation,
-                            }
-                        ],
-                        "resume_ready": False,
-                        "failure_classification": resume_validation.get("failure_classification"),
-                        "resume_validation": resume_validation,
-                    },
-                    "orchestrator_plan": {},
-                    "critic_plan": {},
-                    "critic_final": {},
-                    "replan": {},
-                    "receipts": [],
-                    "approval_trace": [],
-                    "engineer": {},
-                    "analyst": {},
-                    "final_output": {},
-                    "react_steps": [],
-                    "bdi_states": {},
-                    "llm_interactions": [],
-                    "latency_ms": (time.time() - start_time) * 1000,
-                    "errors": ["resume_context_incomplete"],
-                    "memory_hits": [],
-                    "planning_memory": {"resume_validation": resume_validation},
-                    "resume_memory_state": (
-                        list(resume_request.get("memory_state"))
-                        if isinstance(resume_request.get("memory_state"), list)
-                        else []
-                    ),
-                    "shared_memory_board": (
-                        list(resume_request.get("shared_memory_board"))
-                        if isinstance(resume_request.get("shared_memory_board"), list)
-                        else []
-                    ),
-                    "private_memory_state": (
-                        dict(resume_request.get("private_memory_state"))
-                        if isinstance(resume_request.get("private_memory_state"), dict)
-                        else {}
-                    ),
-                    "run_summary": {},
-                    "approval_memory": [],
-                }
-            task = apply_resume_context(
+            state = WorkflowRunState(
                 task=task,
-                resume_request=resume_request,
+                run_context=run_context,
+                route_decision=route_decision,
+                source_event=source_event,
+                start_time=start_time,
+                run_id=run_id,
+                task_id=task_id,
+                memory_enabled=task.get("memory_enabled", True) is not False,
             )
-            # ===== Step 2: Intent Recognition & Memory Retrieval =====
-            # 意图识别阶段不应受预注入记忆影响
-            # 剥离 memory 相关字段,防止 LLM 将 memory 上下文误判为 continue 意图
-            intent_task = dict(task)
-            for _key in ("benchmark_config", "memory_enabled", "private_memory_enabled", "baseline_mode"):
-                intent_task.pop(_key, None)
-            intent_result = self._require_successful_agent_result(
-                self._ensure_proactive_result(
-                    await self._intent_agent.recognize(
-                        task=intent_task,
-                        metadata={"intent_isolation": True, "instruction": "你的任务是识别用户意图,不要参考历史记忆或 shared memory 中的内容."},
-                    ),
-                    agent_name="intent",
-                ),
-                agent_name="intent",
+            state.private_memory_enabled = (
+                state.memory_enabled and task.get("private_memory_enabled", True) is not False
             )
-            logger.info(f"[ProactiveWorkflow] Intent recognized: {intent_result.output.get('primary_intent_type')}")
-            await runtime_task_store.set_current_agent(task_id=task_id, agent_id="orchestrator")
 
-            planning_memory = {"hits": [], "summary": {}}
-            if memory_enabled:
-                try:
-                    await persist_intent_memory(
-                        memory_store=memory_store,
-                        run_id=run_id,
-                        task=task,
-                        intent_output=intent_result.output,
-                    )
-                    planning_memory = await memory_store.retrieve_for_planning(
-                        task=task,
-                        intent=intent_result.output,
-                        limit=5,
-                    )
-                except Exception as exc:
-                    # 记忆后端降级时不应阻断主执行链路.
-                    logger.warning("[ProactiveWorkflow] Planning memory degraded: %s", exc)
-                    planning_memory = {"hits": [], "summary": {}}
-                planning_memory = merge_resume_memory_into_planning_memory(
-                    planning_memory=planning_memory,
-                    resume_request=resume_request,
-                    private_memory_enabled=private_memory_enabled,
-                )
-            is_resume = bool(resume_request)
+            # ===== Step 1: Setup & Resume Handling =====
+            early_result = await setup_run_and_load_resume(
+                state=state,
+                runtime_task_store=runtime_task_store,
+                memory_store=memory_store,
+                start_agents=self.start_agents,
+            )
+            if early_result is not None:
+                return early_result
+            # ===== Step 2: Intent Recognition & Memory Retrieval =====
+            await recognize_intent_and_retrieve_memory(
+                state=state,
+                intent_agent=self._intent_agent,
+                runtime_task_store=runtime_task_store,
+                memory_store=memory_store,
+            )
+            task = state.task
+            intent_result = state.intent_result
+            planning_memory = state.planning_memory
+            resume_request = state.resume_request
+            memory_enabled = state.memory_enabled
+            private_memory_enabled = state.private_memory_enabled
+            is_resume = state.is_resume
 
             # ===== Step 3: Planning (Orchestrator + Critic + Replan) =====
             replan_details: dict[str, Any] | None = None
