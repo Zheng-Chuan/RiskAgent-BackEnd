@@ -18,6 +18,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from riskagent_backend.prompts.agent_prompts.utility_prompts import (
+    CONTEXT_COMPRESSOR_SUMMARY_PROMPT_TEMPLATE,
+    CONTEXT_COMPRESSOR_SYSTEM_PROMPT,
+)
+
 logger = logging.getLogger(__name__)
 
 # 中文字符的 Unicode 范围正则
@@ -264,13 +269,8 @@ class ContextCompressor:
         # 构建待摘要的对话历史文本
         history_text = self._format_messages_for_summary(middle_messages)
 
-        summary_prompt = (
-            "请将以下对话历史总结为关键信息, 保留:\n"
-            "- 已完成的步骤和结果\n"
-            "- 发现的问题和错误\n"
-            "- 当前正在处理的任务\n"
-            "总结不超过 300 字.\n\n"
-            f"对话历史:\n{history_text}"
+        summary_prompt = CONTEXT_COMPRESSOR_SUMMARY_PROMPT_TEMPLATE.format(
+            history_text=history_text
         )
 
         try:
@@ -281,7 +281,7 @@ class ContextCompressor:
                 messages=[
                     {
                         "role": "system",
-                        "content": "你是一个对话历史摘要助手,请简洁准确地总结关键信息.",
+                        "content": CONTEXT_COMPRESSOR_SYSTEM_PROMPT,
                     },
                     {"role": "user", "content": summary_prompt},
                 ],

@@ -22,6 +22,9 @@ from riskagent_backend.governance.llm_cost_governance import get_llm_cost_govern
 from riskagent_backend.llm import LLMError, LlmClient, extract_first_text
 from riskagent_backend.llm.output_repair import extract_json_from_text, fix_common_json_issues
 from riskagent_backend.observability.metrics import inc_counter, observe_ms
+from riskagent_backend.prompts.agent_prompts.utility_prompts import (
+    JSON_REPAIR_PROMPT_TEMPLATE,
+)
 from riskagent_backend.utils import clean_llm_output
 
 logger = logging.getLogger(__name__)
@@ -384,33 +387,13 @@ class BaseAgent:
         """
         remaining = max_attempts - attempt + 1
         
-        prompt = f"""你是一个专业的 JSON 修复助手.你的任务是修复上次输出中的格式错误.
-
-## 原始任务
-{original_prompt}
-
-## 上次的输出(有格式错误)
-```json
-{last_output or "N/A"}
-```
-
-## 错误信息
-{error_message or "JSON 解析失败"}
-
-## 你的任务
-请仔细检查上面的输出,找出 JSON 格式错误并修复它.常见问题包括:
-1. 缺少逗号(,)分隔字段
-2. 缺少引号(")包裹字符串
-3. 多余的逗号或括号
-4. 缩进不正确
-
-## 要求
-1. **只输出修复后的 JSON**,不要添加任何解释
-2. 确保 JSON 格式完全正确,可以被 json.loads() 直接解析
-3. 保持原始输出的内容和结构,不要修改业务逻辑
-4. 这是第 {attempt} 次尝试,还剩 {remaining} 次机会
-
-请现在输出修复后的 JSON:"""
+        prompt = JSON_REPAIR_PROMPT_TEMPLATE.format(
+            original_prompt=original_prompt,
+            last_output=last_output or "N/A",
+            error_message=error_message or "JSON 解析失败",
+            attempt=attempt,
+            remaining=remaining,
+        )
         
         return prompt
 

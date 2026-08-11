@@ -20,6 +20,10 @@ from typing import Any, Optional
 
 from riskagent_backend import config
 from riskagent_backend.llm import LlmClient, extract_first_text
+from riskagent_backend.prompts.agent_prompts.utility_prompts import (
+    QUERY_REWRITE_PROMPT_TEMPLATE,
+    QUERY_REWRITE_SYSTEM_PROMPT,
+)
 from riskagent_backend.skills.skill_governor import SkillGovernor
 from riskagent_backend.skills.skill_store import SkillStore
 
@@ -417,24 +421,12 @@ class SkillInjector:
         LLM prompt 参考 AutoSkill 的 extraction prompt 设计.
         """
         client = self._llm_client or LlmClient()
-        prompt = (
-            "你是一个检索查询改写器。将用户的短查询扩展为检索导向的查询，要求：\n"
-            "1. 保留原始意图\n"
-            "2. 扩展同义词和近义词\n"
-            "3. 补充领域上下文\n"
-            "4. 输出为一行短语，不超过 50 字\n\n"
-            f"原始查询: {query}\n\n"
-            "改写后的查询:"
-        )
+        prompt = QUERY_REWRITE_PROMPT_TEMPLATE.format(query=query)
         resp = await client.chat_completions(
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "你是一个检索查询改写器。"
-                        "将用户的短查询扩展为检索导向的查询，"
-                        "保留原始意图，扩展同义词和近义词，补充领域上下文。"
-                    ),
+                    "content": QUERY_REWRITE_SYSTEM_PROMPT,
                 },
                 {"role": "user", "content": prompt},
             ],

@@ -25,6 +25,13 @@ from riskagent_backend.proactive_agents.base_models import (
     ReActStep,
     ProactiveAgentResult,
 )
+from riskagent_backend.prompts.agent_prompts.react_agent_prompts import (
+    REACT_ACTION_PROMPT_TEMPLATE,
+    REACT_EVIDENCE_PROMPT_TEMPLATE,
+    REACT_FINAL_ANSWER_PROMPT_TEMPLATE,
+    REACT_REASONING_PROMPT_TEMPLATE,
+    REACT_THOUGHT_PROMPT_TEMPLATE,
+)
 
 # 感知模块懒加载 (避免循环导入, 仅在首次使用时初始化)
 _perception_filter_engine = None
@@ -724,15 +731,12 @@ class BaseProactiveAgent:
         history_text = self._format_history(history)
         context_text = self._format_context(context)
         
-        prompt = f"""You are {self._name}. Generate your next thought about the task.
-
-Task: {task}
-Context: {context_text}
-History: {history_text}
-
-Generate a thought about what you should consider or do next. Be specific and relevant to the task.
-
-Only return the thought text, no JSON format."""
+        prompt = REACT_THOUGHT_PROMPT_TEMPLATE.format(
+            name=self._name,
+            task=task,
+            context_text=context_text,
+            history_text=history_text,
+        )
 
         try:
             from riskagent_backend.llm import LlmClient
@@ -796,18 +800,12 @@ Only return the thought text, no JSON format."""
         """生成推理理由 - CoT 核心."""
         history_text = self._format_history(history)
         
-        prompt = f"""You are {self._name}. Generate reasoning for your thought.
-
-Task: {task}
-Your thought: {thought}
-History: {history_text}
-
-Generate a reasoning that explains why you chose this thought. Consider:
-- What information do you have?
-- What do you need to verify?
-- What are the risks or uncertainties?
-
-Only return the reasoning text, no JSON format."""
+        prompt = REACT_REASONING_PROMPT_TEMPLATE.format(
+            name=self._name,
+            task=task,
+            thought=thought,
+            history_text=history_text,
+        )
 
         try:
             from riskagent_backend.llm import LlmClient
@@ -876,15 +874,12 @@ Only return the reasoning text, no JSON format."""
             for b in beliefs[-5:]
         ]) if beliefs else "No beliefs yet"
         
-        prompt = f"""You are {self._name}. Generate evidence for your reasoning.
-
-Your thought: {thought}
-Your reasoning: {reasoning}
-Current beliefs: {beliefs_text}
-
-Generate evidence that supports your reasoning. Cite specific sources or data.
-
-Evidence (as JSON with keys like "sources", "data", "references"):"""
+        prompt = REACT_EVIDENCE_PROMPT_TEMPLATE.format(
+            name=self._name,
+            thought=thought,
+            reasoning=reasoning,
+            beliefs_text=beliefs_text,
+        )
 
         start_time = time.time()
         result = await self._base_agent.ask_json(
@@ -916,18 +911,12 @@ Evidence (as JSON with keys like "sources", "data", "references"):"""
         context: dict[str, Any] | None,
     ) -> tuple[str, dict[str, Any]]:
         """决定行动."""
-        prompt = f"""You are {self._name}. Decide your next action.
-
-Task: {task}
-Your thought: {thought}
-History: {self._format_history(history)}
-
-Choose an action type and parameters:
-- "llm_call": Make another LLM call to gather more information
-- "tool_call": Execute a tool (specify tool_name and params)
-- "finalize": Task is complete, generate final answer
-
-Return as JSON with "action_type" and "action" (dict with params)."""
+        prompt = REACT_ACTION_PROMPT_TEMPLATE.format(
+            name=self._name,
+            task=task,
+            thought=thought,
+            history_text=self._format_history(history),
+        )
 
         start_time = time.time()
         result = await self._base_agent.ask_json(
@@ -1022,13 +1011,11 @@ Return as JSON with "action_type" and "action" (dict with params)."""
             for s in history
         ])
         
-        prompt = f"""You are {self._name}. Generate final answer based on your reasoning chain.
-
-Task: {task}
-Reasoning chain:
-{steps_summary}
-
-Generate a comprehensive final answer as JSON."""
+        prompt = REACT_FINAL_ANSWER_PROMPT_TEMPLATE.format(
+            name=self._name,
+            task=task,
+            steps_summary=steps_summary,
+        )
 
         result = await self._base_agent.ask_json(
             user_prompt=prompt,

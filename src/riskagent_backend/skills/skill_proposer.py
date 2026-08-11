@@ -16,6 +16,10 @@ import re
 from typing import Any
 
 from riskagent_backend.llm import LlmClient, extract_first_text
+from riskagent_backend.prompts.agent_prompts.utility_prompts import (
+    SKILL_SUMMARY_PROMPT_TEMPLATE,
+    SKILL_SUMMARY_SYSTEM_PROMPT,
+)
 from riskagent_backend.skills.skill_store import SkillStore
 
 logger = logging.getLogger(__name__)
@@ -370,11 +374,7 @@ class SkillProposer:
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "你是一个技能摘要助手。请用一句话（30-80字）概括以下任务的可复用工作流模式。"
-                            "只提取持久的、可复用的约束和策略，不要提取一次性请求或案例特定实体。"
-                            "捕捉\"如何做类似任务\"而非\"这个实例的事实\"。"
-                        ),
+                        "content": SKILL_SUMMARY_SYSTEM_PROMPT,
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -414,12 +414,11 @@ class SkillProposer:
         if not task_desc:
             task_desc = task.get("content", {}).get("description", "") if isinstance(task.get("content"), dict) else ""
 
-        return (
-            f"任务意图: {task_intent}\n"
-            f"编排意图: {orch_intent_str}\n"
-            f"任务描述: {task_desc}\n"
-            f"执行步骤:\n{steps_text}\n\n"
-            "请用一句话（30-80字）概括这个任务的可复用工作流模式。"
+        return SKILL_SUMMARY_PROMPT_TEMPLATE.format(
+            task_intent=task_intent,
+            orch_intent_str=orch_intent_str,
+            task_desc=task_desc,
+            steps_text=steps_text,
         )
 
     def _fallback_summary(
