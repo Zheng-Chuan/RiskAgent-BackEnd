@@ -68,7 +68,8 @@ async def fetch_positions_by_desk_for_monitoring_with_retry(
     """
     for i in range(retries):
         try:
-            return fetch_positions_by_desk_for_monitoring(desk)
+            # 同步 pymysql 查询卸载到线程池, 避免阻塞事件循环
+            return await asyncio.to_thread(fetch_positions_by_desk_for_monitoring, desk)
         except DataAccessError as e:
             if i == retries - 1:
                 raise e

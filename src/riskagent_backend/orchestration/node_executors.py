@@ -122,7 +122,8 @@ class NodeExecutor:
         if kind == "delegate":
             return await self._execute_delegate_like_node(task=task, node=node, node_outputs=node_outputs, mode="delegate")
         if kind == "tool_call":
-            return self._execute_tool_call_node(task=task, node=node, step_id=step_id)
+            # 工具执行含同步阻塞操作 (pymysql 查询等), 卸载到线程池避免阻塞事件循环
+            return await asyncio.to_thread(self._execute_tool_call_node, task=task, node=node, step_id=step_id)
         if kind == "finalize":
             final_output = self._build_finalize_output(task=task, node=node, node_outputs=node_outputs)
             return {"status": "completed", "output": final_output, "final_output": final_output, "output_ref": "final_output", "evidence": {"task_graph_step_id": step_id, "fields": ["delegate_outputs"]}, "input_sources": list(final_output.get("sources") or [])}

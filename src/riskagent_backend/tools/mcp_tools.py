@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 
 from mcp.server import FastMCP
@@ -132,7 +133,7 @@ async def query_positions_by_desk(
     offset: int = 0,
     ctx: Context = None,
 ) -> dict[str, Any]:
-    return _execute_mcp_tool(
+    return await _execute_mcp_tool_async(
         action="query_positions_by_desk",
         params={
             "desk": desk_name,
@@ -146,7 +147,7 @@ async def query_positions_by_desk(
 
 
 async def calculate_total_delta(ctx: Context = None) -> dict[str, Any]:
-    return _execute_mcp_tool(action="calculate_total_delta", params={}, ctx=ctx)
+    return await _execute_mcp_tool_async(action="calculate_total_delta", params={}, ctx=ctx)
 
 
 async def monitor_desk_exposure(
@@ -157,7 +158,7 @@ async def monitor_desk_exposure(
     abs_delta_limit: float = 1000000.0,
     ctx: Context = None,
 ) -> dict[str, Any]:
-    return _execute_mcp_tool(
+    return await _execute_mcp_tool_async(
         action="monitor_desk_exposure",
         params={
             "desk": desk,
@@ -188,4 +189,13 @@ def submit_alerts(
 
 
 async def get_service_metrics(ctx: Context = None) -> dict[str, Any]:
-    return _execute_mcp_tool(action="get_service_metrics", params={}, ctx=ctx)
+    return await _execute_mcp_tool_async(action="get_service_metrics", params={}, ctx=ctx)
+
+
+async def _execute_mcp_tool_async(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """_execute_mcp_tool 的异步包装.
+
+    工具执行包含同步阻塞操作 (pymysql 查询等), 卸载到线程池避免阻塞事件循环;
+    同步版保留供 sync 工具函数使用 (FastMCP 会自行将 sync 函数放到线程池).
+    """
+    return await asyncio.to_thread(_execute_mcp_tool, *args, **kwargs)
