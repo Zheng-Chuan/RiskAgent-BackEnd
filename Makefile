@@ -55,7 +55,15 @@ pylint:
 lint-env:
 	python scripts/lint_env_usage.py
 
-lint: pylint lint-env
+typecheck:
+	@# 定向 mypy 门禁: 仅检查编排层契约与新标注的纯函数边界
+	@# (--follow-imports=silent 避免扩散到未标注的历史模块)
+	python -m mypy --follow-imports=silent \
+		src/riskagent_backend/contracts/workflow_types.py \
+		src/riskagent_backend/orchestration/workflow_events.py \
+		src/riskagent_backend/orchestration/workflow_result_builder.py
+
+lint: pylint lint-env typecheck
 	@echo "Lint passed!"
 
 test-cov:
