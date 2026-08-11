@@ -7,8 +7,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
+from riskagent_backend.contracts.workflow_types import (
+    ApprovalTraceItem,
+    CriticReviewOutput,
+    SystemEvent,
+    WorkflowResult,
+)
 from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 
 
@@ -32,7 +38,7 @@ def build_workflow_result(
     replan_details: dict[str, Any] | None,
     route_decision: dict[str, Any] | None,
     start_time: float,
-) -> dict[str, Any]:
+) -> WorkflowResult:
     """构建结果."""
     latency_ms = (time.time() - start_time) * 1000
 
@@ -58,7 +64,7 @@ def build_workflow_result(
         receipts=receipts,
     )
 
-    result = {
+    result: WorkflowResult = {
         "status": execution_result.get("status", "completed"),
         "run_id": run_id,
         "entry_type": run_context.get("entry_type"),
@@ -127,11 +133,11 @@ def build_workflow_result(
 
 def build_blocked_event_result(
     *,
-    event: dict[str, Any],
+    event: SystemEvent,
     run_context: dict[str, Any],
     reason: str,
     budget_evidence: dict[str, Any],
-) -> dict[str, Any]:
+) -> WorkflowResult:
     return {
         "status": "blocked",
         "run_id": run_context.get("run_id"),
@@ -178,10 +184,10 @@ def build_blocked_event_result(
 
 def build_invalid_event_result(
     *,
-    event: dict[str, Any],
+    event: SystemEvent,
     run_context: dict[str, Any],
     reason: str,
-) -> dict[str, Any]:
+) -> WorkflowResult:
     return {
         "status": "failed",
         "run_id": run_context.get("run_id"),
@@ -219,8 +225,8 @@ def build_approval_trace_items(
     *,
     approval_records: list[dict[str, Any]] | None,
     receipts: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
-    trace_items: list[dict[str, Any]] = []
+) -> list[ApprovalTraceItem]:
+    trace_items: list[ApprovalTraceItem] = []
     if isinstance(approval_records, list):
         for record in approval_records:
             if not isinstance(record, dict):
@@ -276,9 +282,9 @@ def build_approval_trace_items(
 
 def normalize_critic_final_output(
     *,
-    critic_output: dict[str, Any],
+    critic_output: CriticReviewOutput,
     receipts: list[dict[str, Any]] | None,
-) -> dict[str, Any]:
+) -> CriticReviewOutput:
     """确保最终审查结果总是带上可追溯的 receipt 证据链."""
     normalized = dict(critic_output) if isinstance(critic_output, dict) else {}
     receipt_command_ids = [
@@ -302,7 +308,7 @@ def normalize_critic_final_output(
     normalized.setdefault("ok", True)
     normalized.setdefault("issues", [])
     normalized.setdefault("suggested_fixes", [])
-    return normalized
+    return cast(CriticReviewOutput, normalized)
 
 
 def merge_final_with_critic(
@@ -345,12 +351,10 @@ def build_workflow_output(
     total_tokens = sum(i.get("tokens_used", 0) for i in llm_interactions)
     approval_trace = result.get("approval_trace", [])
     receipts = result.get("receipts", []) if isinstance(result.get("receipts"), list) else []
-    task_graph_execution = (
-        result.get("task_graph_execution")
-        if isinstance(result.get("task_graph_execution"), dict)
-        else {}
-    )
-    critic_plan = result.get("critic_plan", {}) if isinstance(result.get("critic_plan"), dict) else {}
+    raw_task_graph_execution = result.get("task_graph_execution")
+    task_graph_execution = raw_task_graph_execution if isinstance(raw_task_graph_execution, dict) else {}
+    raw_critic_plan = result.get("critic_plan")
+    critic_plan = raw_critic_plan if isinstance(raw_critic_plan, dict) else {}
     tool_steps = [
         item
         for item in task_graph_execution.get("trace", []) or []

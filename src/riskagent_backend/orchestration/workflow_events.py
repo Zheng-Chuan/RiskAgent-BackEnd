@@ -6,13 +6,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from riskagent_backend.agents.registry import candidate_agents_for_event
+from riskagent_backend.contracts.workflow_types import (
+    CriticReviewOutput,
+    RouteDecision,
+    SystemEvent,
+    WorkflowTask,
+)
 from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 
 
-def default_candidate_agents_for_event(event: dict[str, Any]) -> list[str]:
+def default_candidate_agents_for_event(event: SystemEvent) -> list[str]:
     payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     event_type = str(event.get("event_type") or "")
     return candidate_agents_for_event(event_type, payload=payload)
@@ -20,12 +26,14 @@ def default_candidate_agents_for_event(event: dict[str, Any]) -> list[str]:
 
 def build_task_from_event(
     *,
-    event: dict[str, Any],
-    route_decision: dict[str, Any],
-) -> dict[str, Any]:
-    payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
-    base_task = payload.get("task") if isinstance(payload.get("task"), dict) else {}
-    task = dict(base_task)
+    event: SystemEvent,
+    route_decision: RouteDecision,
+) -> WorkflowTask:
+    raw_payload = event.get("payload")
+    payload = raw_payload if isinstance(raw_payload, dict) else {}
+    raw_task = payload.get("task")
+    base_task = raw_task if isinstance(raw_task, dict) else {}
+    task = cast(WorkflowTask, dict(base_task))
     task.setdefault("task_id", str(payload.get("task_id") or event.get("event_id") or "event_task"))
     task.setdefault("session_id", str(payload.get("session_id") or f"event_{event.get('source_agent') or 'system'}"))
     task.setdefault("source", "system_event")
@@ -62,7 +70,7 @@ def build_task_from_event(
 
 def requires_manual_approval(
     *,
-    critic_output: dict[str, Any],
+    critic_output: CriticReviewOutput,
     receipts: list[dict[str, Any]] | None,
     approval_records: list[dict[str, Any]] | None,
 ) -> bool:
