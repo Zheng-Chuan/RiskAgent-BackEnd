@@ -26,7 +26,6 @@ from riskagent_backend.contracts.run_context import (
     normalize_run_context,
     validate_run_context,
 )
-from riskagent_backend.contracts.task_graph import append_replan_subgraph
 from riskagent_backend.governance.proactive_budget import get_proactive_budget_manager
 from riskagent_backend.memory import get_memory_store, SessionSegmenter
 from riskagent_backend.orchestration.message_bus import get_message_bus
@@ -38,6 +37,11 @@ from riskagent_backend.orchestration.task_graph_executor import TaskGraphExecuto
 from riskagent_backend.observability.metrics import inc_counter, observe_ms
 from riskagent_backend.utils.ids import new_run_id
 
+from riskagent_backend.orchestration.workflow_planning import (
+    build_orchestrator_context,
+    call_critic_review,
+    run_planning_stage,
+)
 from riskagent_backend.orchestration.workflow_intent import (
     recognize_intent_and_retrieve_memory,
 )
@@ -61,14 +65,9 @@ from riskagent_backend.orchestration.workflow_result_builder import (
     build_workflow_output,
 )
 from riskagent_backend.orchestration.workflow_resume import (
-    should_replan,
-    build_replan_reason,
     should_runtime_replan,
     extract_execution_failure,
     build_runtime_replan_reason,
-)
-from riskagent_backend.orchestration.workflow_memory import (
-    persist_plan_memory,
 )
 from riskagent_backend.orchestration.workflow_events import (
     default_candidate_agents_for_event,
@@ -77,7 +76,6 @@ from riskagent_backend.orchestration.workflow_events import (
 )
 from riskagent_backend.scheduling.cron_manager import CronTask
 from riskagent_backend.skills import (
-    SkillInjector,
     SkillProposer,
     SkillReviser,
     SkillStore,
@@ -396,124 +394,21 @@ class ProactiveBackEndWorkflow:
             is_resume = state.is_resume
 
             # ===== Step 3: Planning (Orchestrator + Critic + Replan) =====
-            replan_details: dict[str, Any] | None = None
-            execution_state = resume_request.get("execution_state") if is_resume else None
-            resume_from_step_id = (
-                resume_request.get("resume_from_step_id")
-                or (execution_state.get("failed_step_id") if isinstance(execution_state, dict) else None)
-            ) if is_resume else None
-
-            if is_resume:
-                orchestrator_result = self._new_placeholder_result(
-                    output=resume_request.get("task_graph") if isinstance(resume_request.get("task_graph"), dict) else {},
-                    agent_name="orchestrator",
-                )
-                critic_result = self._new_placeholder_result(
-                    output={"ok": True, "resumed": True},
-                    agent_name="critic",
-                )
-                active_task_graph = resume_request.get("task_graph") if isinstance(resume_request.get("task_graph"), dict) else {}
-                replan_details = {
-                    "trigger": "manual_resume",
-                    "reason": f"resume_from_step:{resume_from_step_id or 'unknown'}",
-                }
-            else:
-                plan_context = await self._build_orchestrator_context(
-                    phase="plan",
-                    task=task,
-                    intent=intent_result.output,
-                    memory_enabled=memory_enabled,
-                    planning_memory=planning_memory,
-                    run_id=run_id,
-                )
-                orchestrator_result = self._normalize_orchestrator_result(
-                    self._ensure_proactive_result(
-                        await self._orchestrator_agent.orchestrate(
-                            task=task,
-                            context=self._extend_orchestrator_context(
-                                task=task,
-                                base_context=plan_context,
-                            ),
-                        ),
-                        agent_name="orchestrator",
-                    )
-                )
-                await self._sync_planned_task_graph(
-                    runtime_task_store=runtime_task_store,
-                    task_id=task_id,
-                    task_graph=dict(orchestrator_result.output.get("task_graph") or {}),
-                )
-                logger.info(
-                    "[ProactiveWorkflow] Plan created with %s steps and %s graph nodes",
-                    len(orchestrator_result.output.get("plan_steps", [])),
-                    len((orchestrator_result.output.get("task_graph") or {}).get("nodes", [])),
-                )
-                if memory_enabled:
-                    try:
-                        await persist_plan_memory(
-                            memory_store=memory_store,
-                            run_id=run_id,
-                            task=task,
-                            orchestrator_output=orchestrator_result.output,
-                        )
-                    except Exception as exc:
-                        logger.warning("[ProactiveWorkflow] Persist plan memory degraded: %s", exc)
-                
-                critic_result = await self._call_critic_review(
-                    task=task,
-                    orchestrator=orchestrator_result.output,
-                )
-                logger.info(f"[ProactiveWorkflow] Review completed: ok={critic_result.output.get('ok')}")
-                await runtime_task_store.set_current_agent(task_id=task_id, agent_id="critic")
-
-                active_task_graph = orchestrator_result.output
-                if should_replan(critic_result.output):
-                    logger.info("[ProactiveWorkflow] Critic rejected plan. Starting replan")
-                    replan_base = await self._build_orchestrator_context(
-                        phase="replan",
-                        task=task,
-                        intent=intent_result.output,
-                        memory_enabled=memory_enabled,
-                        planning_memory=planning_memory,
-                        run_id=run_id,
-                    )
-                    replan_result = self._normalize_orchestrator_result(
-                        self._ensure_proactive_result(
-                            await self._orchestrator_agent.orchestrate(
-                                task=task,
-                                context=self._extend_orchestrator_context(
-                                    task=task,
-                                    base_context={
-                                        "phase": "replan",
-                                        **replan_base,
-                                        "critic": critic_result.output,
-                                        "prior_orchestrator_plan": orchestrator_result.output,
-                                        "prior_task_graph": active_task_graph,
-                                    },
-                                ),
-                            ),
-                            agent_name="orchestrator",
-                        )
-                    )
-                    active_task_graph = append_replan_subgraph(
-                        active_task_graph,
-                        replan_result.output,
-                        reason=build_replan_reason(critic_result.output),
-                    )
-                    await self._sync_planned_task_graph(
-                        runtime_task_store=runtime_task_store,
-                        task_id=task_id,
-                        task_graph=dict(active_task_graph),
-                    )
-                    replan_details = {
-                        "trigger": "critic_rejected",
-                        "reason": build_replan_reason(critic_result.output),
-                        "orchestrator_plan": replan_result.output,
-                    }
-                    logger.info(
-                        "[ProactiveWorkflow] Replan completed with %s nodes",
-                        len(active_task_graph.get("nodes", [])) if isinstance(active_task_graph, dict) else 0,
-                    )
+            await run_planning_stage(
+                state=state,
+                orchestrator_agent=self._orchestrator_agent,
+                critic_agent=self._critic_agent,
+                runtime_task_store=runtime_task_store,
+                skill_store=self._skill_store,
+                skill_usage_tracker=self._skill_usage_tracker,
+                memory_store=memory_store,
+            )
+            orchestrator_result = state.orchestrator_result
+            critic_result = state.critic_result
+            active_task_graph = state.active_task_graph
+            replan_details = state.replan_details
+            execution_state = state.execution_state
+            resume_from_step_id = state.resume_from_step_id
             
             # ===== Step 4: TaskGraph Execution =====
             completed_step_records: list[dict[str, Any]] = []
@@ -832,39 +727,14 @@ class ProactiveBackEndWorkflow:
         phase: str = "plan_review",
     ) -> ProactiveAgentResult:
         """兼容旧签名并统一向 critic 透传 receipt 上下文."""
-        try:
-            return self._ensure_proactive_result(
-                await self._critic_agent.review(
-                    task=task,
-                    orchestrator=orchestrator,
-                    receipts=receipts,
-                    final_output=final_output,
-                    phase=phase,
-                ),
-                agent_name="critic",
-            )
-        except TypeError as exc:
-            if "unexpected keyword argument" not in str(exc):
-                raise
-            try:
-                return self._ensure_proactive_result(
-                    await self._critic_agent.review(
-                        task=task,
-                        orchestrator=orchestrator,
-                        receipts=receipts,
-                    ),
-                    agent_name="critic",
-                )
-            except TypeError as inner_exc:
-                if "unexpected keyword argument" not in str(inner_exc):
-                    raise
-                return self._ensure_proactive_result(
-                    await self._critic_agent.review(
-                        task=task,
-                        orchestrator=orchestrator,
-                    ),
-                    agent_name="critic",
-                )
+        return await call_critic_review(
+            critic_agent=self._critic_agent,
+            task=task,
+            orchestrator=orchestrator,
+            receipts=receipts,
+            final_output=final_output,
+            phase=phase,
+        )
 
     async def _build_orchestrator_context(
         self,
@@ -876,38 +746,16 @@ class ProactiveBackEndWorkflow:
         planning_memory: dict[str, Any],
         run_id: str | None = None,
     ) -> dict[str, Any]:
-        context = {"phase": phase, "intent": intent}
-        if memory_enabled:
-            context["memory"] = planning_memory.get("summary", {})
-        # Skill 注入: 以结构化 few-shot 形式增强规划能力
-        try:
-            skill_injector = SkillInjector(self._skill_store)
-            intent_str: str | None = None
-            if isinstance(intent, dict):
-                intent_str = intent.get("primary_intent_type") or intent.get("type")
-            skill_payload = await skill_injector.retrieve_applicable_skills(
-                task=task,
-                intent=intent_str if isinstance(intent_str, str) else None,
-                skill_enabled=memory_enabled,
-            )
-            context["skills"] = skill_payload
-            # Skill 使用跟踪: 记录被注入的 skill_id 用于后续置信度更新
-            if run_id is not None:
-                for skill in skill_payload.get("skills", []):
-                    skill_id = skill.get("skill_id")
-                    if skill_id:
-                        self._skill_usage_tracker.track_usage(
-                            skill_id, run_id=run_id, phase=phase
-                        )
-        except Exception as exc:
-            logger.warning("Skill injection failed: %s", exc)
-            context["skills"] = {
-                "skill_enabled": memory_enabled,
-                "skills": [],
-                "skill_count": 0,
-                "injection_summary": f"Skill injection error: {exc}",
-            }
-        return context
+        return await build_orchestrator_context(
+            skill_store=self._skill_store,
+            skill_usage_tracker=self._skill_usage_tracker,
+            phase=phase,
+            task=task,
+            intent=intent,
+            memory_enabled=memory_enabled,
+            planning_memory=planning_memory,
+            run_id=run_id,
+        )
 
     def _extend_orchestrator_context(
         self,
