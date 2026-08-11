@@ -33,15 +33,14 @@ from riskagent_backend.observability.run_trace import (
     build_run_trace_snapshot,
     get_run_trace_store,
 )
-from riskagent_backend.orchestration.task_graph_executor import TaskGraphExecutor
-from riskagent_backend.observability.metrics import inc_counter, observe_ms
-from riskagent_backend.utils.ids import new_run_id
-
 from riskagent_backend.orchestration.workflow_planning import (
     build_orchestrator_context,
     call_critic_review,
     run_planning_stage,
 )
+from riskagent_backend.observability.metrics import inc_counter, observe_ms
+from riskagent_backend.utils.ids import new_run_id
+from riskagent_backend.orchestration.workflow_execution import run_execution_stage
 from riskagent_backend.orchestration.workflow_intent import (
     recognize_intent_and_retrieve_memory,
 )
@@ -63,11 +62,6 @@ from riskagent_backend.orchestration.workflow_result_builder import (
     build_invalid_event_result,
     normalize_critic_final_output,
     build_workflow_output,
-)
-from riskagent_backend.orchestration.workflow_resume import (
-    should_runtime_replan,
-    extract_execution_failure,
-    build_runtime_replan_reason,
 )
 from riskagent_backend.orchestration.workflow_events import (
     default_candidate_agents_for_event,
@@ -391,7 +385,6 @@ class ProactiveBackEndWorkflow:
             resume_request = state.resume_request
             memory_enabled = state.memory_enabled
             private_memory_enabled = state.private_memory_enabled
-            is_resume = state.is_resume
 
             # ===== Step 3: Planning (Orchestrator + Critic + Replan) =====
             await run_planning_stage(
@@ -405,129 +398,21 @@ class ProactiveBackEndWorkflow:
             )
             orchestrator_result = state.orchestrator_result
             critic_result = state.critic_result
-            active_task_graph = state.active_task_graph
-            replan_details = state.replan_details
-            execution_state = state.execution_state
-            resume_from_step_id = state.resume_from_step_id
-            
+
             # ===== Step 4: TaskGraph Execution =====
-            completed_step_records: list[dict[str, Any]] = []
-            current_segment_id: str | None = None
-
-            await runtime_task_store.set_current_agent(task_id=task_id, agent_id=None)
-            await runtime_task_store.sync_task_graph(
-                task_id=task_id,
-                task_graph=active_task_graph,
-                execution_state=execution_state if isinstance(execution_state, dict) else None,
-            )
-
-            async def _on_node_started(*, node, trace_entry, node_result) -> None:
-                del trace_entry
-                del node_result
-                await runtime_task_store.mark_step_started(
-                    task_id=task_id,
-                    node=node,
-                )
-
-            async def _on_node_completed(*, node, trace_entry, node_result) -> None:
-                nonlocal current_segment_id
-                await runtime_task_store.mark_step_completed(
-                    task_id=task_id,
-                    node=node,
-                    trace_entry=trace_entry,
-                    node_result=node_result,
-                )
-                # Memory recording
-                if memory_enabled:
-                    try:
-                        await memory_store.record_working_memory(
-                            run_id=run_id,
-                            task=task,
-                            trace_entry=trace_entry,
-                            node=node,
-                            node_result=node_result,
-                            private_memory_enabled=private_memory_enabled,
-                        )
-                    except Exception as exc:
-                        logger.warning("[ProactiveWorkflow] Record working memory degraded: %s", exc)
-                # Session segmentation
-                try:
-                    completed_step_records.append({
-                        "step_id": str(node.get("step_id") or ""),
-                        "kind": node.get("kind"),
-                        "status": trace_entry.get("status"),
-                        "tool_name": trace_entry.get("tool_name"),
-                        "target_agent": trace_entry.get("target_agent"),
-                    })
-                    step_count = len(completed_step_records)
-                    if self._session_segmenter.should_segment(step_count):
-                        checkpoint = await self._session_segmenter.create_checkpoint(
-                            run_id=run_id,
-                            step_count=step_count,
-                            steps=list(completed_step_records),
-                            parent_segment_id=current_segment_id,
-                            context={
-                                "intent": intent_result.output,
-                                "task": {
-                                    k: v
-                                    for k, v in task.items()
-                                    if k in ("task_id", "content", "source")
-                                },
-                            },
-                        )
-                        current_segment_id = checkpoint.segment_id
-                        completed_step_records.clear()
-                        logger.info(
-                            "Session segmented at step %d: segment %d",
-                            step_count,
-                            checkpoint.segment_index,
-                        )
-                except Exception as seg_exc:
-                    logger.warning("Session segmentation failed, continuing: %s", seg_exc)
-
-            executor = TaskGraphExecutor(
-                delegate_handlers={
-                    "system_engineer": self._engineer_agent.analyze_task,
-                    "engineer": self._engineer_agent.analyze_task,
-                    "risk_analyst": self._analyst_agent.analyze_task,
-                    "analyst": self._analyst_agent.analyze_task,
-                },
-                on_node_started=_on_node_started,
-                on_node_completed=_on_node_completed,
-            )
-            execution_result = await executor.execute(
-                task=task,
-                task_graph=active_task_graph,
-                execution_state=execution_state,
-                resume_from_step_id=resume_from_step_id if isinstance(resume_from_step_id, str) else None,
-            )
-            runtime_replan = await self._maybe_runtime_replan(
-                task=task,
-                task_id=task_id,
+            await run_execution_stage(
+                state=state,
                 runtime_task_store=runtime_task_store,
-                intent_result=intent_result,
-                critic_result=critic_result,
-                memory_enabled=memory_enabled,
-                planning_memory=planning_memory,
-                active_task_graph=active_task_graph,
-                execution_result=execution_result,
-                executor=executor,
-                is_resume=is_resume,
-                run_id=run_id,
+                memory_store=memory_store,
+                session_segmenter=self._session_segmenter,
+                engineer_agent=self._engineer_agent,
+                analyst_agent=self._analyst_agent,
+                orchestrator_agent=self._orchestrator_agent,
+                skill_store=self._skill_store,
+                skill_usage_tracker=self._skill_usage_tracker,
             )
-            if runtime_replan is not None:
-                active_task_graph = runtime_replan["task_graph"]
-                execution_result = runtime_replan["execution_result"]
-                replan_details = runtime_replan["replan_details"]
-                await runtime_task_store.sync_task_graph(
-                    task_id=task_id,
-                    task_graph=active_task_graph,
-                    execution_state=execution_result.get("task_graph_execution") if isinstance(execution_result.get("task_graph_execution"), dict) else None,
-                )
-            logger.info(
-                "[ProactiveWorkflow] TaskGraph execution completed with status=%s",
-                execution_result.get("status"),
-            )
+            replan_details = state.replan_details
+            execution_result = state.execution_result
 
             # ===== Step 5: Results Aggregation & Final Review =====
             delegate_results = execution_result.get("delegate_results", {})
@@ -819,75 +704,6 @@ class ProactiveBackEndWorkflow:
             return dict(event), None
         accepted = await self._message_bus.publish_event(event)
         return accepted, None
-
-    async def _maybe_runtime_replan(
-        self,
-        *,
-        task: dict[str, Any],
-        task_id: str,
-        runtime_task_store: RuntimeTaskStore,
-        intent_result: ProactiveAgentResult,
-        critic_result: ProactiveAgentResult,
-        memory_enabled: bool,
-        planning_memory: dict[str, Any],
-        active_task_graph: dict[str, Any],
-        execution_result: dict[str, Any],
-        executor: TaskGraphExecutor,
-        is_resume: bool,
-        run_id: str | None = None,
-    ) -> dict[str, Any] | None:
-        if is_resume:
-            return None
-        if not should_runtime_replan(execution_result):
-            return None
-
-        reason = build_runtime_replan_reason(execution_result)
-        runtime_replan_base = await self._build_orchestrator_context(
-            phase="runtime_replan",
-            task=task,
-            intent=intent_result.output,
-            memory_enabled=memory_enabled,
-            planning_memory=planning_memory,
-            run_id=run_id,
-        )
-        replan_result = self._normalize_orchestrator_result(
-            self._ensure_proactive_result(
-                await self._orchestrator_agent.orchestrate(
-                    task=task,
-                    context=self._extend_orchestrator_context(
-                        task=task,
-                        base_context={
-                            "phase": "runtime_replan",
-                            **runtime_replan_base,
-                            "critic": critic_result.output,
-                            "prior_task_graph": active_task_graph,
-                            "execution_failure": extract_execution_failure(execution_result),
-                        },
-                    ),
-                ),
-                agent_name="orchestrator",
-            )
-        )
-        await self._sync_planned_task_graph(
-            runtime_task_store=runtime_task_store,
-            task_id=task_id,
-            task_graph=dict(replan_result.output.get("task_graph") or {}),
-            execution_state=execution_result.get("task_graph_execution") if isinstance(execution_result.get("task_graph_execution"), dict) else None,
-        )
-        runtime_execution = await executor.execute(
-            task=task,
-            task_graph=replan_result.output,
-        )
-        return {
-            "task_graph": replan_result.output,
-            "execution_result": runtime_execution,
-            "replan_details": {
-                "trigger": "execution_failed",
-                "reason": reason,
-                "orchestrator_plan": replan_result.output,
-                "prior_execution": extract_execution_failure(execution_result),
-            },
-        }
 
     def _ensure_proactive_result(
         self,
