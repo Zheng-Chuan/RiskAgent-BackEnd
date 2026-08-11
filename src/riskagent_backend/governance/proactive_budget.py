@@ -4,11 +4,12 @@ system_event 主动协作预算与熔断.
 
 from __future__ import annotations
 
-import os
 import time
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
+
+from riskagent_backend.config import positive_env_int
 
 
 @dataclass
@@ -22,13 +23,13 @@ class ProactiveBudgetManager:
     """主动协作预算管理器."""
 
     def __init__(self) -> None:
-        self._event_window_s = self._int_env("PROACTIVE_EVENT_WINDOW_S", 60)
-        self._event_burst_limit = self._int_env("PROACTIVE_EVENT_BURST_LIMIT", 5)
-        self._max_concurrent_runs = self._int_env("PROACTIVE_MAX_CONCURRENT_RUNS", 2)
-        self._token_window_s = self._int_env("PROACTIVE_TOKEN_WINDOW_S", 300)
-        self._token_budget = self._int_env("PROACTIVE_TOKEN_BUDGET", 4000)
-        self._failure_threshold = self._int_env("PROACTIVE_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)
-        self._open_s = self._int_env("PROACTIVE_CIRCUIT_BREAKER_OPEN_S", 60)
+        self._event_window_s = positive_env_int("PROACTIVE_EVENT_WINDOW_S", 60)
+        self._event_burst_limit = positive_env_int("PROACTIVE_EVENT_BURST_LIMIT", 5)
+        self._max_concurrent_runs = positive_env_int("PROACTIVE_MAX_CONCURRENT_RUNS", 2)
+        self._token_window_s = positive_env_int("PROACTIVE_TOKEN_WINDOW_S", 300)
+        self._token_budget = positive_env_int("PROACTIVE_TOKEN_BUDGET", 4000)
+        self._failure_threshold = positive_env_int("PROACTIVE_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)
+        self._open_s = positive_env_int("PROACTIVE_CIRCUIT_BREAKER_OPEN_S", 60)
         self._event_timestamps: deque[int] = deque()
         self._token_reservations: deque[tuple[int, int]] = deque()
         self._active_runs: dict[str, int] = {}
@@ -121,16 +122,6 @@ class ProactiveBudgetManager:
         if self._circuit_open_until_ms <= now_ms and self._circuit_open_until_ms != 0:
             self._circuit_open_until_ms = 0
             self._consecutive_failures = 0
-
-    def _int_env(self, name: str, default: int) -> int:
-        raw = os.getenv(name, "").strip()
-        if not raw:
-            return default
-        try:
-            value = int(raw)
-        except ValueError:
-            return default
-        return value if value > 0 else default
 
     def _now_ms(self) -> int:
         return int(time.time() * 1000)

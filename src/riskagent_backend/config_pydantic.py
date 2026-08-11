@@ -19,6 +19,7 @@ host = settings.mysql_host
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -94,6 +95,48 @@ class Settings(BaseSettings):
         description="是否自动审批 (安全默认关闭, 需显式开启 HITL_AUTO_APPROVE=1)",
     )
 
+    # ---- MCP Server 配置 ----
+    mcp_server_name: str = Field(default="RiskAgent BackEnd", description="MCP 服务名称")
+    fastmcp_host: str = Field(default="0.0.0.0", description="FastMCP 监听地址")
+    fastmcp_port: int = Field(default=8000, description="FastMCP 监听端口")
+
+    # ---- 记忆行为配置 ----
+    memory_ttl_s: int = Field(default=86400, description="记忆默认 TTL (秒)")
+    memory_max_len: int = Field(default=2000, description="记忆列表最大长度")
+    semantic_memory_enabled: Optional[str] = Field(
+        default=None,
+        description="语义记忆开关 (str 保留原始容错语义, 未设置时回退 PAGE_INDEX_ENABLED)",
+    )
+    page_index_enabled: Optional[str] = Field(
+        default=None,
+        description="旧版 PAGE_INDEX_ENABLED 开关 (仅作为 SEMANTIC_MEMORY_ENABLED 未设置时的回退)",
+    )
+
+    # ---- 感知采集配置 ----
+    prometheus_url: str = Field(default="http://localhost:9090", description="Prometheus 地址")
+    riskagent_namespace: str = Field(default="riskagent", description="K8s 命名空间")
+
+    # ---- API 鉴权配置 (fail-closed) ----
+    riskagent_api_token: str = Field(default="", description="REST/metrics/MCP Bearer Token")
+    riskagent_allow_unauthenticated: Optional[str] = Field(
+        default=None,
+        description="未设置 Token 时是否放行 (str 保留容错语义, 仅本地开发/测试)",
+    )
+
+    # ---- 日志与观测配置 ----
+    log_level: str = Field(default="INFO", description="日志级别")
+    run_trace_dir: str = Field(default="results/run_traces", description="run trace 落盘目录")
+
+    # ---- 治理配置 ----
+    policy_version: str = Field(default="policy.v1", description="治理策略版本号")
+
+    # ---- LLM 运行时开关 ----
+    disable_llm: Optional[str] = Field(
+        default=None,
+        description="禁用 LLM 开关 (str 保留原始语义: 除 0/false/False 外一律视为禁用)",
+    )
+    rm_user_id: str = Field(default="", description="风控用户 ID (LLM 治理上下文回退值)")
+
     # ---- Chroma 配置 ----
     chroma_host: str = Field(default="localhost", description="Chroma 主机")
     chroma_port: int = Field(default=8001, description="Chroma 端口")
@@ -139,8 +182,20 @@ class Settings(BaseSettings):
         )
 
     @property
+    def redis_url_override(self) -> str:
+        """显式配置的 REDIS_URL.
+
+        仅读取进程环境变量, 不读取 .env 文件 (保持历史 ``os.getenv``
+        语义: 历史上消费方未 ``load_dotenv``, .env 中的 REDIS_URL 不生效).
+        """
+        return (os.getenv("REDIS_URL") or "").strip()
+
+    @property
     def redis_url(self) -> str:
-        """Redis URL."""
+        """Redis URL (显式 REDIS_URL 优先, 否则由 host/port/password 组装)."""
+        explicit = self.redis_url_override
+        if explicit:
+            return explicit
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"

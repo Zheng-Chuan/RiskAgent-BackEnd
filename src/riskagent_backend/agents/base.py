@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -124,12 +123,12 @@ class BaseAgent:
                 raise LLMError(code="MISSING_API_KEY", message="LLM_API_KEY is empty")
 
             # 检查禁用标志
-            if os.getenv("DISABLE_LLM", "0").strip() not in {"0", "false", "False"}:
+            if config.is_llm_disabled():
                 raise LLMError(code="LLM_DISABLED", message="DISABLE_LLM is set")
 
             # 治理检查
             gov = dict(governance) if isinstance(governance, dict) else {}
-            user_id = str(gov.get("user_id") or os.getenv("RM_USER_ID", "") or "unknown")
+            user_id = str(gov.get("user_id") or config.get_rm_user_id() or "unknown")
             priority = str(gov.get("priority") or "default")
             est_tokens = int(max_tokens) if isinstance(max_tokens, int) else 512
 

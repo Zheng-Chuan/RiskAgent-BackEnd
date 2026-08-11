@@ -8,12 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from riskagent_backend.config import (
+    get_memory_max_len,
+    get_memory_ttl_s,
+    get_redis_url,
+    get_settings,
+    is_semantic_memory_enabled,
+)
 from riskagent_backend.contracts.memory_entry import normalize_memory_entry
 from riskagent_backend.memory.memory_helpers import (
     _DEFAULT_PRIVATE_AGENT_IDS,
@@ -84,20 +90,12 @@ class MemoryStore(MemoryWriteOperationsMixin):
         self._persistence = backend
 
     def _default_config(self) -> MemoryConfig:
-        """从环境变量加载默认配置."""
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        ttl = int(os.getenv("MEMORY_TTL_S", "86400"))
-        max_len = int(os.getenv("MEMORY_MAX_LEN", "2000"))
-        legacy_pageindex = os.getenv("PAGE_INDEX_ENABLED")
-        semantic_enabled = os.getenv("SEMANTIC_MEMORY_ENABLED")
-        if semantic_enabled is None:
-            semantic_enabled = legacy_pageindex if legacy_pageindex is not None else "true"
-
+        """从统一配置加载默认配置."""
         return MemoryConfig(
-            redis_url=redis_url,
-            default_ttl=ttl,
-            max_list_len=max_len,
-            enable_semantic_memory=str(semantic_enabled).lower() == "true",
+            redis_url=get_redis_url(),
+            default_ttl=get_memory_ttl_s(),
+            max_list_len=get_memory_max_len(),
+            enable_semantic_memory=is_semantic_memory_enabled(),
         )
 
     async def _ensure_connected(self):
@@ -609,11 +607,12 @@ def get_memory_store() -> MemoryStore:
     except RuntimeError:
         loop_sig = 0
 
+    sig_settings = get_settings()
     sig = (
-        os.getenv("REDIS_URL", ""),
-        os.getenv("MEMORY_TTL_S", ""),
-        os.getenv("SEMANTIC_MEMORY_ENABLED", ""),
-        os.getenv("PAGE_INDEX_ENABLED", ""),
+        sig_settings.redis_url_override,
+        sig_settings.memory_ttl_s,
+        sig_settings.semantic_memory_enabled or "",
+        sig_settings.page_index_enabled or "",
         loop_sig,
     )
 

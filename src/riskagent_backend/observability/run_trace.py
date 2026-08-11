@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,7 +58,7 @@ class RunTraceStore:
 
     def __init__(self, *, base_dir: str | Path | None = None) -> None:
         self._traces: dict[str, RunTraceSnapshot] = {}
-        self._base_dir = Path(base_dir or os.getenv("RUN_TRACE_DIR", "results/run_traces")).resolve()
+        self._base_dir = Path(base_dir or config.get_run_trace_dir()).resolve()
         self._base_dir.mkdir(parents=True, exist_ok=True)
 
     def save_snapshot(self, snapshot: RunTraceSnapshot) -> None:

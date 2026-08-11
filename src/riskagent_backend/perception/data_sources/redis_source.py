@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
+from riskagent_backend.config import get_settings
 from riskagent_backend.perception.signals import PerceptionSignal
 
 logger = logging.getLogger(__name__)
@@ -33,11 +33,12 @@ class RedisDataSource:
         password: str | None = None,
         redis_url: str | None = None,
     ) -> None:
-        self._redis_url = (redis_url or os.getenv("REDIS_URL") or "").strip()
-        self._host = (host or os.getenv("REDIS_HOST") or "localhost").strip()
-        self._port = int(port or os.getenv("REDIS_PORT") or 6379)
-        self._db = int(db or os.getenv("REDIS_DB") or 0)
-        self._password = password if password is not None else os.getenv("REDIS_PASSWORD")
+        self._settings_snapshot = get_settings()
+        self._redis_url = (redis_url or self._settings_snapshot.redis_url_override).strip()
+        self._host = (host or self._settings_snapshot.redis_host or "localhost").strip()
+        self._port = int(port or self._settings_snapshot.redis_port or 6379)
+        self._db = int(db if db is not None else self._settings_snapshot.redis_db)
+        self._password = password if password is not None else self._settings_snapshot.redis_password
         self._client = None
 
     def _get_client(self):

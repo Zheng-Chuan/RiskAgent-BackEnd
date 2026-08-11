@@ -4,7 +4,10 @@
 ``riskagent_backend.config_pydantic.Settings``.
 
 注意:
-- 不再直接读取 ``os.getenv``, 也不再每次调用都加载 ``.env``.
+- 本模块与 ``config_pydantic.py`` 是仅有的允许直接读取 ``os.getenv`` 的
+  位置 (动态配置 key 通过下方 ``safe_env_*`` 工具收敛), 其余模块一律
+  经 ``Settings`` 字段或本层 getter 读取配置.
+- 不再每次调用都加载 ``.env``.
 - ``.env`` 的解析与加载由 Pydantic Settings 在实例化时完成.
 - 每个 getter 通过 ``get_settings()`` 创建新的 ``Settings`` 实例,
   保证测试中使用 ``monkeypatch.setenv`` 修改环境变量后也能立即生效.
@@ -14,6 +17,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from riskagent_backend.config_pydantic import Settings, get_settings, settings
@@ -208,6 +212,151 @@ def get_skill_hybrid_vector_weight() -> float:
     return float(get_settings().skill_hybrid_vector_weight)
 
 
+# ---- MCP Server ----
+def get_mcp_server_name() -> str:
+    """获取 MCP 服务名称."""
+    return get_settings().mcp_server_name.strip() or "RiskAgent BackEnd"
+
+
+def get_fastmcp_host() -> str:
+    """获取 FastMCP 监听地址, 默认 0.0.0.0."""
+    return get_settings().fastmcp_host.strip() or "0.0.0.0"
+
+
+def get_fastmcp_port() -> int:
+    """获取 FastMCP 监听端口, 默认 8000."""
+    return int(get_settings().fastmcp_port or 8000)
+
+
+# ---- 记忆行为 ----
+def get_redis_url() -> str:
+    """获取 Redis URL (显式 REDIS_URL 优先, 否则由 host/port/password 组装)."""
+    return get_settings().redis_url
+
+
+def get_memory_ttl_s() -> int:
+    """获取记忆默认 TTL (秒), 默认 86400."""
+    return int(get_settings().memory_ttl_s)
+
+
+def get_memory_max_len() -> int:
+    """获取记忆列表最大长度, 默认 2000."""
+    return int(get_settings().memory_max_len)
+
+
+def is_semantic_memory_enabled() -> bool:
+    """语义记忆是否启用.
+
+    语义与原实现对齐: SEMANTIC_MEMORY_ENABLED 未设置时回退
+    PAGE_INDEX_ENABLED, 两者均未设置时默认启用; 仅 "true" 视为启用.
+    """
+    s = get_settings()
+    raw = s.semantic_memory_enabled
+    if raw is None:
+        raw = s.page_index_enabled if s.page_index_enabled is not None else "true"
+    return str(raw).lower() == "true"
+
+
+# ---- 感知采集 ----
+def get_prometheus_url() -> str:
+    """获取 Prometheus 地址, 默认 http://localhost:9090."""
+    return get_settings().prometheus_url
+
+
+def get_riskagent_namespace() -> str:
+    """获取 K8s 命名空间, 默认 riskagent."""
+    return get_settings().riskagent_namespace
+
+
+# ---- API 鉴权 (fail-closed) ----
+def get_riskagent_api_token() -> str | None:
+    """获取 Bearer Token; 未设置或为空返回 None."""
+    token = (get_settings().riskagent_api_token or "").strip()
+    return token or None
+
+
+def is_unauthenticated_allowed() -> bool:
+    """未设置 Token 时是否放行请求 (开发/测试显式逃生舱).
+
+    仅当 RISKAGENT_ALLOW_UNAUTHENTICATED 显式为 1/true/yes/on 时返回 True.
+    """
+    flag = get_settings().riskagent_allow_unauthenticated
+    if flag is None:
+        return False
+    return flag.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# ---- 日志与观测 ----
+def get_log_level() -> str:
+    """获取日志级别, 默认 INFO."""
+    return (get_settings().log_level or "INFO").upper()
+
+
+def get_run_trace_dir() -> str:
+    """获取 run trace 落盘目录, 默认 results/run_traces."""
+    return get_settings().run_trace_dir
+
+
+# ---- 治理 ----
+def get_policy_version() -> str:
+    """获取治理策略版本号, 默认 policy.v1."""
+    return (get_settings().policy_version or "").strip() or "policy.v1"
+
+
+# ---- LLM 运行时开关 ----
+def is_llm_disabled() -> bool:
+    """DISABLE_LLM 是否启用 (除 0/false/False 外一律视为禁用)."""
+    raw = get_settings().disable_llm
+    if raw is None:
+        return False
+    return raw.strip() not in {"0", "false", "False"}
+
+
+def get_rm_user_id() -> str:
+    """获取风控用户 ID 回退值, 默认空串."""
+    return get_settings().rm_user_id or ""
+
+
+# ---- 动态配置 key 读取工具 ----
+# 仅限运行时才确定 key 名的场景 (如 per-agent 预算阈值);
+# 静态配置必须使用上方 Settings 字段/getter.
+def safe_env_int(name: str, default: int) -> int:
+    """容错读取 int 环境变量: 未设置/非法值返回默认值."""
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        try:
+            return int(float(raw))
+        except (TypeError, ValueError):
+            return default
+
+
+def safe_env_float(name: str, default: float) -> float:
+    """容错读取 float 环境变量: 未设置/非法值返回默认值."""
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def positive_env_int(name: str, default: int) -> int:
+    """容错读取正整数环境变量: 未设置/非法值/非正数返回默认值."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 __all__ = [
     "Settings",
     "get_settings",
@@ -241,4 +390,23 @@ __all__ = [
     "get_skill_query_rewrite_timeout",
     "get_skill_query_rewrite_cache_size",
     "get_skill_hybrid_vector_weight",
+    "get_mcp_server_name",
+    "get_fastmcp_host",
+    "get_fastmcp_port",
+    "get_redis_url",
+    "get_memory_ttl_s",
+    "get_memory_max_len",
+    "is_semantic_memory_enabled",
+    "get_prometheus_url",
+    "get_riskagent_namespace",
+    "get_riskagent_api_token",
+    "is_unauthenticated_allowed",
+    "get_log_level",
+    "get_run_trace_dir",
+    "get_policy_version",
+    "is_llm_disabled",
+    "get_rm_user_id",
+    "safe_env_int",
+    "safe_env_float",
+    "positive_env_int",
 ]

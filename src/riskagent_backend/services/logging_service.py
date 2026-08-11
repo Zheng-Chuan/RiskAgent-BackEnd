@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 import json
+
+from riskagent_backend.config import get_log_level
 
 
 class _RequestIdFilter(logging.Filter):  # pylint: disable=too-few-public-methods
@@ -56,7 +57,7 @@ def configure_logging() -> None:
     if _state["is_configured"]:
         return
 
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = get_log_level()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s request_id=%(request_id)s %(message)s",

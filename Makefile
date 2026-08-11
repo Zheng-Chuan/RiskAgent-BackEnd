@@ -52,8 +52,11 @@ install:
 pylint:
 	python -m pylint src tests main.py
 
-lint: pylint
-	@echo "Pylint passed!"
+lint-env:
+	python scripts/lint_env_usage.py
+
+lint: pylint lint-env
+	@echo "Lint passed!"
 
 test-cov:
 	pytest --cov=src --cov-report=html --cov-report=term --cov-report=xml tests/

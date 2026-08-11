@@ -1,32 +1,12 @@
 from __future__ import annotations
 
-import os
 import threading
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from riskagent_backend.config import safe_env_float
 from riskagent_backend.observability.metrics import inc_counter, set_gauge
-
-
-def _as_int(name: str, default: int) -> int:
-    v = os.getenv(name)
-    if v is None or not v.strip():
-        return int(default)
-    try:
-        return int(v)
-    except Exception:
-        return int(default)
-
-
-def _as_float(name: str, default: float) -> float:
-    v = os.getenv(name)
-    if v is None or not v.strip():
-        return float(default)
-    try:
-        return float(v)
-    except Exception:
-        return float(default)
 
 
 @dataclass
@@ -75,11 +55,11 @@ class LLMCostGovernor:
     def _cfg_for_priority(self, priority: str) -> Optional[_BucketCfg]:
         p = (priority or "default").strip().lower()
         if p in {"non_critical", "noncritical", "query"}:
-            per_min = _as_float("LLM_RATE_LIMIT_TOKENS_PER_MIN_NON_CRITICAL", 8000.0)
-            burst = _as_float("LLM_RATE_LIMIT_BURST_TOKENS_NON_CRITICAL", per_min)
+            per_min = safe_env_float("LLM_RATE_LIMIT_TOKENS_PER_MIN_NON_CRITICAL", 8000.0)
+            burst = safe_env_float("LLM_RATE_LIMIT_BURST_TOKENS_NON_CRITICAL", per_min)
         else:
-            per_min = _as_float("LLM_RATE_LIMIT_TOKENS_PER_MIN_DEFAULT", 60000.0)
-            burst = _as_float("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", per_min)
+            per_min = safe_env_float("LLM_RATE_LIMIT_TOKENS_PER_MIN_DEFAULT", 60000.0)
+            burst = safe_env_float("LLM_RATE_LIMIT_BURST_TOKENS_DEFAULT", per_min)
         if per_min <= 0.0 or burst <= 0.0:
             return None
         return _BucketCfg(capacity=float(burst), refill_per_s=float(per_min) / 60.0)

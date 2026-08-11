@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 
+from riskagent_backend.config import get_prometheus_url
 from riskagent_backend.perception.signals import PerceptionSignal
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class PrometheusDataSource:
     """
 
     def __init__(self, base_url: str | None = None) -> None:
-        self._base_url = base_url or os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+        self._base_url = base_url or get_prometheus_url()
         self._client = None
 
     def _get_client(self):

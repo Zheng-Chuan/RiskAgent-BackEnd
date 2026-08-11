@@ -10,27 +10,23 @@ from __future__ import annotations
 
 import hmac
 import logging
-import os
 from typing import Any, Mapping, Optional
+
+from riskagent_backend.config import (
+    get_riskagent_api_token,
+    is_unauthenticated_allowed,
+)
 
 logger = logging.getLogger(__name__)
 
-_TRUTHY_FLAGS = {"1", "true", "yes", "on"}
-
 
 def _expected_token() -> Optional[str]:
-    token = os.getenv("RISKAGENT_API_TOKEN")
-    if token is None or not token.strip():
-        return None
-    return token.strip()
+    return get_riskagent_api_token()
 
 
 def _allow_unauthenticated() -> bool:
     """开发/测试环境的显式逃生舱, 生产环境不应开启."""
-    flag = os.getenv("RISKAGENT_ALLOW_UNAUTHENTICATED")
-    if flag is None:
-        return False
-    return flag.strip().lower() in _TRUTHY_FLAGS
+    return is_unauthenticated_allowed()
 
 
 def _extract_bearer(authorization: Optional[str]) -> Optional[str]:

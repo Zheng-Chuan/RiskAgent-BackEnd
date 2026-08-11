@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import logging
-import os
 
+from riskagent_backend.config import (
+    get_mysql_database,
+    get_mysql_host,
+    get_mysql_port,
+    get_mysql_user,
+    get_settings,
+)
 from riskagent_backend.perception.signals import PerceptionSignal
 
 logger = logging.getLogger(__name__)
@@ -14,7 +20,7 @@ class MySQLDataSource:
     """
     MySQL 感知数据源.
 
-    复用 data_access 层连接 MySQL (3307), 采集:
+    复用 data_access 层连接 MySQL (地址经统一配置读取), 采集:
     - connection_status: 连接状态
     - slow_queries: 慢查询计数
     - threads_connected: 连接线程数
@@ -32,12 +38,12 @@ class MySQLDataSource:
             return self._conn
         try:
             import pymysql
-            host = os.getenv("MYSQL_HOST", "localhost")
-            port = int(os.getenv("MYSQL_PORT", "3307"))
-            user = os.getenv("MYSQL_USER", "admin")
+            host = get_mysql_host()
+            port = get_mysql_port()
+            user = get_mysql_user()
             # 密码必须通过环境变量提供, 不提供弱密码兜底 (未设置时连接失败并降级为 unavailable)
-            password = os.getenv("MYSQL_PASSWORD", "")
-            database = os.getenv("MYSQL_DATABASE", "riskagent")
+            password = get_settings().mysql_password
+            database = get_mysql_database()
             self._conn = pymysql.connect(
                 host=host, port=port, user=user,
                 password=password, database=database,

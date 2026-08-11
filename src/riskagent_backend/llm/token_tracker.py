@@ -10,13 +10,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from riskagent_backend.config import safe_env_float, safe_env_int
 from riskagent_backend.observability.metrics import (
     inc_counter,
     observe_ms,
@@ -47,29 +47,6 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
     try:
         return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        try:
-            return int(float(raw))
-        except (TypeError, ValueError):
-            return default
-
-
-def _safe_env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
     except (TypeError, ValueError):
         return default
 
@@ -125,8 +102,8 @@ class TokenTracker:
             int(daily_window_s) if daily_window_s and daily_window_s > 0 else 86400
         )
 
-        self._hourly_threshold = _safe_env_int("LLM_TOKEN_ALERT_HOURLY", 100_000)
-        self._daily_threshold = _safe_env_int("LLM_TOKEN_ALERT_DAILY", 2_000_000)
+        self._hourly_threshold = safe_env_int("LLM_TOKEN_ALERT_HOURLY", 100_000)
+        self._daily_threshold = safe_env_int("LLM_TOKEN_ALERT_DAILY", 2_000_000)
 
         self._lock: threading.Lock = threading.Lock()
         self._records: deque[TokenUsageRecord] = deque()
@@ -471,8 +448,8 @@ class TokenTracker:
         未配置环境变量时使用 cost_model 内置定价表。
         """
         pricing = get_pricing(model)
-        prompt_price_per_1k = _safe_env_float("LLM_COST_PROMPT_PER_1K", pricing["prompt"])
-        completion_price_per_1k = _safe_env_float("LLM_COST_COMPLETION_PER_1K", pricing["completion"])
+        prompt_price_per_1k = safe_env_float("LLM_COST_PROMPT_PER_1K", pricing["prompt"])
+        completion_price_per_1k = safe_env_float("LLM_COST_COMPLETION_PER_1K", pricing["completion"])
         prompt_cost = (_safe_int(prompt_tokens) / 1000.0) * prompt_price_per_1k
         completion_cost = (_safe_int(completion_tokens) / 1000.0) * completion_price_per_1k
         return round(prompt_cost + completion_cost, 6)

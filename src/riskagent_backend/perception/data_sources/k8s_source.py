@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import subprocess
 from typing import Any
 
+from riskagent_backend.config import get_riskagent_namespace
 from riskagent_backend.perception.signals import PerceptionSignal, SignalSeverity
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class K8sDataSource:
     """
 
     def __init__(self, namespace: str | None = None) -> None:
-        self._namespace = namespace or os.getenv("RISKAGENT_NAMESPACE", "riskagent")
+        self._namespace = namespace or get_riskagent_namespace()
 
     def _run_kubectl_get_pods(self) -> list[dict[str, Any]]:
         """执行 kubectl get pods -o json 获取 Pod 列表."""

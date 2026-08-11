@@ -7,7 +7,6 @@ RiskAgent-BackEnd 服务端
 from __future__ import annotations
 
 import json
-import os
 import signal
 import time
 from pathlib import Path
@@ -17,6 +16,12 @@ from mcp.server import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
+from riskagent_backend.config import (
+    get_fastmcp_host,
+    get_fastmcp_port,
+    get_mcp_server_name,
+    get_settings,
+)
 from riskagent_backend.data_access.health_checks import check_mysql_ready
 from riskagent_backend.services import readiness_service
 from riskagent_backend.services.logging_service import configure_logging
@@ -55,11 +60,11 @@ load_dotenv(dotenv_path=_repo_root / ".env")
 
 configure_logging()
 
-_server_name = os.getenv("MCP_SERVER_NAME", "RiskAgent BackEnd").strip()
+_server_name = get_mcp_server_name()
 # 显式传入 host，确保 K8s 探针可通过 Pod IP 访问
 # FastMCP.__init__ 默认 host="127.0.0.1"，会覆盖 FASTMCP_HOST 环境变量
-_server_host = os.getenv("FASTMCP_HOST", "0.0.0.0").strip() or "0.0.0.0"
-_server_port = int(os.getenv("FASTMCP_PORT", "8000").strip() or "8000")
+_server_host = get_fastmcp_host()
+_server_port = get_fastmcp_port()
 mcp = FastMCP(
     _server_name or "RiskAgent BackEnd",
     host=_server_host,
@@ -138,7 +143,7 @@ async def readiness_check(request: Request) -> Response:
 
     # 本地演示场景下, 数据库就绪检查是可选的.
     # 如果环境变量不完整, 则跳过 MySQL 检查.
-    mysql_password = os.getenv("MYSQL_PASSWORD")
+    mysql_password = get_settings().mysql_password
     if mysql_password is None or not mysql_password.strip():
         return JSONResponse({"status": "ready", "checks": {"mysql": "skipped"}})
 
