@@ -4,10 +4,10 @@ services:
     image: mysql:8.0
     container_name: riskagent-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-XiPL15NFRvcw6PecN9vK-A}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-34ktfzUrRLI7L5xyrP19_A}
       MYSQL_ROOT_HOST: '%'
     ports:
       - "3307:3306"
@@ -84,7 +84,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-34ktfzUrRLI7L5xyrP19_A}
       # Redis 配置 (统一内存)
       REDIS_URL: redis://redis:6379/0
       # Chroma 配置
@@ -127,7 +127,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-riskagent}
       MYSQL_USER: ${MYSQL_USER:-admin}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-34ktfzUrRLI7L5xyrP19_A}
       REDIS_URL: redis://redis:6379/0
       CHROMA_HOST: chroma
       CHROMA_PORT: 8000
@@ -161,7 +161,7 @@ services:
       PMA_HOST: mysql
       PMA_PORT: 3306
       PMA_USER: ${MYSQL_USER:-admin}
-      PMA_PASSWORD: ${MYSQL_PASSWORD:-change_me}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-34ktfzUrRLI7L5xyrP19_A}
       UPLOAD_LIMIT: 300M
     ports:
       - "8081:80"
@@ -211,7 +211,7 @@ services:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-A5aIGZZdwSkRQeCxhkciBA}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana

@@ -13,14 +13,15 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-# MySQL 配置
+# MySQL 配置 (密码为本地开发默认值, 生产环境必须通过 values 覆盖;
+# secrets 模板用 required 强校验, 缺失直接部署失败)
 mysql:
   host: mysql
   port: "3306"
   database: riskagent
   user: admin
-  password: change_me
-  rootPassword: root
+  password: 34ktfzUrRLI7L5xyrP19_A
+  rootPassword: XiPL15NFRvcw6PecN9vK-A
   resources:
     requests:
       cpu: "500m"
@@ -160,7 +161,7 @@ grafana:
   enabled: true
   image: grafana/grafana:10.2.0
   adminUser: admin
-  adminPassword: admin
+  adminPassword: A5aIGZZdwSkRQeCxhkciBA
   resources:
     requests:
       cpu: "50m"

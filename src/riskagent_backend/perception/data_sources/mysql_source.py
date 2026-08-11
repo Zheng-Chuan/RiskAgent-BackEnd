@@ -35,7 +35,8 @@ class MySQLDataSource:
             host = os.getenv("MYSQL_HOST", "localhost")
             port = int(os.getenv("MYSQL_PORT", "3307"))
             user = os.getenv("MYSQL_USER", "admin")
-            password = os.getenv("MYSQL_PASSWORD", "change_me")
+            # 密码必须通过环境变量提供, 不提供弱密码兜底 (未设置时连接失败并降级为 unavailable)
+            password = os.getenv("MYSQL_PASSWORD", "")
             database = os.getenv("MYSQL_DATABASE", "riskagent")
             self._conn = pymysql.connect(
                 host=host, port=port, user=user,
