@@ -105,6 +105,13 @@ app:
   env: production
   logLevel: INFO
 
+# 安全配置
+# apiToken: REST API / metrics / MCP 工具的 Bearer Token, 生产环境必须设置
+# allowUnauthenticated: 未配置 apiToken 时是否放行请求(仅限本地/测试环境)
+security:
+  apiToken: ""
+  allowUnauthenticated: "false"
+
 # 记忆配置
 memory:
   semanticEnabled: "true"

@@ -1,9 +1,21 @@
-"""HTTP 场景的鉴权辅助函数."""
+"""HTTP 场景的鉴权辅助函数.
+
+安全语义为 fail-closed:
+- 配置了 RISKAGENT_API_TOKEN 时, 所有受保护端点必须携带匹配的 Bearer Token;
+- 未配置 Token 时默认拒绝访问, 仅当显式设置
+  RISKAGENT_ALLOW_UNAUTHENTICATED=1 时才放行(仅限本地开发/测试环境)。
+"""
 
 from __future__ import annotations
 
+import hmac
+import logging
 import os
 from typing import Any, Mapping, Optional
+
+logger = logging.getLogger(__name__)
+
+_TRUTHY_FLAGS = {"1", "true", "yes", "on"}
 
 
 def _expected_token() -> Optional[str]:
@@ -11,6 +23,14 @@ def _expected_token() -> Optional[str]:
     if token is None or not token.strip():
         return None
     return token.strip()
+
+
+def _allow_unauthenticated() -> bool:
+    """开发/测试环境的显式逃生舱, 生产环境不应开启."""
+    flag = os.getenv("RISKAGENT_ALLOW_UNAUTHENTICATED")
+    if flag is None:
+        return False
+    return flag.strip().lower() in _TRUTHY_FLAGS
 
 
 def _extract_bearer(authorization: Optional[str]) -> Optional[str]:
@@ -25,13 +45,21 @@ def _extract_bearer(authorization: Optional[str]) -> Optional[str]:
 
 
 def is_authorized(headers: Mapping[str, Any]) -> bool:
-    """基于 Bearer Token 的最小鉴权校验."""
+    """基于 Bearer Token 的最小鉴权校验 (fail-closed)."""
     expected = _expected_token()
     if expected is None:
-        return True
+        if _allow_unauthenticated():
+            return True
+        logger.warning(
+            "RISKAGENT_API_TOKEN 未配置且未开启 RISKAGENT_ALLOW_UNAUTHENTICATED, "
+            "按 fail-closed 策略拒绝请求"
+        )
+        return False
     auth = headers.get("authorization") or headers.get("Authorization")
     token = _extract_bearer(str(auth) if auth is not None else None)
-    return token == expected
+    if token is None:
+        return False
+    return hmac.compare_digest(token, expected)
 
 
 def get_headers_from_ctx(ctx: Any) -> dict[str, Any]:

@@ -70,3 +70,8 @@ skill:
   queryRewriteTimeout: "3.0"
   queryRewriteCacheSize: "256"
   hybridVectorWeight: "0.7"
+
+# 本地 E2E 集群: 前端与验收脚本不携带 Token, 显式开启逃生舱
+# 生产环境严禁此配置 (values.yaml 默认 false)
+security:
+  allowUnauthenticated: "true"

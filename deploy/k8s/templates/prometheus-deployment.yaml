@@ -25,6 +25,11 @@ data:
         static_configs:
           - targets: ['mcp-server:8000']
         metrics_path: /metrics
+        {{- if .Values.security.apiToken }}
+        authorization:
+          type: Bearer
+          credentials: {{ .Values.security.apiToken | quote }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

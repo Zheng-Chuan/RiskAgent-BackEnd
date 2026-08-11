@@ -96,8 +96,15 @@ def test_prompt_loader_supports_multiple_formats_and_singleton(tmp_path: Path, m
 
 
 def test_auth_service_authorization_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    # fail-closed: 未配置 Token 且未开逃生舱时拒绝访问
     monkeypatch.delenv("RISKAGENT_API_TOKEN", raising=False)
+    monkeypatch.delenv("RISKAGENT_ALLOW_UNAUTHENTICATED", raising=False)
+    assert auth_service.is_authorized({}) is False
+
+    # 显式逃生舱: 仅限本地开发/测试环境
+    monkeypatch.setenv("RISKAGENT_ALLOW_UNAUTHENTICATED", "1")
     assert auth_service.is_authorized({}) is True
+    monkeypatch.delenv("RISKAGENT_ALLOW_UNAUTHENTICATED", raising=False)
 
     monkeypatch.setenv("RISKAGENT_API_TOKEN", " secret-token ")
     assert auth_service._extract_bearer(None) is None
@@ -107,6 +114,9 @@ def test_auth_service_authorization_paths(monkeypatch: pytest.MonkeyPatch) -> No
     assert auth_service.is_authorized({"authorization": "Bearer secret-token"}) is True
     assert auth_service.is_authorized({"Authorization": "Bearer secret-token"}) is True
     assert auth_service.is_authorized({"authorization": "Bearer wrong"}) is False
+    # 配置了 Token 时, 逃生舱也不能绕过校验
+    monkeypatch.setenv("RISKAGENT_ALLOW_UNAUTHENTICATED", "1")
+    assert auth_service.is_authorized({}) is False
 
 
 def test_auth_service_get_headers_from_ctx_handles_multiple_shapes() -> None:

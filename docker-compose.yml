@@ -97,6 +97,9 @@ services:
       # 应用配置
       APP_ENV: production
       LOG_LEVEL: INFO
+      # 鉴权配置: 设置了 Token 则强制校验; 未设置时本地默认放行(仅限开发环境)
+      RISKAGENT_API_TOKEN: ${RISKAGENT_API_TOKEN:-}
+      RISKAGENT_ALLOW_UNAUTHENTICATED: ${RISKAGENT_ALLOW_UNAUTHENTICATED:-1}
       MCP_TRANSPORT: streamable-http
       FASTMCP_HOST: 0.0.0.0
       FASTMCP_PORT: 8000
@@ -128,6 +131,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       CHROMA_HOST: chroma
       CHROMA_PORT: 8000
+      # 测试运行器访问受保护端点时的鉴权配置
+      RISKAGENT_API_TOKEN: ${RISKAGENT_API_TOKEN:-}
+      RISKAGENT_ALLOW_UNAUTHENTICATED: ${RISKAGENT_ALLOW_UNAUTHENTICATED:-1}
       APP_ENV: test
       LOG_LEVEL: INFO
       SEMANTIC_MEMORY_ENABLED: ${SEMANTIC_MEMORY_ENABLED:-true}

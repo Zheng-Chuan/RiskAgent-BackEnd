@@ -304,6 +304,7 @@ class _FakeStreamRequest:
     ) -> None:
         self.query_params = query_params or {}
         self.path_params: dict[str, str] = {}
+        self.headers: dict[str, str] = {}
         self._disconnect_checks = 0
         self._disconnected_after = disconnected_after
 

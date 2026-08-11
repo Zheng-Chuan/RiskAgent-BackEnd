@@ -18,6 +18,8 @@ data:
   CHROMA_MEMORY_COLLECTION: {{ .Values.chroma.memoryCollection | default "riskagent-memory" | quote }}
   APP_ENV: {{ .Values.app.env | default "production" | quote }}
   LOG_LEVEL: {{ .Values.app.logLevel | default "INFO" | quote }}
+  # 鉴权逃生舱: 仅限本地/测试环境显式开启, 生产必须为 false
+  RISKAGENT_ALLOW_UNAUTHENTICATED: {{ .Values.security.allowUnauthenticated | default "false" | quote }}
   MCP_TRANSPORT: {{ .Values.mcp.transport | default "streamable-http" | quote }}
   FASTMCP_HOST: {{ .Values.mcp.host | default "0.0.0.0" | quote }}
   FASTMCP_PORT: {{ .Values.mcp.port | default "8000" | quote }}

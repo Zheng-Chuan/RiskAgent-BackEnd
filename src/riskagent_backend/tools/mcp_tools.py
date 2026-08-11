@@ -59,7 +59,8 @@ def _execute_mcp_tool(
     ctx: Context = None,
 ) -> dict[str, Any]:
     request_id = str(params.get("request_id") or new_request_id())
-    if ctx is not None and not is_authorized(get_headers_from_ctx(ctx)):
+    # fail-closed: ctx 缺失时同样走鉴权(拿不到 headers 即视为未认证)
+    if not is_authorized(get_headers_from_ctx(ctx)):
         return _unauthorized_result(request_id)
 
     meta = get_tool_meta(action)

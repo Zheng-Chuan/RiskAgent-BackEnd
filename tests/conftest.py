@@ -13,6 +13,10 @@ _SRC_ROOT = _PROJECT_ROOT / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
+# 测试环境显式开启鉴权逃生舱 (鉴权默认 fail-closed, 见 services/auth_service.py)
+# 鉴权行为本身的测试通过 monkeypatch 显式控制这两个环境变量
+os.environ.setdefault("RISKAGENT_ALLOW_UNAUTHENTICATED", "1")
+
 
 @pytest.fixture(autouse=True, scope="function")
 def _mock_skill_proposer_llm():

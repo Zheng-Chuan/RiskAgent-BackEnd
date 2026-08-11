@@ -123,13 +123,10 @@ async def readiness_check(request: Request) -> Response:
     检查项:
     - 是否正在关闭(优雅退出)
     - 数据库连接是否正常
-    """
-    if not is_authorized(request.headers):
-        return JSONResponse(
-            {"error": {"code": "UNAUTHORIZED", "message": "unauthorized"}},
-            status_code=401,
-        )
 
+    注: 探针端点不做鉴权, 仅暴露就绪状态(不含业务数据).
+    """
+    del request
     if readiness_service.is_shutting_down():
         return JSONResponse(
             {
@@ -164,27 +161,33 @@ async def readiness_check(request: Request) -> Response:
     )
 
 
+def _unauthorized_response() -> JSONResponse:
+    """统一的 401 响应, 供所有受保护端点复用."""
+    return JSONResponse(
+        {"error": {"code": "UNAUTHORIZED", "message": "unauthorized"}},
+        status_code=401,
+    )
+
+
 @mcp.custom_route("/metrics", methods=["GET"], include_in_schema=False)
 async def metrics_endpoint(request: Request) -> Response:
     """第 4 周: Prometheus 指标端点"""
     if not is_authorized(request.headers):
-        return JSONResponse(
-            {"error": {"code": "UNAUTHORIZED", "message": "unauthorized"}},
-            status_code=401,
-        )
+        return _unauthorized_response()
     metrics_text = generate_prometheus_metrics()
     return Response(content=metrics_text, media_type="text/plain; version=0.0.4")
 
 
 @mcp.custom_route("/api/llm/usage", methods=["GET"], include_in_schema=False)
 async def llm_usage_endpoint(request: Request) -> Response:
-    """LLM Token 用量摘要端点（内部监控，无需认证）.
+    """LLM Token 用量摘要端点（内部监控）.
 
     返回滑动窗口内的 token 累计用量、按模型分组的明细，
     以及当前的告警阈值与触发状态。tracker 为空（首次启动）时
     会返回各项为 0 的安全默认值。
     """
-    del request
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     try:
         from riskagent_backend.llm.token_tracker import get_token_tracker
 
@@ -214,7 +217,8 @@ async def llm_cost_model_endpoint(request: Request) -> Response:
     基于 TokenTracker 实测数据，推算不同时间窗口的总成本，
     同时提供启用去重（RFC-006）前后的对比预估。
     """
-    del request
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     try:
         from riskagent_backend.llm.cost_model import (
             generate_cost_estimate_table,
@@ -242,6 +246,8 @@ async def llm_cost_model_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/tasks", methods=["POST"], include_in_schema=False)
 async def create_task_endpoint(request: Request) -> Response:
     """浏览器友好的任务提交端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     try:
         payload = await request.json()
     except Exception:
@@ -262,6 +268,8 @@ async def create_task_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/tasks/{task_id}/memory", methods=["GET"], include_in_schema=False)
 async def get_task_memory_endpoint(request: Request) -> Response:
     """浏览器友好的任务记忆视图端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     task_id = request.path_params.get("task_id")
     if not isinstance(task_id, str) or not task_id.strip():
         return JSONResponse(
@@ -292,6 +300,8 @@ async def get_task_memory_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/tasks/{task_id}", methods=["GET"], include_in_schema=False)
 async def get_task_endpoint(request: Request) -> Response:
     """浏览器友好的任务详情端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     task_id = request.path_params.get("task_id")
     if not isinstance(task_id, str) or not task_id.strip():
         return JSONResponse(
@@ -313,6 +323,8 @@ async def get_task_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/tasks/{task_id}/graph", methods=["GET"], include_in_schema=False)
 async def get_task_graph_endpoint(request: Request) -> Response:
     """浏览器友好的任务图快照端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     task_id = request.path_params.get("task_id")
     if not isinstance(task_id, str) or not task_id.strip():
         return JSONResponse(
@@ -334,6 +346,8 @@ async def get_task_graph_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/memory", methods=["GET"], include_in_schema=False)
 async def get_memory_endpoint(request: Request) -> Response:
     """浏览器友好的全局记忆快照端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     raw_limit = request.query_params.get("limit")
     try:
         limit = int(raw_limit) if raw_limit is not None else 20
@@ -351,7 +365,8 @@ async def get_memory_endpoint(request: Request) -> Response:
 @mcp.custom_route("/api/agents", methods=["GET"], include_in_schema=False)
 async def get_agents_endpoint(request: Request) -> Response:
     """浏览器友好的智能体快照端点."""
-    del request
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     service = get_rest_bff_service()
     snapshot = await service.get_agents_snapshot()
     return JSONResponse(snapshot)
@@ -365,6 +380,8 @@ def _format_sse_event(*, event: str, data: dict[str, object]) -> bytes:
 @mcp.custom_route("/api/stream", methods=["GET"], include_in_schema=False)
 async def get_stream_endpoint(request: Request) -> Response:
     """浏览器友好的 SSE 实时事件流端点."""
+    if not is_authorized(request.headers):
+        return _unauthorized_response()
     service = get_rest_bff_service()
     task_id = request.query_params.get("task_id")
     include_agents = request.query_params.get("agents", "1") != "0"
