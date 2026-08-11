@@ -189,7 +189,9 @@ async def test_proactive_workflow_requires_human_when_not_auto_approved(tmp_path
                 "evidence": {"fields": ["task.payload.content"]},
                 "degraded": False,
             }
-        elif isinstance(sys_prompt, str) and "orchestrator agent" in sys_prompt and isinstance(user_prompt, str) and "phase': 'plan" in user_prompt:
+        elif isinstance(sys_prompt, str) and "orchestrator agent" in sys_prompt:
+            # Orchestrator 已重构为 ReAct 循环: 计划由 _generate_final_answer 一次性生成,
+            # user prompt 不再携带 phase 字段, 故只按 system prompt 匹配
             obj = {
                 "schema_version": "orchestrator_output.v1",
                 "intent": {"type": "needs_approval", "confidence": 0.8, "slots": {}},
@@ -421,8 +423,15 @@ async def test_orchestrator_unknown_step_kind_is_not_silent(tmp_path, monkeypatc
     monkeypatch.setattr("riskagent_backend.proactive_agents.roles.ProactiveIntentAgent.recognize", _fake_intent)
     out = await run_proactive_workflow(task={"task_id": "task_unknown", "session_id": "s_u", "source": "human", "payload": {"content": "测试未知step"}})
     result = out if isinstance(out, dict) else {}
+    # 未知 step kind 必须在规划归一化阶段 fail-fast (RFC-002 禁止静默降级),
+    # 而不是进入执行后才报错
+    assert result.get("ok") is False
+    assert result.get("status") == "failed"
     errors = result.get("errors") if isinstance(result.get("errors"), list) else []
-    assert any(str(x).startswith("unknown_step_kind:") for x in errors)
+    assert any(
+        "ORCHESTRATOR_OUTPUT_INVALID" in str(x) and "bad_task_graph_kind" in str(x)
+        for x in errors
+    )
 
 
 @pytest.mark.asyncio

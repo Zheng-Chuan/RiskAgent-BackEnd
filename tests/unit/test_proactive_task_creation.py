@@ -38,7 +38,8 @@ async def test_proactive_agent_emits_event_and_runs_followup_task(
         tool_params={
             "metric_name": "error_rate",
             "metric_value": 0.34,
-            "severity": "high",
+            # 仅 critical 升级为 risk_breach_detected 事件 (见 base._build_proactive_event)
+            "severity": "critical",
         },
     )
 
