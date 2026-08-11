@@ -33,6 +33,7 @@ from riskagent_backend.memory.memory_operations import MemoryWriteOperationsMixi
 from riskagent_backend.memory.persistence_backend import PersistenceBackend
 from riskagent_backend.memory.redis_backend import RedisBackend
 from riskagent_backend.memory.semantic_indexer import SemanticIndexer
+from riskagent_backend.utils.background_tasks import spawn_background_task
 from riskagent_backend.memory.ttl_policy import TTLTier, TTLPolicyEngine
 
 
@@ -165,8 +166,12 @@ class MemoryStore(MemoryWriteOperationsMixin):
 
         # 异步落盘到 MySQL (fire-and-forget, 不阻塞主流程)
         # 只有 long_term 和 permanent 级别的记忆需要落盘
+        # 通过 spawn_background_task 保持强引用, 防止 Task 被 GC 导致落盘静默丢失
         if self._ttl_engine.should_persist(nd):
-            asyncio.ensure_future(self.persistence.persist_memory_entry(nd))
+            spawn_background_task(
+                self.persistence.persist_memory_entry(nd),
+                name=f"persist_memory:{nd.get('memory_id') or 'unknown'}",
+            )
 
         return nd
 

@@ -15,7 +15,6 @@ RFC-005 需求一: Skill 语义索引迁移至 Chroma riskagent-skills collectio
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import Any, Optional
@@ -27,6 +26,7 @@ from riskagent_backend.skills.skill_contract import (
     new_skill_id,
     validate_skill,
 )
+from riskagent_backend.utils.background_tasks import spawn_background_task
 
 logger = logging.getLogger(__name__)
 
@@ -177,8 +177,11 @@ class SkillStore:
         skill_id = validated["skill_id"]
         self._store[skill_id] = validated
         await self._index_skill(validated)
-        # 异步落盘到 MySQL (fire-and-forget)
-        asyncio.ensure_future(self.persistence.persist_skill(validated))
+        # 异步落盘到 MySQL (fire-and-forget, 保持强引用防 GC)
+        spawn_background_task(
+            self.persistence.persist_skill(validated),
+            name=f"persist_skill:{skill_id}",
+        )
         return dict(validated)
 
     async def get(self, skill_id: str) -> dict[str, Any] | None:
@@ -207,8 +210,11 @@ class SkillStore:
         validated = validate_skill(merged)
         self._store[skill_id] = validated
         await self._reindex(validated)
-        # 异步落盘到 MySQL (fire-and-forget)
-        asyncio.ensure_future(self.persistence.persist_skill(validated))
+        # 异步落盘到 MySQL (fire-and-forget, 保持强引用防 GC)
+        spawn_background_task(
+            self.persistence.persist_skill(validated),
+            name=f"persist_skill:{skill_id}",
+        )
         return dict(validated)
 
     async def delete(self, skill_id: str) -> bool:
