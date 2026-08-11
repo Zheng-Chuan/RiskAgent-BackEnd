@@ -58,6 +58,8 @@ KIND_TO_TTL_TIER: dict[str, TTLTier] = {
     "intent_disambiguation": TTLTier.SHORT_TERM,
 
     # long_term: 经验（永久保存,统一走 Skill 系统）
+    "lesson": TTLTier.LONG_TERM,
+    "semantic_case": TTLTier.LONG_TERM,
     "few_shot": TTLTier.LONG_TERM,
     "knowledge": TTLTier.LONG_TERM,
     "fact": TTLTier.LONG_TERM,

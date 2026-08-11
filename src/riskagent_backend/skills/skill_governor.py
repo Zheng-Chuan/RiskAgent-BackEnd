@@ -368,6 +368,10 @@ class SkillGovernor:
         name = skill.get("name")
         if isinstance(name, str) and name.strip():
             parts.append(name.strip())
+        # summary 是注入 prompt 的实际内容 (summary_only 模式), 必须计入估算
+        summary = skill.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            parts.append(summary.strip())
         for tag in skill.get("tags") or []:
             if isinstance(tag, str) and tag.strip():
                 parts.append(tag.strip())

@@ -46,7 +46,9 @@ def _mock_skill_proposer_llm():
                 if line.startswith("任务意图:"):
                     intent = line.replace("任务意图:", "").strip()
                     break
-            summary = f"{intent}的可复用工作流模式" if intent else "从持仓查询到限额核对的完整风险排查工作流"
+            # 意图重复 3 次加大权重, 确保不同 intent 的 summary 相似度 < 0.85 (去重阈值),
+            # 相同 intent 的 summary 完全一致 (相似度 1.0, 走去重更新)
+            summary = f"{intent} {intent} {intent} 专属处置流程" if intent else "从持仓查询到限额核对的完整风险排查工作流"
             return {
                 "choices": [
                     {"message": {"content": summary}}

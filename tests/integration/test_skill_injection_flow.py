@@ -102,13 +102,13 @@ async def test_skill_injected_into_orchestrator_context():
     assert skill_payload["skill_count"] >= 1
     assert len(skill_payload["skills"]) >= 1
 
-    # 验证注入的 Skill 内容
+    # 验证注入的 Skill 内容 (RFC-005: 默认 summary_only, 只注入 name + summary,
+    # 完整 steps 由 Orchestrator 在 ReAct 循环中通过 skill_view 工具按需获取)
     injected = skill_payload["skills"][0]
     assert injected["name"] == "交易台风险排查"
     assert injected["skill_id"].startswith("skill_")
-    assert len(injected["steps"]) == 2
-    assert injected["steps"][0]["description"] == "查询持仓数据"
-    assert injected["failure_boundary"] == "禁止伪造数据"
+    assert injected["summary"] == "从持仓查询到限额核对的完整风险排查工作流"
+    assert "steps" not in injected
     assert injected["confidence"] == pytest.approx(0.85)
 
     # 验证 injection_summary 存在且包含数量

@@ -447,6 +447,7 @@ class SkillInjector:
         Args:
             summary_only: True 时只输出 skill_id, name, summary (约 0.5-1K tokens),
                           Orchestrator 在 ReAct 循环中通过 skill_view 工具按需获取完整内容.
+                          附带 confidence/status 供 SkillGovernor 治理过滤使用 (不注入 prompt 正文).
                           False 时输出完整 Skill (steps, applicable_conditions, failure_boundary 等).
         """
         skill_id = str(skill.get("skill_id") or "")
@@ -458,6 +459,8 @@ class SkillInjector:
                 "skill_id": skill_id,
                 "name": name,
                 "summary": summary,
+                "confidence": float(skill.get("confidence", 0.0)),
+                "status": str(skill.get("status") or "active"),
             }
 
         # 完整模式 (向后兼容)
@@ -481,4 +484,5 @@ class SkillInjector:
             "steps": steps,
             "failure_boundary": str(skill.get("failure_boundary") or ""),
             "confidence": float(skill.get("confidence", 0.0)),
+            "status": str(skill.get("status") or "active"),
         }

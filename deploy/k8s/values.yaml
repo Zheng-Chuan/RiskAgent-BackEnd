@@ -56,7 +56,7 @@ chroma:
   collection: riskagent-alerts
   memoryCollection: riskagent-memory
   skillsCollection: riskagent-skills
-  image: chromadb/chroma:0.5.0
+  image: chromadb/chroma:0.5.23
   resources:
     requests:
       cpu: "250m"

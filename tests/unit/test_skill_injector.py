@@ -358,7 +358,7 @@ async def test_search_exception_returns_safe_structure():
 
 @pytest.mark.asyncio
 async def test_summary_only_default_returns_summary_fields():
-    """默认 summary_only=True 时只返回 skill_id, name, summary."""
+    """默认 summary_only=True 时只返回轻量字段 + 治理元数据."""
     from riskagent_backend.skills import SkillInjector, SkillStore
 
     store = SkillStore()
@@ -379,10 +379,11 @@ async def test_summary_only_default_returns_summary_fields():
     assert result["skill_count"] >= 1
     item = result["skills"][0]
 
-    # summary_only 模式只应包含这三个字段
-    assert set(item.keys()) == {"skill_id", "name", "summary"}
+    # summary_only 模式只应包含这些字段 (confidence/status 供治理过滤, 不注入 prompt 正文)
+    assert set(item.keys()) == {"skill_id", "name", "summary", "confidence", "status"}
     assert item["name"] == "Summary测试技能"
     assert item["summary"] == "这是一个摘要"
+    assert item["confidence"] == pytest.approx(0.85)
 
 
 @pytest.mark.asyncio
@@ -426,7 +427,7 @@ async def test_summary_only_false_returns_full_fields():
 
 
 def test_build_injection_item_summary_only_true():
-    """_build_injection_item(summary_only=True) 只输出 skill_id, name, summary."""
+    """_build_injection_item(summary_only=True) 只输出轻量字段 + 治理元数据."""
     from riskagent_backend.skills import SkillInjector
 
     skill = {
@@ -441,10 +442,12 @@ def test_build_injection_item_summary_only_true():
 
     item = SkillInjector._build_injection_item(skill, summary_only=True)
 
-    assert set(item.keys()) == {"skill_id", "name", "summary"}
+    assert set(item.keys()) == {"skill_id", "name", "summary", "confidence", "status"}
     assert item["skill_id"] == "skill_abc123"
     assert item["name"] == "测试技能"
     assert item["summary"] == "摘要内容"
+    assert item["confidence"] == pytest.approx(0.9)
+    assert item["status"] == "active"
 
 
 def test_build_injection_item_summary_only_false():
@@ -486,7 +489,7 @@ def test_build_injection_item_default_is_summary_only():
 
     item = SkillInjector._build_injection_item(skill)
 
-    assert set(item.keys()) == {"skill_id", "name", "summary"}
+    assert set(item.keys()) == {"skill_id", "name", "summary", "confidence", "status"}
 
 
 @pytest.mark.asyncio

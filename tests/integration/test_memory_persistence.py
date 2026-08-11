@@ -48,10 +48,11 @@ def persistence_backend(real_db_engine):
 @pytest.fixture
 async def memory_store_with_persistence(real_db_engine):
     """创建集成了真实持久化后端的 MemoryStore."""
+    from riskagent_backend.config import get_redis_url
     from riskagent_backend.memory import MemoryConfig, MemoryStore
     from riskagent_backend.memory.persistence_backend import PersistenceBackend
 
-    store = MemoryStore(config=MemoryConfig(redis_url="redis://localhost:6379/0"))
+    store = MemoryStore(config=MemoryConfig(redis_url=get_redis_url()))
     backend = PersistenceBackend(engine=real_db_engine)
     store._set_persistence(backend)
 
@@ -152,6 +153,7 @@ def _make_test_skill(**kwargs) -> dict[str, Any]:
     base: dict[str, Any] = {
         "skill_id": "test_integ_skill_001",
         "name": "集成测试 Skill",
+        "summary": "集成测试用可复用工作流: 持仓查询后核对限额",
         "tags": ["risk", "integration"],
         "applicable_conditions": ["延迟异常"],
         "steps": [
@@ -340,10 +342,7 @@ async def test_critical_data_immediate_persistence(memory_store_with_persistence
 async def test_persist_run_artifacts_persists_lesson_and_experience(
     memory_store_with_persistence, real_db_engine,
 ):
-    """persist_run_artifacts 中的 lesson 和 long_term_experience 触发立即落盘."""
-    from riskagent_backend.memory import MemoryConfig, MemoryStore
-    from riskagent_backend.memory.persistence_backend import PersistenceBackend
-
+    """persist_run_artifacts 落盘 run summary (学习产物统一由 Skill 系统管理)."""
     store = memory_store_with_persistence
     run_id = "test_integ_artifacts_001"
 
@@ -365,16 +364,15 @@ async def test_persist_run_artifacts_persists_lesson_and_experience(
     # 等待异步落盘完成
     await asyncio.sleep(1.0)
 
-    # 验证 lesson 和 long_term_experience 都已落盘
-    loaded = await store.persistence.load_memory_entries(run_id=run_id, limit=10)
-    kinds = {e["kind"] for e in loaded}
-    assert "lesson" in kinds
-    assert "semantic_case" in kinds
+    # 验证 run summary 已写入 (run_summary 存 Redis, summary 记忆条目 kind=final)
+    run_summary = await store.get_run_summary(run_id=run_id)
+    assert isinstance(run_summary, dict)
+    assert run_summary.get("text") == "完成总结"
 
     # 验证 persist_run_artifacts 返回了正确的结构
-    assert result.get("lesson_entry") is not None
-    assert result.get("long_term_experience") is not None
-    assert result.get("memory_policy", {}).get("accepted") is True
+    assert result.get("run_summary", {}).get("text") == "完成总结"
+    assert result.get("summary_entry") is not None
+    assert result.get("summary_entry", {}).get("kind") == "final"
 
 
 # ==================== 测试 6: Skill update 后落盘 ====================
