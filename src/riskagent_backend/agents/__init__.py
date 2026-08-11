@@ -6,5 +6,20 @@ Agent 模块.
 """
 
 from riskagent_backend.agents.base import AgentResult, BaseAgent
+from riskagent_backend.agents.registry import (
+    AgentSpec,
+    all_agents,
+    candidate_agents_for_event,
+    get_agent_by_role,
+    register_agent,
+)
 
-__all__ = ["AgentResult", "BaseAgent"]
+__all__ = [
+    "AgentResult",
+    "AgentSpec",
+    "BaseAgent",
+    "all_agents",
+    "candidate_agents_for_event",
+    "get_agent_by_role",
+    "register_agent",
+]

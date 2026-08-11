@@ -8,19 +8,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from riskagent_backend.agents.registry import candidate_agents_for_event
 from riskagent_backend.orchestration.hitl_policy import hitl_auto_approve_enabled
 
 
 def default_candidate_agents_for_event(event: dict[str, Any]) -> list[str]:
     payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     event_type = str(event.get("event_type") or "")
-    if event_type == "risk_breach_detected":
-        return ["risk_analyst", "critic", "orchestrator"]
-    if event_type == "approval_required":
-        return ["human", "critic", "orchestrator"]
-    if event_type == "tool_finished" and payload.get("success") is False:
-        return ["system_engineer", "critic", "orchestrator"]
-    return ["orchestrator", "critic", "risk_analyst", "system_engineer"]
+    return candidate_agents_for_event(event_type, payload=payload)
 
 
 def build_task_from_event(

@@ -11,6 +11,7 @@ import logging
 import re
 from typing import Any
 
+from riskagent_backend.agents.registry import all_agents
 from riskagent_backend.contracts.run_context import new_run_context
 from riskagent_backend.memory import get_memory_store
 from riskagent_backend.memory.memory_helpers import canonical_agent_id, compact_output_text
@@ -35,43 +36,7 @@ logger = logging.getLogger(__name__)
 
 _SECRET_PATTERN = re.compile(r"sk-[A-Za-z0-9_-]{12,}")
 
-_AGENT_SPECS = (
-    {
-        "id": "intent",
-        "name": "ProactiveIntentAgent",
-        "role": "lead",
-        "workflow_attr": "_intent_agent",
-        "capabilities": ["recognize", "monitor"],
-    },
-    {
-        "id": "orchestrator",
-        "name": "ProactiveOrchestratorAgent",
-        "role": "lead",
-        "workflow_attr": "_orchestrator_agent",
-        "capabilities": ["plan", "coordinate", "monitor"],
-    },
-    {
-        "id": "critic",
-        "name": "ProactiveCriticAgent",
-        "role": "reviewer",
-        "workflow_attr": "_critic_agent",
-        "capabilities": ["review", "governance", "validate"],
-    },
-    {
-        "id": "system_engineer",
-        "name": "ProactiveSystemEngineerAgent",
-        "role": "engineer",
-        "workflow_attr": "_engineer_agent",
-        "capabilities": ["analyze", "monitor", "execute"],
-    },
-    {
-        "id": "risk_analyst",
-        "name": "ProactiveRiskAnalystAgent",
-        "role": "analyst",
-        "workflow_attr": "_analyst_agent",
-        "capabilities": ["analyze", "monitor", "report"],
-    },
-)
+_AGENT_SPECS = tuple(spec.to_display_dict() for spec in all_agents())
 
 
 def _build_step_title(trace_item: dict[str, Any]) -> str:
