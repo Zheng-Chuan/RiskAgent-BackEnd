@@ -235,13 +235,13 @@ def parse_with_retry(
 
         except json.JSONDecodeError as e:
             last_error = e
-            logger.debug(f"JSON parse failed (attempt {attempt+1}/{max_fix_attempts+1}): {e}")
+            logger.debug("JSON parse failed (attempt %s/%s): %s", attempt+1, max_fix_attempts+1, e)
         except ValidationError as e:
             last_error = e
-            logger.debug(f"Schema validation failed (attempt {attempt+1}/{max_fix_attempts+1}): {e}")
+            logger.debug("Schema validation failed (attempt %s/%s): %s", attempt+1, max_fix_attempts+1, e)
         except Exception as e:
             last_error = e
-            logger.debug(f"Unexpected error (attempt {attempt+1}/{max_fix_attempts+1}): {e}")
+            logger.debug("Unexpected error (attempt %s/%s): %s", attempt+1, max_fix_attempts+1, e)
 
     raise OutputRepairError(f"Failed to parse and repair after {max_fix_attempts+1} attempts") from last_error
 

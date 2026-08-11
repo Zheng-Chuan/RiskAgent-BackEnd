@@ -87,7 +87,7 @@ class ProactiveIntentAgent(BaseProactiveAgent):
                     confidence=0.7,
                 )
         except Exception as e:
-            logger.warning(f"[intent] 意图感知失败: {e}")
+            logger.warning("[intent] 意图感知失败: %s", e)
 
     async def recognize(
         self,
@@ -228,7 +228,7 @@ class ProactiveOrchestratorAgent(BaseProactiveAgent):
                     confidence=0.7,
                 )
         except Exception as e:
-            logger.warning(f"[orchestrator] 感知环境失败: {e}")
+            logger.warning("[orchestrator] 感知环境失败: %s", e)
 
     async def orchestrate(
         self,
@@ -333,7 +333,7 @@ class ProactiveCriticAgent(BaseProactiveAgent):
                     confidence=0.7,
                 )
         except Exception as e:
-            logger.warning(f"[critic] 感知环境失败: {e}")
+            logger.warning("[critic] 感知环境失败: %s", e)
 
     async def review(
         self,
@@ -568,7 +568,7 @@ class ProactiveSystemEngineerAgent(BaseProactiveAgent):
                 # critical 事件不再直接 remediate, 而是通过 _deliberate → _act →
                 # start_from_event 走统一执行内核五道关卡路径
         except Exception as e:
-            logger.warning(f"[system_engineer] 感知环境失败: {e}")
+            logger.warning("[system_engineer] 感知环境失败: %s", e)
 
     async def analyze_task(
         self,
@@ -703,7 +703,7 @@ class ProactiveRiskAnalystAgent(BaseProactiveAgent):
                     confidence=0.9,
                 )
         except Exception as e:
-            logger.warning(f"[risk_analyst] 风险感知失败: {e}")
+            logger.warning("[risk_analyst] 风险感知失败: %s", e)
 
     async def analyze_task(
         self,

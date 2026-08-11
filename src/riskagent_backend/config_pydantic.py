@@ -10,9 +10,11 @@
 ```python
 from riskagent_backend.config_pydantic import settings
 
-print(settings.llm_model)
-print(settings.mysql_host)
+model = settings.llm_model
+host = settings.mysql_host
 ```
+
+注意: 禁止将配置值打印到日志/stdout (可能包含主机地址等敏感信息).
 """
 
 from __future__ import annotations

@@ -44,7 +44,7 @@ class MySQLDataSource:
                 connect_timeout=5,
             )
         except Exception as e:
-            logger.warning(f"MySQL connect failed: {e}")
+            logger.warning("MySQL connect failed: %s", e)
             return None
         return self._conn
 
@@ -106,7 +106,7 @@ class MySQLDataSource:
 
                 return signals
         except Exception as e:
-            logger.warning(f"MySQL perception error: {e}")
+            logger.warning("MySQL perception error: %s", e)
             return [
                 PerceptionSignal(
                     source="mysql",

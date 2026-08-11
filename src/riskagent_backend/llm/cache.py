@@ -76,9 +76,9 @@ class LLMCache:
         key = self._compute_key(messages, model, temperature, max_tokens, **kwargs)
         entry = self._cache.get(key)
         if entry:
-            logger.debug(f"Cache hit for key: {key[:16]}...")
+            logger.debug("Cache hit for key: %s...", key[:16])
             return entry.response
-        logger.debug(f"Cache miss for key: {key[:16]}...")
+        logger.debug("Cache miss for key: %s...", key[:16])
         return None
 
     def set(
@@ -105,7 +105,7 @@ class LLMCache:
         if len(self._cache) >= self._max_size:
             oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k].timestamp)
             del self._cache[oldest_key]
-            logger.debug(f"Cache evicted: {oldest_key[:16]}...")
+            logger.debug("Cache evicted: %s...", oldest_key[:16])
 
         import time
         self._cache[key] = CacheEntry(
@@ -113,7 +113,7 @@ class LLMCache:
             response=response,
             timestamp=time.time(),
         )
-        logger.debug(f"Cache set for key: {key[:16]}...")
+        logger.debug("Cache set for key: %s...", key[:16])
 
     def clear(self) -> None:
         """清空缓存."""

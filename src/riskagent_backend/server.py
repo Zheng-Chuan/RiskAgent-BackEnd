@@ -89,7 +89,7 @@ async def start_proactive_monitors() -> None:
         agent = cls()
         await agent.start_background_monitor()
         _proactive_agents.append(agent)
-    logger.info(f"Started {len(_proactive_agents)} proactive background monitors")
+    logger.info("Started %s proactive background monitors", len(_proactive_agents))
 
 async def stop_proactive_monitors() -> None:
     """停止常驻感知守护进程."""

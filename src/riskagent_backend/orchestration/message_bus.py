@@ -83,7 +83,7 @@ class MessageBus:
         message = normalize_message(message)
         is_valid, errors = validate_message(message)
         if not is_valid:
-            logger.error(f"Message validation failed: {errors}")
+            logger.error("Message validation failed: %s", errors)
             message["degraded"] = True
             message["degraded_reason"] = f"validation_failed: {errors}"
 
@@ -93,7 +93,7 @@ class MessageBus:
         # 通知订阅者
         await self._notify_subscribers(message)
 
-        logger.debug(f"Message sent: {message['message_id']} from {from_agent} to {to_agent or 'broadcast'}")
+        logger.debug("Message sent: %s from %s to %s", message['message_id'], from_agent, to_agent or 'broadcast')
         return message
 
     async def emit_event(
@@ -306,7 +306,7 @@ class MessageBus:
             callback: 消息到达时的回调函数
         """
         self._subscribers[agent_id].append(callback)
-        logger.debug(f"Subscribed: {agent_id}")
+        logger.debug("Subscribed: %s", agent_id)
 
     def subscribe_broadcast(
         self,
@@ -494,7 +494,7 @@ class MessageBus:
                 else:
                     callback(message)
             except Exception as e:
-                logger.error(f"Broadcast subscriber error: {e}")
+                logger.error("Broadcast subscriber error: %s", e)
 
         # 通知特定 Agent 的订阅者
         if to_agent and to_agent in self._subscribers:
@@ -505,7 +505,7 @@ class MessageBus:
                     else:
                         callback(message)
                 except Exception as e:
-                    logger.error(f"Subscriber error for {to_agent}: {e}")
+                    logger.error("Subscriber error for %s: %s", to_agent, e)
 
     async def _notify_event_subscribers(self, event: dict[str, Any]) -> dict[str, Any]:
         """通知事件订阅者,并返回投递摘要."""

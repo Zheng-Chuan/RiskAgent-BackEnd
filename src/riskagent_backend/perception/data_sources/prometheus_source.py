@@ -36,7 +36,7 @@ class PrometheusDataSource:
             import httpx
             self._client = httpx.Client(timeout=5.0)
         except Exception as e:
-            logger.warning(f"httpx init failed: {e}")
+            logger.warning("httpx init failed: %s", e)
             return None
         return self._client
 
@@ -56,11 +56,11 @@ class PrometheusDataSource:
                 parsed = float(value)
                 # 分母为 0 时 Prometheus 返回 NaN，兜底返回 None
                 if math.isnan(parsed):
-                    logger.debug(f"Prometheus query '{promql}' returned NaN")
+                    logger.debug("Prometheus query '%s' returned NaN", promql)
                     return None
                 return parsed
         except Exception as e:
-            logger.debug(f"Prometheus query '{promql}' failed: {e}")
+            logger.debug("Prometheus query '%s' failed: %s", promql, e)
         return None
 
     def collect(self) -> list[PerceptionSignal]:

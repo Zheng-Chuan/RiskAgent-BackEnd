@@ -78,12 +78,12 @@ class PerceptionFilterEngine:
     def add_rule(self, rule: FilterRule) -> None:
         """添加规则."""
         self._rules.append(rule)
-        logger.debug(f"Filter rule added: {rule.name}")
+        logger.debug("Filter rule added: %s", rule.name)
 
     def set_rules(self, rules: list[FilterRule]) -> None:
         """替换全部规则."""
         self._rules = list(rules)
-        logger.info(f"Filter engine loaded {len(self._rules)} rules")
+        logger.info("Filter engine loaded %s rules", len(self._rules))
 
     def filter(self, signal: PerceptionSignal) -> PerceptionSignal:
         """

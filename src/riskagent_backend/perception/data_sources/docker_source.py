@@ -49,7 +49,7 @@ class DockerDataSource:
                 timeout=10,
             )
             if result.returncode != 0:
-                logger.warning(f"docker ps failed: {result.stderr.strip()}")
+                logger.warning("docker ps failed: %s", result.stderr.strip())
                 return []
 
             containers = []
@@ -68,7 +68,7 @@ class DockerDataSource:
             logger.warning("docker ps timed out")
             return []
         except Exception as e:
-            logger.warning(f"Docker perception error: {e}")
+            logger.warning("Docker perception error: %s", e)
             return []
 
     def _run_docker_stats(self, container_name: str) -> dict[str, Any]:
@@ -171,7 +171,7 @@ class DockerDataSource:
                         context={"container_name": name},
                     ))
 
-        logger.debug(f"Docker perception collected {len(signals)} signals from {len(containers)} containers")
+        logger.debug("Docker perception collected %s signals from %s containers", len(signals), len(containers))
         return signals
 
     def get_container_names(self) -> list[str]:

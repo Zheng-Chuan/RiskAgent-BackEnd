@@ -173,7 +173,7 @@ class BaseProactiveAgent:
         """添加信念."""
         belief = Belief(content=content, source=source, confidence=confidence)
         self._beliefs.append(belief)
-        logger.debug(f"[{self._name}] Added belief: {belief.belief_id}")
+        logger.debug("[%s] Added belief: %s", self._name, belief.belief_id)
         return belief
     
     def get_beliefs(self, source: Optional[str] = None) -> list[Belief]:
@@ -190,7 +190,7 @@ class BaseProactiveAgent:
         """添加愿望."""
         desire = Desire(description=description, priority=priority)
         self._desires.append(desire)
-        logger.debug(f"[{self._name}] Added desire: {desire.desire_id}")
+        logger.debug("[%s] Added desire: %s", self._name, desire.desire_id)
         return desire
     
     def get_active_desires(self) -> list[Desire]:
@@ -227,7 +227,7 @@ class BaseProactiveAgent:
             source_belief_id=source_belief_id,
         )
         self._intentions.append(intention)
-        logger.debug(f"[{self._name}] Added intention: {intention.intention_id}")
+        logger.debug("[%s] Added intention: %s", self._name, intention.intention_id)
         return intention
     
     def get_pending_intentions(self) -> list[Intention]:
@@ -259,7 +259,7 @@ class BaseProactiveAgent:
         ]
         removed = before - len(self._beliefs)
         if removed > 0:
-            logger.debug(f"[{self._name}] Cleaned up {removed} stale beliefs")
+            logger.debug("[%s] Cleaned up %s stale beliefs", self._name, removed)
         return removed
     
     def get_bdi_state(self) -> dict[str, Any]:
@@ -373,12 +373,12 @@ class BaseProactiveAgent:
     async def start_background_monitor(self) -> None:
         """启动后台监控(真正的主动性)."""
         if self._monitor_task is not None:
-            logger.warning(f"[{self._name}] Monitor already running")
+            logger.warning("[%s] Monitor already running", self._name)
             return
         
         self._is_running = True
         self._monitor_task = asyncio.create_task(self._monitor_loop())
-        logger.info(f"[{self._name}] Background monitor started")
+        logger.info("[%s] Background monitor started", self._name)
     
     async def stop_background_monitor(self) -> None:
         """停止后台监控."""
@@ -392,11 +392,11 @@ class BaseProactiveAgent:
         except asyncio.CancelledError:
             pass
         self._monitor_task = None
-        logger.info(f"[{self._name}] Background monitor stopped")
+        logger.info("[%s] Background monitor stopped", self._name)
     
     async def _monitor_loop(self) -> None:
         """后台监控循环 - 主动感知环境 (P0 - Checkpoint 16.1.2 异常自愈增强)."""
-        logger.info(f"[{self._name}] Monitor loop started")
+        logger.info("[%s] Monitor loop started", self._name)
         consecutive_errors = 0
         max_consecutive_errors = 10
 
@@ -421,11 +421,11 @@ class BaseProactiveAgent:
                     await asyncio.sleep(60)
                     consecutive_errors = 0  # 重置以继续尝试
                     continue
-                logger.info(f"[{self._name}] Monitor loop recovered, continuing...")
+                logger.info("[%s] Monitor loop recovered, continuing...", self._name)
 
             await asyncio.sleep(self._monitor_interval)
 
-        logger.info(f"[{self._name}] Monitor loop exited")
+        logger.info("[%s] Monitor loop exited", self._name)
     
     @property
     def _filter_engine(self):
@@ -457,7 +457,7 @@ class BaseProactiveAgent:
                 signals = ds.collect()
                 all_signals.extend(signals)
             except Exception as e:
-                logger.warning(f"[{self._name}] 数据源采集失败 {ds.__class__.__name__}: {e}")
+                logger.warning("[%s] 数据源采集失败 %s: %s", self._name, ds.__class__.__name__, e)
         return self._filter_engine.filter_batch(all_signals)
 
     async def _collect_and_filter_async(self, data_sources: list) -> list:
@@ -657,7 +657,7 @@ class BaseProactiveAgent:
         try:
             for step_idx in range(max_steps):
                 step_id = f"step_{step_idx + 1}"
-                logger.debug(f"[{self._name}] ReAct {step_id}/{max_steps}")
+                logger.debug("[%s] ReAct %s/%s", self._name, step_id, max_steps)
                 
                 thought = await self._generate_thought(task, react_steps, context)
                 
@@ -681,7 +681,7 @@ class BaseProactiveAgent:
                 react_steps.append(step)
                 
                 if await self._should_terminate(task, react_steps):
-                    logger.debug(f"[{self._name}] ReAct terminated at {step_id}")
+                    logger.debug("[%s] ReAct terminated at %s", self._name, step_id)
                     break
             
             final_output = await self._generate_final_answer(task, react_steps)
@@ -1072,7 +1072,7 @@ Generate a comprehensive final answer as JSON."""
             builder: TieredPromptBuilder 实例
         """
         self._prompt_builder = builder
-        logger.info(f"[{self._name}] TieredPromptBuilder enabled")
+        logger.info("[%s] TieredPromptBuilder enabled", self._name)
 
     def build_tiered_messages(
         self,

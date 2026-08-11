@@ -64,7 +64,7 @@ class RedisDataSource:
                     socket_connect_timeout=5,
                 )
         except Exception as e:
-            logger.warning(f"Redis client init failed: {e}")
+            logger.warning("Redis client init failed: %s", e)
             return None
         return self._client
 
@@ -158,7 +158,7 @@ class RedisDataSource:
             info = client.info()
             return self._parse_info(info)
         except Exception as e:
-            logger.warning(f"Redis perception error: {e}")
+            logger.warning("Redis perception error: %s", e)
             return [
                 PerceptionSignal(
                     source="redis",

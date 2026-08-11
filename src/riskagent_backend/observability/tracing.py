@@ -200,13 +200,13 @@ def trace(
     span_token = _span_id_var.set(span_id)
     
     try:
-        logger.debug(f"Span started: {name} (trace={trace_id}, span={span_id})")
+        logger.debug("Span started: %s (trace=%s, span=%s)", name, trace_id, span_id)
         yield span
         span.status = "completed"
     except Exception as e:
         span.status = "error"
         span.error_message = str(e)
-        logger.error(f"Span error: {name} - {e}")
+        logger.error("Span error: %s - %s", name, e)
         raise
     finally:
         import time
@@ -214,7 +214,7 @@ def trace(
         span.duration_ms = span.end_timestamp_ms - span.start_timestamp_ms
         _trace_id_var.reset(trace_token)
         _span_id_var.reset(span_token)
-        logger.debug(f"Span ended: {name}, duration={span.duration_ms:.2f}ms")
+        logger.debug("Span ended: %s, duration=%.2fms", name, span.duration_ms)
 
 
 def add_trace_attributes(attributes: dict[str, Any]) -> None:

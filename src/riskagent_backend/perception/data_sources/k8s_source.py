@@ -38,7 +38,7 @@ class K8sDataSource:
                 timeout=10,
             )
             if result.returncode != 0:
-                logger.warning(f"kubectl get pods failed: {result.stderr.strip()}")
+                logger.warning("kubectl get pods failed: %s", result.stderr.strip())
                 return []
             data = json.loads(result.stdout)
             return data.get("items", []) or []
@@ -49,7 +49,7 @@ class K8sDataSource:
             logger.warning("kubectl get pods timed out")
             return []
         except Exception as e:
-            logger.warning(f"K8s perception error: {e}")
+            logger.warning("K8s perception error: %s", e)
             return []
 
     def collect(self) -> list[PerceptionSignal]:

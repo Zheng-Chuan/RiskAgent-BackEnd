@@ -48,7 +48,7 @@ async def recognize_intent_and_retrieve_memory(
         ),
         agent_name="intent",
     )
-    logger.info(f"[ProactiveWorkflow] Intent recognized: {intent_result.output.get('primary_intent_type')}")
+    logger.info("[ProactiveWorkflow] Intent recognized: %s", intent_result.output.get('primary_intent_type'))
     await runtime_task_store.set_current_agent(task_id=state.task_id, agent_id="orchestrator")
 
     state.intent_result = intent_result

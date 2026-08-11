@@ -73,7 +73,7 @@ class QuestionManager:
             callback: 回调函数,接收 PendingQuestion 参数
         """
         self._callbacks.append(callback)
-        logger.debug(f"Registered question callback: {callback.__name__}")
+        logger.debug("Registered question callback: %s", callback.__name__)
     
     async def ask_user(
         self,
@@ -126,7 +126,7 @@ class QuestionManager:
             await asyncio.wait_for(event.wait(), timeout=timeout_seconds)
         except asyncio.TimeoutError:
             pending_question.status = "timeout"
-            logger.warning(f"Question {question_id} timeout after {timeout_seconds}s")
+            logger.warning("Question %s timeout after %ss", question_id, timeout_seconds)
             return f"[超时] 用户未在 {timeout_seconds}秒内回答"
         
         # 获取回答
@@ -134,7 +134,7 @@ class QuestionManager:
         if answer is None:
             return "[错误] 未获取到有效回答"
         
-        logger.info(f"Question {question_id} answered: {answer[:50]}...")
+        logger.info("Question %s answered: %s...", question_id, answer[:50])
         return answer
     
     async def submit_answer(self, question_id: str, answer: str) -> bool:
@@ -149,7 +149,7 @@ class QuestionManager:
             是否提交成功
         """
         if question_id not in self._questions:
-            logger.error(f"Question not found: {question_id}")
+            logger.error("Question not found: %s", question_id)
             return False
         
         question = self._questions[question_id]
@@ -161,7 +161,7 @@ class QuestionManager:
         if question_id in self._answer_events:
             self._answer_events[question_id].set()
         
-        logger.info(f"Answer submitted for question {question_id}")
+        logger.info("Answer submitted for question %s", question_id)
         return True
     
     def get_pending_questions(self) -> list[PendingQuestion]:
@@ -197,7 +197,7 @@ class QuestionManager:
             if question_id in self._answer_events:
                 self._answer_events[question_id].set()
             
-            logger.info(f"Question {question_id} cancelled")
+            logger.info("Question %s cancelled", question_id)
             return True
         
         return False
@@ -211,7 +211,7 @@ class QuestionManager:
                 else:
                     callback(question)
             except Exception as e:
-                logger.error(f"Question callback error: {e}")
+                logger.error("Question callback error: %s", e)
     
     def clear_answered_questions(self, max_age_seconds: float = 3600) -> int:
         """
@@ -237,7 +237,7 @@ class QuestionManager:
                 del self._answer_events[qid]
         
         if to_remove:
-            logger.info(f"Cleared {len(to_remove)} answered questions")
+            logger.info("Cleared %s answered questions", len(to_remove))
         
         return len(to_remove)
 

@@ -140,7 +140,7 @@ class RemediationManager:
         )
 
         # 执行动作
-        logger.info(f"Remediation action: {action.value} - {desc}")
+        logger.info("Remediation action: %s - %s", action.value, desc)
 
         self._results.append(result)
         self._total_successful += 1
@@ -171,7 +171,7 @@ class RemediationManager:
                 "occurrence_count": 0,
             }
             self._total_skills_created += 1
-            logger.info(f"New skill pattern created: {pattern_key} -> {result.action.value}")
+            logger.info("New skill pattern created: %s -> %s", pattern_key, result.action.value)
 
         self._skill_patterns[pattern_key]["occurrence_count"] += 1
         result.skill_created = True

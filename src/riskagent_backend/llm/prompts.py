@@ -43,9 +43,9 @@ class PromptLoader:
         for ext in [".txt", ".md", ".json"]:
             path = self._prompts_dir / f"{name}{ext}"
             if path.is_file():
-                logger.debug(f"Loaded prompt: {name} from {path}")
+                logger.debug("Loaded prompt: %s from %s", name, path)
                 return path.read_text(encoding="utf-8")
-        logger.warning(f"Prompt not found: {name}")
+        logger.warning("Prompt not found: %s", name)
         return None
 
     def load_json(self, name: str) -> Optional[dict[str, Any]]:
@@ -63,7 +63,7 @@ class PromptLoader:
             try:
                 return json.loads(content)
             except Exception as e:
-                logger.warning(f"Failed to parse JSON prompt {name}: {e}")
+                logger.warning("Failed to parse JSON prompt %s: %s", name, e)
         return None
 
 

@@ -341,7 +341,7 @@ class ProactiveBackEndWorkflow:
         task_id = str(task.get("task_id") or "")
         runtime_task_store = get_runtime_task_store()
         
-        logger.info(f"[ProactiveWorkflow] Starting for task: {task.get('task_id') or run_id}")
+        logger.info("[ProactiveWorkflow] Starting for task: %s", task.get('task_id') or run_id)
         
         try:
             memory_store = get_memory_store()
@@ -596,7 +596,7 @@ async def run_proactive_workflow(*, task: dict[str, Any]) -> dict[str, Any]:
     start_time = time.time()
 
     run_id = new_run_id("proactive")
-    logger.info(f"Starting proactive multi-agent orchestration for task: {task.get('task_id') or run_id}")
+    logger.info("Starting proactive multi-agent orchestration for task: %s", task.get('task_id') or run_id)
 
     try:
         reset_proactive_workflow()

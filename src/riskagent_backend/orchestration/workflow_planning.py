@@ -206,7 +206,7 @@ async def run_planning_stage(
             task=task,
             orchestrator=state.orchestrator_result.output,
         )
-        logger.info(f"[ProactiveWorkflow] Review completed: ok={state.critic_result.output.get('ok')}")
+        logger.info("[ProactiveWorkflow] Review completed: ok=%s", state.critic_result.output.get('ok'))
         await runtime_task_store.set_current_agent(task_id=task_id, agent_id="critic")
 
         state.active_task_graph = state.orchestrator_result.output

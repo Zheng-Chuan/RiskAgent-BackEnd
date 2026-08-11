@@ -502,7 +502,7 @@ class BaseAgent:
         """记录错误指标."""
         observe_ms("rm_llm_call", self._elapsed_ms(started), labels={"agent": self._name, "model": model_label})
         inc_counter("rm_llm_errors_total", labels={"agent": self._name, "model": model_label, "code": code})
-        logger.warning(f"Agent {self._name} LLM error: {code}")
+        logger.warning("Agent %s LLM error: %s", self._name, code)
 
     @staticmethod
     def _elapsed_ms(started: float) -> float:

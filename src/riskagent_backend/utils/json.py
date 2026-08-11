@@ -25,7 +25,7 @@ def safe_json_loads(text: str, default: Any = None) -> Any:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
-        logger.debug(f"JSON decode error: {e}")
+        logger.debug("JSON decode error: %s", e)
         return default
 
 
@@ -46,7 +46,7 @@ def safe_json_dumps(obj: Any, default: str = "{}", ensure_ascii: bool = False) -
     try:
         return json.dumps(obj, ensure_ascii=ensure_ascii, default=str)
     except (TypeError, ValueError) as e:
-        logger.debug(f"JSON encode error: {e}")
+        logger.debug("JSON encode error: %s", e)
         return default
 
 
