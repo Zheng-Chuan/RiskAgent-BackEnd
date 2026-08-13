@@ -358,12 +358,13 @@ class TestSelfImprovingLoop:
         assert result_on["skill_count"] >= 1
         assert len(result_on["skills"]) >= 1
 
-        # 验证注入结构包含必要字段
+        # 验证注入结构包含必要字段 (RFC-005: summary_only 默认只注入 name+summary,
+        # 完整 steps/applicable_conditions 通过 skill_view 工具按需获取)
         injected = result_on["skills"][0]
         assert "skill_id" in injected
         assert "name" in injected
-        assert "steps" in injected
-        assert "applicable_conditions" in injected
+        assert "summary" in injected
+        assert "confidence" in injected
 
     # ==================== 测试 3 ====================
 

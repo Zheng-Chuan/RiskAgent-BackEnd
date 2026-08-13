@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import time
@@ -68,10 +69,13 @@ async def test_mcp_client_can_run_monitoring_flow_and_read_service_metrics() -> 
     server, snapshot_url = _start_snapshot_server()
     try:
         # 使用同一 Python 解释器启动服务端, 保证依赖一致.
+        # 显式传递鉴权逃生舱环境变量, 避免子进程因 fail-closed 拒绝请求
+        env = {**os.environ, "RISKAGENT_ALLOW_UNAUTHENTICATED": "1"}
         params = StdioServerParameters(
             command=sys.executable,
             args=["main.py"],
             cwd=project_root,
+            env=env,
         )
 
         async with stdio_client(params) as (read_stream, write_stream):
