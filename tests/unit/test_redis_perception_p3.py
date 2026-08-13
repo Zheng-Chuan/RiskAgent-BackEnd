@@ -37,8 +37,8 @@ def test_redis_unavailable_graceful():
     print("P3 验收测试: Redis 不可用时降级处理")
     print("=" * 60)
 
-    # 连接一个不存在的 Redis
-    ds = RedisDataSource(host="localhost", port=16379)
+    # 连接一个不存在的 Redis (显式传递 redis_url 避免被环境变量覆盖)
+    ds = RedisDataSource(redis_url="redis://localhost:16379")
     signals = ds.collect()
 
     assert len(signals) >= 1
