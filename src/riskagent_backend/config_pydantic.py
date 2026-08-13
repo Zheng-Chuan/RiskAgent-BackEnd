@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # ---- LLM 配置 ----
     llm_api_key: str = Field(default="", description="LLM API Key")
     llm_base_url: str = Field(default="", description="LLM API 基础 URL")
-    llm_model: str = Field(default="deepseek/deepseek-v4-pro", description="LLM 模型名称")
+    llm_model: str = Field(default="deepseek/deepseek-v4-flash", description="LLM 模型名称")
     llm_http_referer: str = Field(default="", description="LLM HTTP-Referer (可选)")
     llm_app_title: str = Field(default="", description="LLM X-Title (可选)")
     llm_resolve_ip: str = Field(default="", description="LLM API 固定 IP (可选)")

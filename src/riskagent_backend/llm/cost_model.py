@@ -27,6 +27,10 @@ PRICING_TABLE: dict[str, dict[str, float]] = {
         "prompt": 0.00014,
         "completion": 0.00028,
     },
+    "deepseek/deepseek-v4-flash": {
+        "prompt": 0.00010,       # $0.10 per 1M tokens
+        "completion": 0.00020,   # $0.20 per 1M tokens
+    },
     "openai/gpt-4o": {
         "prompt": 0.0025,
         "completion": 0.01,

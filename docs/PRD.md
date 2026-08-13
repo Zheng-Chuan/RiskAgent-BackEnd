@@ -85,7 +85,7 @@
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view） | ✓ Implemented — 6 项需求全部实施，158/158 测试通过，K8s 部署验证（2026-08-08） | [phase-11-skill-semantic-retrieval.md](./phases/phase-11-skill-semantic-retrieval.md) |
 | Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
-| Phase 14 | 性能验证与 LLM 成本模型 | 方向二十已完成 — LLM 成本模型 4 Checkpoint 完成，24 测试通过（2026-08-07）；压测/SLO 规划中 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
+| Phase 14 | 性能验证与 LLM 成本模型 | ✓ 已完成 — LLM 成本模型 4 Checkpoint 完成，24 测试通过（2026-08-07）；方向二十一（系统压测）、方向二十二（SLO 定义）已取消 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
 
 ---
 

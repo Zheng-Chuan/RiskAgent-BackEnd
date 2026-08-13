@@ -191,10 +191,9 @@ Phase 12 [已完成 2026-08-07] → BDI 信念去重与意图幂等性修复（R
 Phase 13 [已完成 2026-08-07] → REST BFF 浏览器闭环（9/9 API + 5/5 前端联调通过）
     |  7 个 BFF 端点 + SSE 实时推送 + 脱敏机制 + nginx 反向代理
     |
-Phase 14 [部分完成] → LLM 成本模型已完成（4 个 Checkpoint，三级熔断器 5min/1h/24h）
+Phase 14 [已完成] → LLM 成本模型（4 个 Checkpoint，三级熔断器 5min/1h/24h）
     |  by_agent_stage 维度统计，成本预估表（5min/1h/24h/7d）
     |  集成 ProactiveBudget，新增 /api/llm/cost-model 端点
-    |  系统压测和 SLO 待实施
     |
 Phase 11 [Implemented 2026-08-08] → Skill 语义检索升级全部完成（RFC-005 Implemented）
     |  6 项需求全部实施：Chroma 向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view 工具

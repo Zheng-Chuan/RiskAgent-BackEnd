@@ -113,9 +113,9 @@ def get_llm_base_url() -> str:
 
 
 def get_llm_model() -> str:
-    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 deepseek/deepseek-v4-pro."""
+    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 deepseek/deepseek-v4-flash."""
     value = (get_settings().llm_model or "").strip()
-    return value or "deepseek/deepseek-v4-pro"
+    return value or "deepseek/deepseek-v4-flash"
 
 
 def get_llm_http_referer() -> str:
