@@ -1,7 +1,7 @@
 """Integration test fixtures - real infrastructure connections.
 
 All fixtures connect to real Docker services (MySQL, Redis, ChromaDB)
-and the real LLM provider (OpenRouter). No mocks.
+and the real LLM provider (DeepSeek official API). No mocks.
 """
 
 import os
@@ -164,7 +164,7 @@ def real_chroma_store():
 
 @pytest.fixture(scope="session")
 def real_llm_client():
-    """真实OpenRouterLLM客户端."""
+    """真实 LLM 客户端 (DeepSeek 官方 API)."""
     from riskagent_backend.llm.llm_client import LlmClient
     client = LlmClient()
     yield client

@@ -146,7 +146,7 @@ class TestTokenTrackingUnit:
 
 
 class TestRealLLMTokenTracking:
-    """真实 OpenRouter LLM 调用的 token 追踪验证"""
+    """真实 LLM 调用 (DeepSeek 官方 API) 的 token 追踪验证"""
 
     @pytest.mark.asyncio
     async def test_real_llm_call_records_tokens(self):

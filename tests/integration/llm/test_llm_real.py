@@ -1,6 +1,6 @@
 """LLM 和 ChromaDB 真实集成测试.
 
-连接真实 OpenRouter LLM 和 ChromaDB，测试：
+连接真实 LLM (DeepSeek 官方 API) 和 ChromaDB，测试：
 - LLM chat_completions 真实调用
 - ChromaDB upsert + 语义搜索
 - 端到端知识库流程
@@ -31,12 +31,12 @@ def _extract_any_text(response: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Real LLM Tests (OpenRouter)
+# Real LLM Tests (DeepSeek 官方 API)
 # ---------------------------------------------------------------------------
 
 
 class TestRealLLM:
-    """OpenRouterLLM真实调用测试."""
+    """真实 LLM 调用测试 (DeepSeek 官方 API)."""
 
     async def test_llm_chat_completion_basic(self, real_llm_client: LlmClient):
         """测试真实LLM调用 - 基本对话."""

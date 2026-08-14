@@ -151,7 +151,7 @@ def get_llm_embedding_base_url() -> str:
     """获取 embedding 专用 Base URL;未设置时回退到主 LLM_BASE_URL.
 
     DeepSeek 官方 API 不提供 embeddings 端点, 故 embedding 需独立指向
-    支持 embedding 的供应商 (如 OpenRouter); 未配置时回退主 Base URL.
+    支持 embedding 的供应商 (如硅基流动); 未配置时回退主 Base URL.
     """
     value = (get_settings().llm_embedding_base_url or "").strip().rstrip("/")
     if value:

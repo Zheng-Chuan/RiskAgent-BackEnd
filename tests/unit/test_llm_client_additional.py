@@ -22,10 +22,10 @@ def test_build_headers_includes_optional_fields(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("LLM_HTTP_REFERER", "https://example.com")
     monkeypatch.setenv("LLM_APP_TITLE", "RiskAgent")
 
-    headers = _build_headers(host_header="openrouter.ai")
+    headers = _build_headers(host_header="api.deepseek.com")
 
     assert headers["Authorization"] == "Bearer key"
-    assert headers["Host"] == "openrouter.ai"
+    assert headers["Host"] == "api.deepseek.com"
     assert headers["HTTP-Referer"] == "https://example.com"
     assert headers["X-Title"] == "RiskAgent"
 
