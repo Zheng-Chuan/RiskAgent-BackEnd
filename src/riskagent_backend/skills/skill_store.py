@@ -41,7 +41,7 @@ class SkillStore:
 
     Args:
         redis_url: Redis URL (可选, 未使用).
-        llm_client: LLM 客户端, 用于 embed() 生成 1536 维向量.
+        llm_client: LLM 客户端, 用于 embed() 生成向量 (当前 BAAI/bge-m3, 1024 维).
         chroma_store: Chroma 向量存储, 用于 riskagent-skills collection.
     """
 

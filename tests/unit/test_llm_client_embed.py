@@ -73,6 +73,7 @@ def _make_embedding_response(dim: int = 1536) -> dict[str, Any]:
 async def test_embed_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """正常调用返回向量, 维度正确."""
     monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_EMBEDDING_API_KEY", "test-key")
     monkeypatch.setenv("LLM_EMBEDDING_MODEL", "text-embedding-3-small")
 
     captured: dict[str, Any] = {}
@@ -132,7 +133,7 @@ async def test_embed_custom_model_override(monkeypatch: pytest.MonkeyPatch) -> N
 async def test_embed_default_model_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """未传 model 时从 config 读取默认值."""
     monkeypatch.setenv("LLM_API_KEY", "test-key")
-    monkeypatch.delenv("LLM_EMBEDDING_MODEL", raising=False)
+    monkeypatch.setenv("LLM_EMBEDDING_MODEL", "BAAI/bge-m3")
 
     captured: dict[str, Any] = {}
     mock_resp = _mock_response(status=200, json_value=_make_embedding_response(8))
@@ -150,7 +151,7 @@ async def test_embed_default_model_from_config(monkeypatch: pytest.MonkeyPatch) 
     client = LlmClient(http_client=session, base_url="https://api.example.com/v1")
     await client.embed(text="hello")
 
-    assert captured["json"]["model"] == "text-embedding-3-small"
+    assert captured["json"]["model"] == "BAAI/bge-m3"
 
 
 # ------------------------------------------------------------------ #
@@ -520,11 +521,11 @@ def test_cost_model_embedding_in_chain_cost() -> None:
 # 配置 getter
 # ------------------------------------------------------------------ #
 def test_config_get_llm_embedding_model_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """未设置环境变量时返回默认值."""
+    """默认值为 BAAI/bge-m3 (硅基流动)."""
     monkeypatch.delenv("LLM_EMBEDDING_MODEL", raising=False)
     from riskagent_backend.config import get_llm_embedding_model
 
-    assert get_llm_embedding_model() == "text-embedding-3-small"
+    assert get_llm_embedding_model() == "BAAI/bge-m3"
 
 
 def test_config_get_llm_embedding_model_custom(monkeypatch: pytest.MonkeyPatch) -> None:

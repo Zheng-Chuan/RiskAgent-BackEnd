@@ -4,6 +4,17 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-14: LLM 网关切换 — Chat 切 DeepSeek 官方 API, embedding 切硅基流动
+
+### Changed
+
+- Chat 链路从 OpenRouter（deepseek/deepseek-v4-pro）切换到 DeepSeek 官方 API（https://api.deepseek.com, deepseek-v4-flash），OpenRouter key 完全移除
+- 请求体按 DeepSeek 官方格式显式开启深度思考（`thinking: {"type": "enabled"}`），替代被官方 API 忽略的 `enable_thinking` 参数
+- embedding 链路切换到硅基流动 SiliconFlow（BAAI/bge-m3, 1024 维）：DeepSeek 官方无 embeddings 端点；硅基流动不提供 text-embedding-3-small
+- 新增配置 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY`（为空时回退主 LLM 配置），K8s configmap/secrets 同步注入
+- cost_model.py 新增 DeepSeek 官方模型名（无供应商前缀）定价条目与 BAAI/bge-m3 免费条目
+- K8s values/configmap/secrets 全部切到新网关；Chroma Skill 向量索引维度 1536→1024，启动时自动重建（代码无维度硬约束）
+
 ## 2026-08-08: Phase 11 Skill 语义检索升级实施完成（RFC-005 Implemented）
 
 ### Phase 11: Skill 语义检索升级（RFC-005 Implemented）

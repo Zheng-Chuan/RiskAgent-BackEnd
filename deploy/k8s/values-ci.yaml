@@ -57,9 +57,10 @@ grafana:
   enabled: false
 
 llm:
-  baseUrl: https://openrouter.ai/api/v1
-  model: deepseek/deepseek-chat
-  embeddingModel: text-embedding-3-small
+  baseUrl: https://api.deepseek.com
+  model: deepseek-v4-flash
+  embeddingModel: BAAI/bge-m3
+  embeddingBaseUrl: https://api.siliconflow.cn/v1
 
 skill:
   queryRewriteEnabled: "true"

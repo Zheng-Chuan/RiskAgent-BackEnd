@@ -31,6 +31,15 @@ PRICING_TABLE: dict[str, dict[str, float]] = {
         "prompt": 0.00010,       # $0.10 per 1M tokens
         "completion": 0.00020,   # $0.20 per 1M tokens
     },
+    # DeepSeek 官方 API 模型名 (无供应商前缀), 定价与 OpenRouter 同名模型一致
+    "deepseek-v4-flash": {
+        "prompt": 0.00010,       # $0.10 per 1M tokens
+        "completion": 0.00020,   # $0.20 per 1M tokens
+    },
+    "deepseek-v4-pro": {
+        "prompt": 0.00014,
+        "completion": 0.00028,
+    },
     "openai/gpt-4o": {
         "prompt": 0.0025,
         "completion": 0.01,
@@ -49,6 +58,11 @@ PRICING_TABLE: dict[str, dict[str, float]] = {
     "text-embedding-3-small": {
         "prompt": 0.00002,     # $0.02 per 1M tokens
         "completion": 0.0,     # embedding 无输出 token
+    },
+    # 硅基流动 SiliconFlow: BAAI/bge-m3 免费额度 (1024 维)
+    "BAAI/bge-m3": {
+        "prompt": 0.0,
+        "completion": 0.0,
     },
     "default": {
         "prompt": 0.00014,

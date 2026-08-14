@@ -125,14 +125,16 @@ memory:
   ttl: "86400"
   maxLen: "2000"
 
-# LLM 配置
+# LLM 配置 (Chat: DeepSeek 官方 API; Embedding: 硅基流动, DeepSeek 官方无 embeddings 端点)
 llm:
   apiKey: ""
-  baseUrl: https://openrouter.ai/api/v1
-  model: deepseek/deepseek-v4-pro
+  baseUrl: https://api.deepseek.com
+  model: deepseek-v4-flash
   httpReferer: ""
   appTitle: ""
-  embeddingModel: text-embedding-3-small
+  embeddingModel: BAAI/bge-m3
+  embeddingBaseUrl: https://api.siliconflow.cn/v1
+  embeddingApiKey: ""
 
 # Skill 语义检索配置 (RFC-005)
 skill:

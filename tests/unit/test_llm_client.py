@@ -57,6 +57,37 @@ async def test_llm_chat_completions_success(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_chat_payload_enables_deep_thinking(monkeypatch: pytest.MonkeyPatch) -> None:
+    """请求体按 DeepSeek 官方格式显式开启深度思考, 不再发送被忽略的 enable_thinking."""
+    from riskagent_backend.llm.llm_client import LlmClient
+
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+
+    captured: dict[str, Any] = {}
+
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(return_value={
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+    })
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=None)
+
+    def capture_post(url, **kwargs):
+        captured["json"] = kwargs.get("json", {})
+        return mock_response
+
+    mock_session = MagicMock()
+    mock_session.post = capture_post
+
+    client = LlmClient(http_client=mock_session, base_url="https://api.example.com/v1")
+    await client.chat_completions(messages=[{"role": "user", "content": "hi"}], use_cache=False)
+
+    assert captured["json"]["thinking"] == {"type": "enabled"}
+    assert "enable_thinking" not in captured["json"]
+
+
+@pytest.mark.asyncio
 async def test_llm_chat_completions_non_2xx(monkeypatch: pytest.MonkeyPatch) -> None:
     from riskagent_backend.llm.llm_client import LLMError
     from riskagent_backend.llm.llm_client import LlmClient

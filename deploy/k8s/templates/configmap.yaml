@@ -27,11 +27,12 @@ data:
   MEMORY_TTL_S: {{ .Values.memory.ttl | default "86400" | quote }}
   MEMORY_MAX_LEN: {{ .Values.memory.maxLen | default "2000" | quote }}
   HITL_AUTO_APPROVE: {{ .Values.hitl.autoApprove | default "false" | quote }}
-  LLM_BASE_URL: {{ .Values.llm.baseUrl | default "https://openrouter.ai/api/v1" | quote }}
-  LLM_MODEL: {{ .Values.llm.model | default "deepseek/deepseek-v4-pro" | quote }}
+  LLM_BASE_URL: {{ .Values.llm.baseUrl | default "https://api.deepseek.com" | quote }}
+  LLM_MODEL: {{ .Values.llm.model | default "deepseek-v4-flash" | quote }}
   LLM_HTTP_REFERER: {{ .Values.llm.httpReferer | default "" | quote }}
   LLM_APP_TITLE: {{ .Values.llm.appTitle | default "" | quote }}
-  LLM_EMBEDDING_MODEL: {{ .Values.llm.embeddingModel | default "text-embedding-3-small" | quote }}
+  LLM_EMBEDDING_MODEL: {{ .Values.llm.embeddingModel | default "BAAI/bge-m3" | quote }}
+  LLM_EMBEDDING_BASE_URL: {{ .Values.llm.embeddingBaseUrl | default "" | quote }}
   CHROMA_SKILLS_COLLECTION: {{ .Values.chroma.skillsCollection | default "riskagent-skills" | quote }}
   SKILL_QUERY_REWRITE_ENABLED: {{ .Values.skill.queryRewriteEnabled | default "true" | quote }}
   SKILL_QUERY_REWRITE_TIMEOUT: {{ .Values.skill.queryRewriteTimeout | default "3.0" | quote }}

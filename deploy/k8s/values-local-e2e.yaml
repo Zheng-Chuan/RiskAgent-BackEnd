@@ -59,11 +59,12 @@ chroma:
   skillsCollection: riskagent-skills
 
 llm:
-  baseUrl: https://openrouter.ai/api/v1
-  model: deepseek/deepseek-v4-pro
+  baseUrl: https://api.deepseek.com
+  model: deepseek-v4-flash
   httpReferer: http://127.0.0.1:4174
   appTitle: RiskAgent Local E2E
-  embeddingModel: text-embedding-3-small
+  embeddingModel: BAAI/bge-m3
+  embeddingBaseUrl: https://api.siliconflow.cn/v1
 
 skill:
   queryRewriteEnabled: "true"

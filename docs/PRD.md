@@ -121,7 +121,7 @@
 | FR-7 | 系统必须支持 trace 回放 | [Phase 1](./phases/phase-1-execution-loop.md) |
 | FR-8 | 系统必须支持基于真实行为事件的评测 | [Phase 4](./phases/phase-4-evaluation.md) |
 | FR-9 | Skill 必须支持向量库存储与远程模型语义检索 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
-| FR-10 | Skill 检索必须通过远程调用 OpenRouter 模型计算语义相似度 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| FR-10 | Skill 检索必须通过远程调用 embedding 模型（硅基流动 BAAI/bge-m3）计算语义相似度 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | FR-11 | 每个 Skill 必须包含一句话摘要字段，用于与 task 描述做语义比对 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | FR-12 | BDI 监控循环中同一信念不得重复生成意图，已处理的信念必须被标记跳过 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | FR-13 | `add_intention` 必须对相同 description+tool_params 的 pending 意图做内容去重 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |

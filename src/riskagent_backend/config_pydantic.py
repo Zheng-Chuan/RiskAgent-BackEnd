@@ -60,13 +60,21 @@ class Settings(BaseSettings):
     # ---- LLM 配置 ----
     llm_api_key: str = Field(default="", description="LLM API Key")
     llm_base_url: str = Field(default="", description="LLM API 基础 URL")
-    llm_model: str = Field(default="deepseek/deepseek-v4-flash", description="LLM 模型名称")
+    llm_model: str = Field(default="deepseek-v4-flash", description="LLM 模型名称")
     llm_http_referer: str = Field(default="", description="LLM HTTP-Referer (可选)")
     llm_app_title: str = Field(default="", description="LLM X-Title (可选)")
     llm_resolve_ip: str = Field(default="", description="LLM API 固定 IP (可选)")
     llm_embedding_model: str = Field(
-        default="text-embedding-3-small",
-        description="LLM embedding 模型名称 (经 OpenRouter 调用, 默认 1536 维)",
+        default="BAAI/bge-m3",
+        description="LLM embedding 模型名称 (默认 BAAI/bge-m3, 1024 维, 经硅基流动调用)",
+    )
+    llm_embedding_base_url: str = Field(
+        default="",
+        description="embedding 专用 Base URL;为空时回退 LLM_BASE_URL。DeepSeek 官方无 embeddings 端点,需独立指向支持 embedding 的供应商",
+    )
+    llm_embedding_api_key: str = Field(
+        default="",
+        description="embedding 专用 API Key;为空时回退 LLM_API_KEY",
     )
 
     # ---- MySQL 配置 ----

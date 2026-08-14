@@ -1,9 +1,10 @@
 """LLM 客户端.
 
 说明:
-- 统一封装 Chat Completions 调用,当前项目默认对接 OpenRouter
+- 统一封装 Chat Completions 调用,当前项目默认对接 DeepSeek 官方 API
 - 仅负责 HTTP 调用与错误封装, 不包含业务逻辑
 - 支持固定 IP 解析(绕过 DNS 故障节点)
+- embedding 使用独立端点 (DeepSeek 官方无 embeddings 端点, 见 config.get_llm_embedding_base_url)
 """
 
 from __future__ import annotations
@@ -37,8 +38,9 @@ class LLMError(RuntimeError):
         return f"{self.code}{sc}: {self.message}"
 
 
-def _build_headers(host_header: Optional[str] = None) -> dict[str, str]:
-    api_key = config.get_llm_api_key()
+def _build_headers(host_header: Optional[str] = None, api_key: Optional[str] = None) -> dict[str, str]:
+    if api_key is None:
+        api_key = config.get_llm_api_key()
     headers: dict[str, str] = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -198,7 +200,8 @@ class LlmClient:
             "model": used_model,
             "messages": messages,
             "temperature": float(temperature),
-            "enable_thinking": False,
+            # DeepSeek 官方格式: 显式开启深度思考 (历史参数 enable_thinking 会被官方 API 忽略)
+            "thinking": {"type": "enabled"},
         }
         if max_tokens is not None:
             payload["max_tokens"] = int(max_tokens)
@@ -336,7 +339,10 @@ class LlmClient:
         """
         调用 Embedding API 生成语义向量.
 
-        RFC-005 需求二: 经 OpenRouter 调用 text-embedding-3-small (1536 维).
+        RFC-005 需求二: embedding (1536 维).
+        DeepSeek 官方无 embeddings 端点, 故此处使用独立的 embedding
+        Base URL / API Key (config.get_llm_embedding_base_url / _api_key),
+        未配置时回退主 LLM_BASE_URL / LLM_API_KEY.
         复用与 chat_completions 相同的超时、重试、成本追踪逻辑.
 
         参数:
@@ -367,10 +373,10 @@ class LlmClient:
         # 应用 DNS 补丁(固定 IP)
         self._apply_dns_patch()
 
-        # 准备 URL 和 headers
-        url = f"{self._base_url}/embeddings"
+        # 准备 URL 和 headers (embedding 使用独立端点, 回退主 Base URL)
+        url = f"{config.get_llm_embedding_base_url()}/embeddings"
         host_header = self._patched_host if self._resolve_ip else None
-        headers = _build_headers(host_header=host_header)
+        headers = _build_headers(host_header=host_header, api_key=config.get_llm_embedding_api_key())
 
         client = self._http_client
         should_close = False

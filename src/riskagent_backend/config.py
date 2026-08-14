@@ -93,7 +93,7 @@ def get_llm_api_key() -> str:
     """
     获取 LLM API Key.
     必须设置 LLM_API_KEY 环境变量.
-    当前项目默认使用 OpenRouter 的 API Key.
+    当前项目默认使用 DeepSeek 官方 API Key.
 
     异常:
         ValueError: 如果未设置 LLM_API_KEY.
@@ -105,7 +105,7 @@ def get_llm_api_key() -> str:
 
 
 def get_llm_base_url() -> str:
-    """获取 LLM 主机 Base URL. 当前项目默认使用 OpenRouter."""
+    """获取 LLM 主机 Base URL. 当前项目默认使用 DeepSeek 官方 API."""
     value = (get_settings().llm_base_url or "").strip().rstrip("/")
     if not value:
         raise ValueError("LLM_BASE_URL is not set")
@@ -113,9 +113,9 @@ def get_llm_base_url() -> str:
 
 
 def get_llm_model() -> str:
-    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 deepseek/deepseek-v4-flash."""
+    """获取 LLM 模型 ID;优先读 LLM_MODEL,默认 deepseek-v4-flash (DeepSeek 官方)."""
     value = (get_settings().llm_model or "").strip()
-    return value or "deepseek/deepseek-v4-flash"
+    return value or "deepseek-v4-flash"
 
 
 def get_llm_http_referer() -> str:
@@ -139,12 +139,32 @@ def get_llm_resolve_ip() -> str:
 
 
 def get_llm_embedding_model() -> str:
-    """获取 LLM embedding 模型名称;优先读 LLM_EMBEDDING_MODEL,默认 text-embedding-3-small.
+    """获取 LLM embedding 模型名称;优先读 LLM_EMBEDDING_MODEL,默认 BAAI/bge-m3.
 
-    用于 RFC-005 需求二: 通过 OpenRouter 调用 text-embedding-3-small (1536 维).
+    用于 RFC-005 需求二: embedding (BAAI/bge-m3, 1024 维).
     """
     value = (get_settings().llm_embedding_model or "").strip()
-    return value or "text-embedding-3-small"
+    return value or "BAAI/bge-m3"
+
+
+def get_llm_embedding_base_url() -> str:
+    """获取 embedding 专用 Base URL;未设置时回退到主 LLM_BASE_URL.
+
+    DeepSeek 官方 API 不提供 embeddings 端点, 故 embedding 需独立指向
+    支持 embedding 的供应商 (如 OpenRouter); 未配置时回退主 Base URL.
+    """
+    value = (get_settings().llm_embedding_base_url or "").strip().rstrip("/")
+    if value:
+        return value
+    return get_llm_base_url()
+
+
+def get_llm_embedding_api_key() -> str:
+    """获取 embedding 专用 API Key;未设置时回退到主 LLM_API_KEY."""
+    value = (get_settings().llm_embedding_api_key or "").strip()
+    if value:
+        return value
+    return get_llm_api_key()
 
 
 # ---- Knowledge ----
@@ -379,6 +399,8 @@ __all__ = [
     "get_llm_app_title",
     "get_llm_resolve_ip",
     "get_llm_embedding_model",
+    "get_llm_embedding_base_url",
+    "get_llm_embedding_api_key",
     "get_knowledge_db_path",
     "get_chroma_host",
     "get_chroma_port",

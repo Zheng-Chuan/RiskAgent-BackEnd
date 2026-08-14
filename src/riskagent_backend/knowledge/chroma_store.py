@@ -137,20 +137,47 @@ class ChromaVectorStore:
     ) -> None:
         """写入或更新 Skill 向量到 riskagent-skills collection.
 
-        embedding 由外部 LLMClient.embed() 生成 (1536 维),
+        embedding 由外部 LLMClient.embed() 生成 (当前 BAAI/bge-m3 为 1024 维),
         非内部 embed_text_dense 计算.
+
+        维度自愈: embedding 模型切换导致维度变化 (如 1536→1024) 时,
+        旧 collection 与新向量维度不匹配, 删除并重建 collection 后重试一次.
+        向量可从 MySQL 源数据经 restore_from_persistence() 全量重建, 无数据损失.
         """
         started = time.monotonic()
         col = self._skills_collection()
-        col.upsert(
-            ids=[skill_id],
-            documents=[document],
-            metadatas=[metadata],
-            embeddings=[embedding],
-        )
+        try:
+            col.upsert(
+                ids=[skill_id],
+                documents=[document],
+                metadatas=[metadata],
+                embeddings=[embedding],
+            )
+        except Exception as exc:  # noqa: BLE001 - 维度错误需自愈重试
+            if "dimension" not in str(exc).lower():
+                raise
+            self._reset_skills_collection(reason=str(exc))
+            col = self._skills_collection()
+            col.upsert(
+                ids=[skill_id],
+                documents=[document],
+                metadatas=[metadata],
+                embeddings=[embedding],
+            )
         skills_name = config.get_chroma_skills_collection()
         observe_ms("rm_chroma_upsert", (time.monotonic() - started) * 1000.0, labels={"collection": skills_name})
         inc_counter("rm_chroma_upserts_total", labels={"collection": skills_name})
+
+    def _reset_skills_collection(self, *, reason: str) -> None:
+        """删除并重建 riskagent-skills collection (维度不匹配时的自愈路径)."""
+        client = self._client()
+        skills_name = config.get_chroma_skills_collection()
+        try:
+            client.delete_collection(skills_name)
+        except Exception:  # noqa: BLE001 - collection 不存在时忽略
+            pass
+        inc_counter("rm_chroma_collection_resets_total", labels={"collection": skills_name, "reason": "dimension_mismatch"})
+        _ = reason  # 保留 reason 参数便于后续接入日志/告警
 
     def query_skills(
         self,

@@ -215,7 +215,7 @@ A: 多 Agent 架构在实际运营中具备成本优势：
 | 错误恢复 | 失败即重跑全流程 | 需人工干预 | step 级重试 + 局部 replan |
 | 长期趋势 | 成本随复杂度线性增长 | 维护成本指数增长 | Skill 复用减少重复推理，成本递减 |
 
-关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测降低 48.40% token 消耗（远超 20% 目标）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。默认配置模型为 deepseek/deepseek-v4-pro（config_pydantic.py 默认值），Phase 10 验证使用 deepseek/deepseek-chat。生产部署时应根据实际需求选择模型。
+关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测降低 48.40% token 消耗（远超 20% 目标）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。当前 Chat 默认配置为 DeepSeek 官方 API `deepseek-v4-flash`（config_pydantic.py 默认值，显式开启深度思考），embedding 走硅基流动 `BAAI/bge-m3`（DeepSeek 官方无 embeddings 端点）。生产部署时应根据实际需求选择模型。
 
 ---
 

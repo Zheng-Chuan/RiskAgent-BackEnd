@@ -44,7 +44,7 @@ help:
 	@echo "make eval-compare     - Compare two runs, usage: make eval-compare BASE=run1 CAND=run2"
 	@echo "make eval-gate        - Apply quality gate, usage: make eval-gate RUN_TAG=run1"
 	@echo "make eval-prompt-benchmark - Run Phase 8 one-shot prompt layering benchmark"
-	@echo "make check-llm        - Verify OpenRouter LLM connection (.env: LLM_API_KEY)"
+	@echo "make check-llm        - Verify LLM connection (DeepSeek 官方 API, .env: LLM_API_KEY)"
 
 install:
 	pip install -r requirements.txt

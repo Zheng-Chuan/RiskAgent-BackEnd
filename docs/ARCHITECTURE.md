@@ -1946,7 +1946,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 **Redis 不存储 Skill**：与记忆模块不同,Skill 不用 Redis,直接走 MySQL 持久化。
 
 **Phase 11 升级（RFC-005 Implemented）**：
-- 向量库从进程内 `SemanticIndexer`（词袋模型,128 维）升级为 Chroma `riskagent-skills` collection（text-embedding-3-small, 1536 维远程 embedding）
+- 向量库从进程内 `SemanticIndexer`（词袋模型,128 维）升级为 Chroma `riskagent-skills` collection（远程 embedding：初期 text-embedding-3-small/1536 维，2026-08 切换为硅基流动 BAAI/bge-m3/1024 维）
 - MySQL `skill_store` 表新增 `summary` 列,存储 LLM 生成的一句话摘要
 - Embedding 基于 `summary` 字段生成（而非全字段拼接）,提升语义密度
 - 检索采用 Hybrid 模式：向量 ANN 检索 + BM25 关键词加权合并 (α=0.7)
@@ -2040,9 +2040,9 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 
 **Phase 11 升级（RFC-005 Implemented）**：
 - **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
-- **Hybrid 检索**：向量 ANN 检索（Chroma, 1536 维）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化
+- **Hybrid 检索**：向量 ANN 检索（Chroma, 当前 1024 维 BAAI/bge-m3）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化
 - **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
-- **Fallback 降级**：OpenRouter 余额不足（402）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
+- **Fallback 降级**：embedding 供应商不可用（如 OpenRouter 402 余额不足）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
 
 **关键设计**：
 - **max_skills=3**：防止 prompt 膨胀
@@ -2856,7 +2856,7 @@ TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑�
 <a id="section-11-2"></a>
 ## 11.2 cost_model.py 定价表
 
-[cost_model.py](../src/riskagent_backend/governance/cost_model.py) 内置 OpenRouter 定价表：
+[cost_model.py](../src/riskagent_backend/llm/cost_model.py) 内置模型定价表（含 DeepSeek 官方模型名与 OpenRouter 格式）：
 
 - 按 `model_name` 查询 `prompt_price_per_1k` 和 `completion_price_per_1k`
 - 支持 USD 和 CNY 双币种换算
@@ -2900,7 +2900,7 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 | 缺点 | 风险等级 | 说明 |
 |------|---------|------|
 | **纯内存存储** | 中 | TokenTracker 和 CostCircuitBreaker 数据存储在内存中，服务重启后丢失统计数据 |
-| **定价表需手动更新** | 低 | OpenRouter 定价变更时需手动更新 cost_model.py |
+| **定价表需手动更新** | 低 | 供应商定价变更时需手动更新 cost_model.py |
 | **预估精度依赖历史数据** | 低 | 新部署时无历史数据，预估精度较低 |
 
 <a id="section-12"></a>
