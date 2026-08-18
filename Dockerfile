@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     gcc \
+    g++ \
     default-libmysqlclient-dev \
     pkg-config \
     && arch="$(dpkg --print-architecture)" \
