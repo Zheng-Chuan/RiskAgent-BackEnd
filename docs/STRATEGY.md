@@ -203,6 +203,10 @@ Phase 11 [Implemented 2026-08-08] → Skill 语义检索升级全部完成（RFC
 
 扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent。
 
+#### 治理与能力追赶路线（RFC-007）
+
+下一阶段以**治理可信度**为生产准入门槛（分级审批 + 独立验证器 + 可回滚 + pass^k 一致性 + 注入防御，五项不齐不上生产），分三阶段推进（已立项，未实施，见 [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md)）：**P0** 治理五项达标（约 2-3 周）→ **P1** checkpoint 持久化 / 记忆冲突消解 / 轨迹级评测 / 自我改进科学路径 / sleep-time 维护（约 2-3 周）→ **P2** A2A 适配器与 CheckpointStore 可插拔抽象（约 1 周）。每项能力按 off → shadow → enforce 三态灰度，无验证收益不转 enforce（MAST 闸门）。
+
 ### Q: 与竞品（如单一 LLM Agent、规则引擎）的成本对比？
 
 A: 多 Agent 架构在实际运营中具备成本优势：

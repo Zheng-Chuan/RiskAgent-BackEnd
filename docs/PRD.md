@@ -86,6 +86,7 @@
 | Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
 | Phase 14 | 性能验证与 LLM 成本模型 | ✓ 已完成 — LLM 成本模型 4 Checkpoint 完成，37 测试通过（test_cost_model 24 + test_cost_report 13，2026-08-07）；方向二十一（系统压测）、方向二十二（SLO 定义）已取消 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
+| Phase 15 | 治理与能力追赶（RFC-007） | 已立项，未实施 | [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md) |
 
 ---
 

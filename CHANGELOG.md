@@ -4,6 +4,15 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-18: RFC-007 立项 — 治理与能力追赶路线（Accepted, Not Implemented）
+
+### Added
+
+- 新增 `docs/decisions/RFC-007-governance-trust-production-readiness.md`：治理可信度五项准入门槛（分级审批 / 独立验证器 / 可回滚 / pass^k 一致性 / 注入防御）+ P0/P1/P2 追赶路线 + 三态灰度策略 + 性能预算表 + MAST 闸门
+- 同步更新 PRD（Phase 15 立项行）/ STRATEGY（扩展路径小节）/ README（下一阶段）/ ARCHITECTURE（§7.7 规划演进）/ .env.example（规划 flag 注释预告）
+
+> 本条目为**决策立项**，非代码实施。治理五项均为 Not Implemented，相关 feature flag 全部为规划中，实施时才引入代码。
+
 ## 2026-08-18: 文档体系全量诚实性修复（二轮）+ 基础设施配置修正
 
 ### Changed

@@ -152,3 +152,4 @@ make k8s-uninstall
 - **Phase 12**: BDI 信念去重与意图幂等性修复 — ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07），双层去重防护（信念层 + 意图层），RFC-006 Accepted, Implemented
 - **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9/9 API 端点 + 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
 - **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消
+- 下一阶段：治理五项（分级审批/独立验证器/可回滚/pass^k/注入防御），见 docs/decisions/RFC-007（已立项，未实施）

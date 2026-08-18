@@ -2470,6 +2470,8 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 - **审批可追溯**：`approval_trace` 记录完整的状态转换历史
 - **预算隔离**：`tool_call_limit` 和 `side_effect_limit` 分别计数，防止 side_effect 工具消耗过多预算
 
+**规划演进**（未实施）：分级审批（复用风险等级枚举的分级处方）、独立验证器（确定性层先行 + HIGH 级可选 LLM 裁决）与可回滚（rollback journal + 软语义补偿）已立项，见 [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md)（Accepted, Not Implemented）。
+
 <a id="section-7-8"></a>
 ## 7.8 MCP Resources 与 Prompts
 
