@@ -52,6 +52,8 @@ redis:
 # ChromaDB 配置
 chroma:
   host: chroma
+  # 指向外部 Chroma（非本 chart 部署）时必须显式设置 chroma.port；
+  # CHROMA_PORT 模板回退默认为 8000（集群内 Service 端口）
   port: "8000"
   collection: riskagent-alerts
   memoryCollection: riskagent-memory

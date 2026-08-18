@@ -4,6 +4,20 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-18: 文档体系全量诚实性修复（二轮）+ 基础设施配置修正
+
+### Changed
+
+- ARCHITECTURE.md 按当前代码全量重写，章节重编号（commit 60d96f4）
+- docker-compose 补全 LLM embedding 变量（LLM_EMBEDDING_BASE_URL / LLM_EMBEDDING_API_KEY）
+- K8s 模板修正（configmap/secrets/values 对齐新网关与端口约定）
+
+### 用户可见变更说明
+
+- ConfigMap CHROMA_PORT 回退默认值 8001→8000：指向外部 Chroma（非本 chart 部署）的 helm 用户必须显式设置 chroma.port
+- ARCHITECTURE.md 章节重编号映射表：旧 10（REST BFF）→ 新 9、旧 11（LLM 成本治理）→ 新 10、旧 12（评估体系）→ 新 11，供外部链接维护者对照
+- .env.example MYSQL_PORT 更正为 3307：宿主直跑应用请用 3307，容器内流程不受影响
+
 ## 2026-08-18: CI Docker 构建修复
 
 ### Fixed
@@ -17,6 +31,17 @@
 - K8s Chroma 镜像版本对齐 0.5.23，与客户端 chromadb 版本统一（commit f58b8a6）
 - requirements.txt chromadb 升至 >=0.5.23,<0.6（此前 pin 0.5.0）
 - 清除集成测试中过时的 OpenRouter 注释
+
+## 2026-08-14: LLM 网关切换 — Chat 切 DeepSeek 官方 API, embedding 切硅基流动
+
+### Changed
+
+- Chat 链路从 OpenRouter（deepseek/deepseek-v4-flash）切换到 DeepSeek 官方 API（https://api.deepseek.com, deepseek-v4-flash），OpenRouter key 完全移除
+- 请求体按 DeepSeek 官方格式显式开启深度思考（`thinking: {"type": "enabled"}`），替代被官方 API 忽略的 `enable_thinking` 参数
+- embedding 链路切换到硅基流动 SiliconFlow（BAAI/bge-m3, 1024 维）：DeepSeek 官方无 embeddings 端点；硅基流动不提供 text-embedding-3-small
+- 新增配置 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY`（为空时回退主 LLM 配置），K8s configmap/secrets 同步注入
+- cost_model.py 新增 DeepSeek 官方模型名（无供应商前缀）定价条目与 BAAI/bge-m3 免费条目
+- K8s values/configmap/secrets 全部切到新网关；Chroma Skill 向量索引维度 1536→1024，启动时自动重建（代码无维度硬约束）（commit 06ea0ab）
 
 ## 2026-08-13: Phase 14 方向取消 + 测试修复
 
@@ -66,16 +91,9 @@
 - workflow 阶段数据 TypedDict 契约（commit d5f49df）
 - orchestration 契约针对性 mypy gate（commit f1f5089）
 
-## 2026-08-14: LLM 网关切换 — Chat 切 DeepSeek 官方 API, embedding 切硅基流动
+### Chores
 
-### Changed
-
-- Chat 链路从 OpenRouter（deepseek/deepseek-v4-flash）切换到 DeepSeek 官方 API（https://api.deepseek.com, deepseek-v4-flash），OpenRouter key 完全移除
-- 请求体按 DeepSeek 官方格式显式开启深度思考（`thinking: {"type": "enabled"}`），替代被官方 API 忽略的 `enable_thinking` 参数
-- embedding 链路切换到硅基流动 SiliconFlow（BAAI/bge-m3, 1024 维）：DeepSeek 官方无 embeddings 端点；硅基流动不提供 text-embedding-3-small
-- 新增配置 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY`（为空时回退主 LLM 配置），K8s configmap/secrets 同步注入
-- cost_model.py 新增 DeepSeek 官方模型名（无供应商前缀）定价条目与 BAAI/bge-m3 免费条目
-- K8s values/configmap/secrets 全部切到新网关；Chroma Skill 向量索引维度 1536→1024，启动时自动重建（代码无维度硬约束）（commit 06ea0ab）
+- 死代码清理（validation shell / 未引用 agent schemas）、pytest warning filters 清理、logging 惰性格式化（commits 76bc85f / 5a4ab53 / b50d831）
 
 ## 2026-08-10: 文档诚实性全量修复
 

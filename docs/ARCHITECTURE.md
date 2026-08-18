@@ -467,7 +467,7 @@ if step_approval_result is not None:
 中断恢复通过 `resume_request` 进入主流程（见主流程图的 resume 路径）：
 
 ```python
-# proactive_workflow.py:510-514
+# orchestration/workflow_resume.py（resume 入口解析）
 execution_state = resume_request.get("execution_state")
 resume_from_step_id = (
     resume_request.get("resume_from_step_id")
@@ -593,7 +593,7 @@ resume_history.insert(0, {
 CriticAgent 在 plan_review 阶段拒绝 OrchestratorAgent 的计划时，触发重规划：
 
 ```python
-# proactive_workflow.py:565-604
+# orchestration/workflow_planning.py（critic 拒绝触发重规划）
 if should_replan(critic_result.output):
     # 1. 让 OrchestratorAgent 在 replan 上下文中重新规划
     replan_result = await self._orchestrator_agent.orchestrate(
@@ -630,7 +630,7 @@ if should_replan(critic_result.output):
 执行过程中也可能触发运行时重规划（`_maybe_runtime_replan`）：
 
 ```python
-# proactive_workflow.py:672-687
+# orchestration/workflow_execution.py（_maybe_runtime_replan）
 runtime_replan = await self._maybe_runtime_replan(
     task=task, intent_result=intent_result,
     execution_result=execution_result,
@@ -1490,7 +1490,7 @@ steps_summary = "\n".join([
 
 **② `working_memory` — 执行过程记忆**
 
-写入时机：TaskGraphExecutor 每完成一个 node 后写入。写入逻辑在 [memory_operations.py:32-126](../src/riskagent_backend/memory/memory_operations.py)，记录 `step_id`、`kind`（tool_call/delegate/...）、`status`（completed/failed）、`tool_name`、`target_agent`、`error` 等执行上下文。同步写入 shared 和 private 两条（私有条目 `kind="private_task_state"`）。
+写入时机：TaskGraphExecutor 每完成一个 node 后写入。写入逻辑在 memory_operations.py 的 [`record_working_memory`](../src/riskagent_backend/memory/memory_operations.py)，记录 `step_id`、`kind`（tool_call/delegate/...）、`status`（completed/failed）、`tool_name`、`target_agent`、`error` 等执行上下文。同步写入 shared 和 private 两条（私有条目 `kind="private_task_state"`）。
 
 ```json
 {
@@ -1521,7 +1521,7 @@ steps_summary = "\n".join([
 
 **③ `final` — 运行总结记忆**
 
-写入时机：CriticAgent 完成 `final_review` 后写入。写入逻辑在 [memory_operations.py:155-169](../src/riskagent_backend/memory/memory_operations.py)，保存 `run_summary.text`、`key_points` 和 `receipt_command_ids`。是 run 级别的最终产出快照。
+写入时机：CriticAgent 完成 `final_review` 后写入。写入逻辑在 memory_operations.py 的 [`persist_run_artifacts`](../src/riskagent_backend/memory/memory_operations.py)，保存 `run_summary.text`、`key_points` 和 `receipt_command_ids`。是 run 级别的最终产出快照。
 
 ```json
 {
@@ -1545,7 +1545,7 @@ steps_summary = "\n".join([
 
 **④ `approval` — 审批记忆**
 
-写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 [memory_operations.py:207-245](../src/riskagent_backend/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
+写入时机：审批流程中每个 approval_record 产生时写入。写入逻辑在 memory_operations.py 的 [`persist_approval_memory`](../src/riskagent_backend/memory/memory_operations.py)，保存 `approval_id`、`state`（pending/approved/rejected/expired）和完整审批记录。`trace_ref` 包含 `step_id` 和 `command_id`，支持反查到具体步骤。
 
 ```json
 {

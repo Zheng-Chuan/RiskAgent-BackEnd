@@ -575,7 +575,7 @@
 
 - `docs/decisions/RFC-001-hermes-upgrade.md` — Hermes 五柱升级提案（Skill 系统的原始 RFC）
 - `docs/phases/phase-5-skill-creation.md` — Phase 5 技能自创闭环详细 checkpoint
-- `docs/ARCHITECTURE.md` — 第 4 章 Skill 自创闭环生命周期
+- `docs/ARCHITECTURE.md` — 第 6 章 Skill 自创闭环生命周期
 - `docs/PRD.md` — 产品需求文档
 - `src/riskagent_backend/skills/skill_store.py` — Skill 存储与检索实现（需求一/四：向量库 + Hybrid 检索）
 - `src/riskagent_backend/skills/skill_injector.py` — Skill 注入器（需求五/六：query rewriting + summary 注入）
