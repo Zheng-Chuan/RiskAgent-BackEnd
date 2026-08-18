@@ -11,6 +11,7 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-08-18 | 初始立项。确立治理可信度五项准入门槛、三态灰度策略、P0/P1/P2 追赶路线与性能预算。状态 Accepted, Not Implemented，尚未动工实施 |
+| 2026-08-18 | 三方评审收尾（无 Critical）：§8 验收标准表补全为 DoD 基线；§2.4 HITL 消费点更正为 3 处；§4 基线成本修正为 ≈ $0.14；新增 flag 实施三处同步约定 |
 
 > **口径声明**：本 RFC 全部章节以「决策/规划」口径书写。文中所有代码锚点仅用于描述**现状缺口**，不代表对应治理能力已经实施。治理五项（分级审批 / 独立验证器 / 可回滚 / pass^k 一致性 / 注入防御）在本 RFC 立项时点均为 **Not Implemented**。
 
@@ -79,7 +80,7 @@
 | 现状锚点 | 说明 |
 |---------|------|
 | `orchestration/hitl_policy.py` | 审批为全有全无单一开关，fail-safe 默认关闭 |
-| `orchestration/node_executors.py` L180-183 | `HITL_AUTO_APPROVE` 唯一注入点 |
+| `orchestration/node_executors.py` L180-183 | `HITL_AUTO_APPROVE` 参数注入点（另有 `workflow_result_builder.py` L408 审批裁决与 `workflow_events.py` L77 requires_manual_approval 两处决策点，共 3 处消费；实施分级审批时三处须同步改造） |
 | `contracts/approval.py` L21 | `APPROVAL_RISK_LEVEL_VALUES` 枚举已存在但无分级处方 |
 | `skills/skill_reviser.py` `revision_history` | 全库无回滚能力，仅此雏形 |
 
@@ -129,7 +130,7 @@ P0 聚焦五项准入本身，目标是让治理可信度达标。各项性能�
 
 **总体预算**：治理全开后，5min 监控闭环 token 增量 ≤ 30%。
 
-> **基线**：5min ≈ 133 calls / 780K tokens ≈ $0.12（见 `cost_model.py` Phase 10 实测）。治理新增开销在此基线上核算。
+> **基线**：5min ≈ 133 calls / 780K tokens ≈ $0.14（见 `cost_model.py` Phase 10 实测；计算口径：`cost_model.py` 按 580K prompt + 200K completion × deepseek-chat 牌价计算为 $0.1372）。治理新增开销在此基线上核算。
 
 ## 5. 决策三：P1 能力增强（约 2-3 周）
 
@@ -153,6 +154,8 @@ P0 聚焦五项准入本身，目标是让治理可信度达标。各项性能�
 ## 7. 规划中的 feature flag 清单
 
 > 下表全部为**规划中** flag。实施时才引入代码，遵循 `config_pydantic.py` 默认关闭惯例。立项时点这些 flag 在代码中均不存在。
+>
+> **实施约定**：实施任一 flag 时须同步更新 `.env.example`（注释块转生效变量）、K8s configmap（`deploy/k8s/templates/configmap.yaml`）与 `CHANGELOG.md` 三处，保持口径回灌。
 
 | flag 名 | 默认值 | 所属能力 |
 |---------|--------|---------|
@@ -173,7 +176,21 @@ P0 聚焦五项准入本身，目标是让治理可信度达标。各项性能�
 
 ## 8. 验收标准与 MAST 闸门
 
-每项能力给出可执行验收命令（pytest 新增测试文件 + 对应 eval.cli 类别运行）。实施时按此落地。
+每项能力给出可执行验收标准。下表全部为**实施时新增**的验收项（测试文件与评测用例在立项时点均不存在），验收命令在实施批次中逐项落地，此表为 DoD 基线。
+
+### 逐项验收标准
+
+| 能力 | 验收测试文件 | 验收命令 | 通过标准 |
+|------|-------------|---------|---------|
+| 分级审批（P0） | `tests/unit/test_approval_policy.py`（风险等级×capability 矩阵）+ `tests/workflows/test_approval_resume_workflow_regression.py` | `pytest tests/unit/test_approval_policy.py`；`PYTHONPATH=src python -m eval.cli run --category approval`；`pytest tests/workflows/test_approval_resume_workflow_regression.py` | 矩阵测试全绿；approval 通过率不降；审批恢复工作流零回归 |
+| 独立验证器（P0） | `tests/unit/test_independent_verifier.py` + `eval/benchmarks/safety/` 新增"验证器拦截假成功"用例 | `pytest tests/unit/test_independent_verifier.py`；`PYTHONPATH=src python -m eval.cli run --category safety` | 假成功用例被验证器全部拦截；safety 类通过率不降 |
+| 可回滚（P0） | `tests/unit/test_rollback_registry.py` + `tests/workflows/` 新增回滚工作流回归测试 | `pytest tests/unit/test_rollback_registry.py tests/workflows/` | journal 登记 / 补偿执行测试全绿；回滚工作流回归零失败 |
+| pass^k 一致性（P0） | `tests/unit/test_eval_pass_k.py`（含 k=1 退化等价性） | `pytest tests/unit/test_eval_pass_k.py`；`PYTHONPATH=src python -m eval.cli run --category simple --limit 5 --repeat 3` | k=1 与现有行为完全等价；报告含 pass^k 字段 |
+| 注入防御（P0） | `tests/unit/test_input_guard.py` + injection 评测基准 ≥20 条 | `pytest tests/unit/test_input_guard.py`；`PYTHONPATH=src python -m eval.cli run --category injection` | 注入拦截率 ≥ 90% 且 simple/medium 通过率不降（双向指标，见下表） |
+| checkpoint 持久化（P1） | `tests/integration/test_checkpoint_recovery.py` | `pytest tests/integration/test_checkpoint_recovery.py` | kill 进程后恢复成功率 100% |
+| 记忆冲突消解（P1） | `tests/unit/test_conflict_resolver.py` | `pytest tests/unit/test_conflict_resolver.py` | 冲突消解正确率 ≥ 90% |
+| 轨迹级评测（P1） | `tests/unit/test_eval_trajectory.py` + 存量 trace 抽样跑分报告 | `pytest tests/unit/test_eval_trajectory.py` | trajectory 子命令测试全绿；存量 run_trace 抽样跑分报告产出 |
+| A2A 协议适配器（P2） | `tests/integration/test_a2a_gateway.py` | `pytest tests/integration/test_a2a_gateway.py` | A2A 关闭时与现有行为零差异 |
 
 ### 双向指标示例
 

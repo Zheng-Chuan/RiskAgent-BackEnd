@@ -105,6 +105,7 @@
 | K8s 全量迁移 | Accepted, Implemented | [RFC-004](./decisions/RFC-004-k8s-migration.md) |
 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary + Hybrid + Query Rewrite + skill_view） | Accepted, Implemented | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | BDI 信念去重与意图幂等性修复 | Accepted, Implemented | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| 治理与能力追赶路线（治理可信度生产准入） | Accepted, Not Implemented | [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md) |
 | LLM 成本模型与三级熔断 | Implemented | [Phase 14 方向二十](./phases/phase-14-performance-verification.md) |
 
 ---
