@@ -25,8 +25,8 @@ spec:
     spec:
       containers:
         - name: chroma
-          # 固定版本，避免使用 latest
-          image: "{{ .Values.global.imageRegistry }}chromadb/chroma:0.5.23"
+          # 固定版本，避免使用 latest (默认 0.5.23, 可经 .Values.chroma.image 覆盖)
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.chroma.image | default "chromadb/chroma:0.5.23" }}"
           imagePullPolicy: IfNotPresent
           ports:
             - name: chroma

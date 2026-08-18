@@ -193,8 +193,9 @@ class Settings(BaseSettings):
     def redis_url_override(self) -> str:
         """显式配置的 REDIS_URL.
 
-        仅读取进程环境变量, 不读取 .env 文件 (保持历史 ``os.getenv``
-        语义: 历史上消费方未 ``load_dotenv``, .env 中的 REDIS_URL 不生效).
+        读取进程环境变量 ``REDIS_URL``。注意: 服务入口 ``server.py``
+        启动时会 ``load_dotenv`` 加载项目根目录 ``.env``, 因此
+        ``.env`` 中的 REDIS_URL 同样生效。
         """
         return (os.getenv("REDIS_URL") or "").strip()
 

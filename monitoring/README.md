@@ -6,21 +6,21 @@
 
 ```bash
 # 只启动 Prometheus 和 Grafana
-docker-compose --profile monitoring up -d prometheus grafana
+docker compose --profile monitoring up -d prometheus grafana
 
 # 或者启动所有服务 (包括监控)
-docker-compose --profile monitoring up -d
+docker compose --profile monitoring up -d
 ```
 
 ### 访问服务
 
 - **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin)
+- **Grafana**: http://localhost:3000 (用户名 `admin`, 密码为 compose 默认值 `A5aIGZZdwSkRQeCxhkciBA`, 可经环境变量 `GF_SECURITY_ADMIN_PASSWORD` 覆盖)
 
 ### 停止监控
 
 ```bash
-docker-compose --profile monitoring stop prometheus grafana
+docker compose --profile monitoring stop prometheus grafana
 ```
 
 ## 资源限制
@@ -46,7 +46,8 @@ docker-compose --profile monitoring stop prometheus grafana
 ### Grafana 配置
 
 - 数据源自动配置：`monitoring/grafana/provisioning/datasources/prometheus.yml`
-- 默认用户名/密码：`admin/admin`
+- 默认用户名：`admin`（compose 硬编码 `GF_SECURITY_ADMIN_USER: admin`，仅密码可覆盖）
+- 默认密码：`A5aIGZZdwSkRQeCxhkciBA`（可经环境变量 `GF_SECURITY_ADMIN_PASSWORD` 覆盖）
 
 ## 监控指标
 
@@ -117,7 +118,7 @@ rate(llm_tokens_total[5m])
 curl http://localhost:8000/metrics
 
 # 检查 Prometheus 配置
-docker-compose exec prometheus cat /etc/prometheus/prometheus.yml
+docker compose exec prometheus cat /etc/prometheus/prometheus.yml
 
 # 重新加载 Prometheus 配置
 curl -X POST http://localhost:9090/-/reload
@@ -127,10 +128,10 @@ curl -X POST http://localhost:9090/-/reload
 
 ```bash
 # 检查 Prometheus 是否运行
-docker-compose ps prometheus
+docker compose ps prometheus
 
 # 检查网络连接
-docker-compose exec grafana ping prometheus
+docker compose exec grafana ping prometheus
 ```
 
 ## 环境变量
@@ -138,14 +139,14 @@ docker-compose exec grafana ping prometheus
 可以通过 `.env` 文件配置:
 
 ```bash
-# 修改默认密码
-GF_SECURITY_ADMIN_USER=your_user
+# 修改 Grafana 默认密码 (compose 硬编码用户名 admin, 仅密码可覆盖)
 GF_SECURITY_ADMIN_PASSWORD=your_password
-
-# 修改 Prometheus 保留策略
-PROMETHEUS_RETENTION_DAYS=14
-PROMETHEUS_RETENTION_SIZE=4GB
 ```
+
+> 注: Prometheus 保留策略目前在 compose 文件 / K8s 模板中硬编码为
+> 7 天 / 2GB (`--storage.tsdb.retention.time=7d`, `--storage.tsdb.retention.size=2GB`)，
+> 不存在 `PROMETHEUS_RETENTION_DAYS` / `PROMETHEUS_RETENTION_SIZE` 环境变量，
+> 如需调整请直接修改 compose / Helm 模板中的启动参数。
 
 ## 生产环境建议
 

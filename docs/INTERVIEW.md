@@ -2,7 +2,7 @@
 
 本文件整理了针对 RiskAgent-BackEnd 项目的高压面试问题与参考答案.
 
-关联架构文档: [ARCHITECTURE.md](../ARCHITECTURE.md)
+关联架构文档: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 这不是八股文.
 这是从资深面试官视角出发, 专门拷打你是否真的做过这个项目, 是否真的理解 `TaskGraph` `ToolExecutor` `Memory` `Approval` `Trace` `Benchmark` 的一份问答手册.
@@ -491,7 +491,7 @@
 
 3. 有运行中写入
    - step 完成写 `working_memory`
-   - run 完成写 `summary` 和 `lesson`
+   - run 完成写 `run_summary`；长期经验沉淀由 Skill 系统承担（SkillProposer 把高质量 run 提炼为 Skill，见 ARCHITECTURE §5.3 / §6）
 
 4. 有恢复路径
    - `resume` 时回灌 `memory_state` 和 `run_summary`

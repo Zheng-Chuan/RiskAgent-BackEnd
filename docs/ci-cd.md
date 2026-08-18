@@ -26,7 +26,7 @@ test (单元测试) → build-and-deploy (Docker 构建 + kind 部署 + 冒烟�
 ### 2. build-and-deploy — Docker 构建 + kind 集群部署
 
 - **触发条件**：仅在 main 分支 push 时执行（PR 时跳过）
-- **前提**：需 test job 通过
+- **前提**：依赖 test job 完成（job 级 `needs: test`）；但 test job 的 pytest 步骤带 `continue-on-error: true`（容忍预存在的测试失败），因此单元测试失败不会阻断 build-and-deploy 执行
 - **镜像 Tag**：`sha-<12位 commit SHA>`，保证可追溯
 - **可选推送**：当 `vars.DOCKER_REGISTRY` 不为空时，推送到远端 registry（如 GHCR）；为空时仅本地构建，供后续 kind load 使用
 - **权限**：`packages: write`（用于 GHCR 推送）
@@ -36,8 +36,8 @@ test (单元测试) → build-and-deploy (Docker 构建 + kind 部署 + 冒烟�
   2. 使用 `helm/kind-action` 创建临时 kind 集群
   3. `kind load docker-image` 将构建好的镜像加载到 kind 节点
   4. Helm 部署：使用 `deploy/k8s/values-ci.yaml` + `--set image.tag` + `--set image.pullPolicy=Never`
-  5. `kubectl wait` 等待 mcp-server Pod 就绪
-  6. 冒烟测试：port-forward + curl 健康检查
+  5. `kubectl wait` 等待 mcp-server Pod 就绪（该步骤带 `continue-on-error`，等待超时不阻断后续流程）
+  6. 冒烟测试：port-forward + curl 健康检查（该步骤同样带 `continue-on-error` 容错语义：CI runner 资源有限，部署侧验证失败仅作告警不阻断 job 结果）
   7. 无论成功失败，输出 Pod 状态
 
 ## 扩展点

@@ -1,4 +1,6 @@
 {{/* Test Runner Job (可选) — 通过 --set testRunner.enabled=true 激活 */}}
+{{/* 诚实声明: 生产镜像不含 tests/ 目录 (.dockerignore 排除), 直接启用此 Job 跑 pytest 必然失败;
+     启用前需调整镜像构建 (不排除 tests/) 或挂载源码。默认 testRunner.enabled=false, 不渲染。 */}}
 {{- if .Values.testRunner.enabled }}
 ---
 apiVersion: batch/v1
@@ -42,6 +44,8 @@ spec:
       containers:
         - name: test-runner
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          # 注意: 默认镜像由 .dockerignore 排除 tests/, 镜像内无 tests 目录,
+          # 以下命令仅在调整镜像构建或挂载源码后才会成功 (见文件头注释)
           command: ['sh', '-c']
           args:
             - |

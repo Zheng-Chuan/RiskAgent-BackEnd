@@ -13,6 +13,7 @@
 | 2026-07-22 | 初始创建，提出 Skill 语义检索升级三项需求 |
 | 2026-08-07 | Status 从 Proposed 更新为 Accepted；6 个待解决问题全部填写决策结果；新增需求四（Hybrid 检索）、需求五（Query Rewriting）、需求六（skill_view 工具）三项优化方案设计；更新实施顺序与 Drawbacks |
 | 2026-08-08 | Status 从 Accepted 更新为 Implemented；6 项需求全部实施完成：需求三 summary 字段（commit 249fe2e）、需求二远程 Embedding（commit c7b80d0）、需求六 skill_view 工具（commit 5e2833d）、需求一 Chroma 向量库迁移、需求五 Query Rewriting（commit 57daf39）、需求四 Hybrid 检索（commit 4cbd799）、审查修复（commit 16c2886）；K8s 部署验证通过（Helm revision 18，Docker 镜像 k8s-local-v4）；158/158 Skill 专项测试通过；6 个集成点全部验证 PASS；已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级机制正常工作 |
+| 2026-08-14 | LLM 网关切换（commit 06ea0ab）：embedding 链路从 OpenRouter `text-embedding-3-small`（1536 维）切换到硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维）；新增 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置（为空时回退主 LLM 配置）；Chroma 维度不匹配自动自愈（`restore_from_persistence()` 时删除并重建 collection，1536→1024 无需手动迁移）；Resolved Question 1 的选型决策被推翻，见其 superseded 标注 |
 
 ## 上下文
 
@@ -48,6 +49,8 @@
 ## 决策
 
 对 Skill 语义检索链路做六项升级，构成一个完整的改造闭环（需求一至三为原提案，需求四至六为 2026-08-07 新增优化）：
+
+> **注**：下表及下文关系图中“OpenRouter embedding”为提案时点口径；2026-08-14 起实现已改为独立 embedding 端点（现行供应商：硅基流动 SiliconFlow，BAAI/bge-m3），见 Update Log 2026-08-14 条目与需求二章节统一注记。
 
 | 编号 | 需求 | 核心变更 |
 |------|------|--------|
@@ -100,6 +103,8 @@
 `SkillStore.search(query, limit, min_confidence)` 签名不变，内部实现从遍历 dict 改为调用向量库 API。`SkillInjector` 和 `SkillProposer.find_similar()` 无需修改。
 
 ### 需求二：远程调用 OpenRouter 模型计算语义相似度
+
+> **2026-08-14 实现口径更新**：本章节描述的 OpenRouter embedding 调用为提案时点口径。实际实现已改为独立 embedding 端点（`LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置），现行供应商为硅基流动 SiliconFlow（`BAAI/bge-m3`，1024 维），详见 Update Log 2026-08-14 条目；下文各小节中“OpenRouter”字样均按此口径理解，不再逐句改写。
 
 **目标**：Skill 查询时不再用本地词袋向量计算相似度，改为远程调用 OpenRouter 提供的 embedding 接口，为 query 文本和 Skill `summary` 生成语义向量后计算相似度。
 
@@ -481,7 +486,7 @@
 - 本地模型效果不如大参数量远程模型
 - GPU 资源需求（CPU 推理延迟高）
 
-**评估**：适合对延迟和数据安全要求极高的场景。但如果项目已接受远程 LLM 调用（当前已用 deepseek/deepseek-v4-pro），则 embedding 远程调用的风险增量可接受。
+**评估**：适合对延迟和数据安全要求极高的场景。但如果项目已接受远程 LLM 调用（提案时点已用 deepseek/deepseek-v4-pro，历史口径；现为 DeepSeek 官方 deepseek-v4-flash），则 embedding 远程调用的风险增量可接受。
 
 ### 方案 B：只做 summary 字段，不改向量化方案
 
@@ -522,6 +527,8 @@
 - 效果与成本平衡最佳：1536 维足够覆盖 Skill 语义检索场景
 - 价格远低于 `text-embedding-3-large`（3072 维），且 Skill 检索对维度上限要求不高
 - 经 OpenRouter 统一网关调用，与现有 chat 模型调用路径一致
+
+> **Superseded（2026-08-14 被推翻）**：因 LLM 网关切换（commit 06ea0ab），改用硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维）：DeepSeek 官方无 embeddings 端点，硅基流动不提供 text-embedding-3-small；维度变化由 Chroma 维度自愈机制处理。见 Update Log 2026-08-14 条目。
 
 ### 2. 向量库选型
 

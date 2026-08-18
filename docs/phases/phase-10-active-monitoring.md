@@ -20,6 +20,8 @@
 6. **PerceptionBudgetManager 死代码（已删除）**：P4 验收测试测了死代码，实际生效的是 governance/ProactiveBudgetManager。
 7. **_deliberate 零测试覆盖（已补全）**：新增 test_deliberate_chain.py 覆盖 5 个场景。
 
+> **2026-08-11 安全加固更新（commit ee6ae70）**：`HITL_AUTO_APPROVE` 默认值由开启改为**关闭**（fail-safe）。本文档下文所有 `HITL_AUTO_APPROVE=1` 描述均为 Phase 10 验证时点的口径；当前默认下 side_effect 工具需人工审批，如需恢复自动处置链路须显式设置 `HITL_AUTO_APPROVE=1`。自动处置链路与验证结论本身不受默认值翻转影响。
+
 ## 核心目标
 
 当前系统是被动触发模式: 用户任务或系统事件到达后才执行, 执行完毕即退出, 无常驻协程维持后台循环. 这一模式与 `Proactive Multi-Agent` 的定位存在根本差距, 具体表现为:
@@ -148,10 +150,10 @@
   - 通过标准: 低风险问题自主处置成功率 >= 90%; 所有处置动作经五道关卡且产出 receipt; 不存在绕过 tool_executor 的旁路
 
 - [x] Checkpoint 16.4.2 复杂问题自动处置（原: 人类升级）
-  - 实现项: 复杂问题 (无法用规则处置或处置失败) 通过 `HITL_AUTO_APPROVE=1` 自动审批 side_effect 工具执行处置, 处置消息附带完整证据链 (感知快照 + 诊断结果 + 候选处置方案). **原计划使用 `ask_human` 节点升级人类, Phase 10 验证时改为自动审批以消除全链路阻塞.**
+  - 实现项: 复杂问题 (无法用规则处置或处置失败) 通过 `HITL_AUTO_APPROVE=1` 自动审批 side_effect 工具执行处置（注：2026-08-11 起该开关默认关闭，需显式开启），处置消息附带完整证据链 (感知快照 + 诊断结果 + 候选处置方案). **原计划使用 `ask_human` 节点升级人类, Phase 10 验证时改为自动审批以消除全链路阻塞.**
   - 验收方法: 注入复杂异常信号, 观察是否触发自动处置流程; 检查处置是否附带完整证据链
   - 验收证据: 处置动作 trace, 自动审批记录, 处置证据链
-  - 通过标准: 复杂问题 100% 触发自动处置流程; 处置消息包含完整证据链; HITL_AUTO_APPROVE=1 时无需人工介入
+  - 通过标准: 复杂问题 100% 触发自动处置流程; 处置消息包含完整证据链; 显式设置 HITL_AUTO_APPROVE=1 时无需人工介入（当前默认关闭，未开启时走人工审批）
 
 - [x] Checkpoint 16.4.3 处置结果追踪与 Skill 沉淀
   - 实现项: 所有处置结果 (自主/人类) 进入 run_trace.v2 全链路追踪; 高置信处置经验经 `SkillProposer` 沉淀为 Skill, 纳入技能自创闭环; 失败经验同样记录用于后续改进
@@ -255,7 +257,7 @@
 
 | 验收项 | 方法 | 通过标准 | 证据类型 |
 |--------|------|---------|---------|
-| 自动处置触发 | 注入复杂故障 (如 MySQL 主从延迟) | HITL_AUTO_APPROVE=1 时自动审批 side_effect 工具, 生成处置请求含问题描述+建议方案+影响范围 | run_trace.v2 |
+| 自动处置触发 | 注入复杂故障 (如 MySQL 主从延迟) | 显式设置 HITL_AUTO_APPROVE=1 时自动审批 side_effect 工具（当前默认关闭），生成处置请求含问题描述+建议方案+影响范围 | run_trace.v2 |
 | 处置执行 | 自动审批后工具执行 | 系统自动执行处置并记录 trace | 处置 trace |
 
 > **注**: 原验收方法要求人工回复审批, 实际实施中改为 HITL_AUTO_APPROVE 自动审批, 消除全链路阻塞. 此偏离是有意设计变更.
@@ -295,7 +297,7 @@
 - `_perceive_environment()` 接入 Docker / Redis / MySQL / Prometheus 四类真实数据源, 产出结构化感知快照
 - 轻量级预过滤层过滤绝大多数正常信号, 感知链路 LLM 成本不超过总预算的 20%
 - 简单问题自主处置成功率 >= 90%, 所有处置经五道关卡且产出 receipt
-- 复杂问题自动触发处置流程（HITL_AUTO_APPROVE=1 时自动审批 side_effect 工具，无需人工介入），附完整证据链
+- 复杂问题自动触发处置流程（显式设置 HITL_AUTO_APPROVE=1 时自动审批 side_effect 工具，无需人工介入；2026-08-11 起该开关默认关闭），附完整证据链
 - 所有处置动作在 run_trace.v2 中完整可追溯, 高置信经验沉淀为 Skill
 - 感知协程异常不影响用户任务执行, 连续失败触发熔断
 
@@ -308,13 +310,13 @@
 | 故障类型 | Redis Service scale to 0 |
 | 全链路验证 | 感知 → 升级 → 告警 → 意图识别 → 编排规划 → 评审 → 重规划 → TaskGraph 执行 → Trace 记录 |
 | Trace status | completed |
-| LLM 调用 | deepseek/deepseek-chat，真实调用（非 fallback） |
+| LLM 调用 | deepseek/deepseek-chat（2026-08-03 验证时点，当时走 OpenRouter；现已切换为 DeepSeek 官方 API），真实调用（非 fallback） |
 | ask_human 步骤 | 无（已移除，改用 HITL_AUTO_APPROVE 自动审批） |
 | ORCHESTRATOR_OUTPUT_INVALID | 无（normalize→validate 顺序修复 + evidence/tool_name 归一化） |
 
 ### Exit Criteria 偏离说明
 
-1. **原 Exit Criteria 要求 ask_human 人类升级，实际实施中改为 HITL_AUTO_APPROVE 自动审批，消除全链路阻塞。此偏离是有意设计变更，非验收未通过。** 主动监控场景下，side_effect 工具通过 `HITL_AUTO_APPROVE=1`（默认）自动注入审批参数，无需人工介入即可执行处置动作。代码位置：`node_executors.py`。
+1. **原 Exit Criteria 要求 ask_human 人类升级，实际实施中改为 HITL_AUTO_APPROVE 自动审批，消除全链路阻塞。此偏离是有意设计变更，非验收未通过。** 主动监控场景下，side_effect 工具通过 `HITL_AUTO_APPROVE=1` 自动注入审批参数，无需人工介入即可执行处置动作。**注：2026-08-11 安全加固（commit ee6ae70）后该开关默认关闭（fail-safe），需显式开启才生效。** 代码位置：`node_executors.py`。
 2. **原 Exit Criteria 要求「至少检测到 3 个故障中的 2 个」**：当前验证仅测试 1 种故障类型（Redis Service scale to 0）。
 
 ### 修复清单
@@ -324,4 +326,4 @@
 3. **Orchestrator 输出验证**：normalize→validate 顺序修正 + evidence/tool_name 归一化
 4. **ask_human 步骤移除**：改用 HITL_AUTO_APPROVE 自动审批，消除全链路阻塞
 5. **文档体系全量更新**：7×24 → 5min，统一监控验证周期
-6. **K8s 部署验证**：LLM_API_KEY 注入成功，deepseek/deepseek-chat 调用正常
+6. **K8s 部署验证**：LLM_API_KEY 注入成功，deepseek/deepseek-chat 调用正常（2026-08-03 验证时点，当时走 OpenRouter；现已切换为 DeepSeek 官方 API）

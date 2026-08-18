@@ -8,6 +8,8 @@
 | Complete Date | 2026-08-08 |
 | Phase | 11 |
 
+> **2026-08-14 更新**：LLM 网关切换后 embedding 链路从 OpenRouter `text-embedding-3-small`（1536 维）切换到硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维），新增 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置；Chroma 集合维度不匹配时自动自愈（`restore_from_persistence()` 启动时重建向量索引，1536→1024 无需手动迁移）。下文部分描述为 2026-08-08 实施时点的历史口径，已逐处标注。
+
 ## 目标
 
 将 Skill 语义检索链路从进程内词袋模型升级为完整的语义检索闭环，包含向量库存储、远程 Embedding、Summary 摘要字段、Hybrid 检索、Query Rewriting 和 skill_view 按需加载工具，共 6 项子需求。
@@ -28,7 +30,7 @@
 - **状态**: ✅ 已实施
 - **实现**:
   - `skill.v1` schema 新增 `summary: str` 字段（30-80 字）
-  - `SkillProposer` 创建 Skill 时调用 LLM（`deepseek/deepseek-chat`）生成一句话摘要
+  - `SkillProposer` 创建 Skill 时调用 LLM（`deepseek/deepseek-chat`，2026-08-08 实施时点历史口径，当时走 OpenRouter；现默认 `deepseek-v4-flash` 走 DeepSeek 官方 API）生成一句话摘要
   - 注入 task 原文作为上下文，减少幻觉
   - MySQL `skill_store` 表新增 `summary` 列（db/migrations/006_add_skill_summary_column.sql）
   - `normalize_skill()` 校验 summary 非空
@@ -40,7 +42,7 @@
 - **状态**: ✅ 已实施
 - **实现**:
   - `LLMClient` 新增 `embed()` 方法
-  - 调用 OpenRouter `text-embedding-3-small` 模型，1536 维
+  - 调用独立 embedding 端点（`LLM_EMBEDDING_BASE_URL`）生成向量：2026-08-08 实施时为 OpenRouter `text-embedding-3-small`（1536 维）；2026-08-14 起切换为硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维），维度变化由 Chroma 维度自愈机制处理（启动时自动重建索引）
   - 复用现有超时、重试、成本追踪治理体系
   - 纳入 `ProactiveBudgetManager` 成本治理
   - 超时/failure 时 fallback 到关键词匹配
@@ -77,7 +79,7 @@
 - **状态**: ✅ 已实施
 - **实现**:
   - `SkillInjector._rewrite_query()` 新增方法
-  - 调用 LLM（`deepseek/deepseek-chat`）将短 query 扩展为检索导向 query
+  - 调用 LLM（`deepseek/deepseek-chat`，2026-08-08 实施时点历史口径；现默认 `deepseek-v4-flash` 走 DeepSeek 官方 API）将短 query 扩展为检索导向 query
   - LRU 缓存（256 条，可通过 `SKILL_QUERY_REWRITE_CACHE_SIZE` 配置）
   - 超时（3s, 可通过 `SKILL_QUERY_REWRITE_TIMEOUT` 配置）
   - Fallback：LLM 不可用/超时/返回空 → 使用原始 query，不阻断检索链路
@@ -107,7 +109,7 @@
 - **Commit**: `ec54dbd`
 - **状态**: ✅ 已验证（Helm revision 18）
 - **内容**:
-  - ConfigMap 包含 6 个新环境变量（SKILL_EMBEDDING_MODEL, SKILL_HYBRID_VECTOR_WEIGHT, SKILL_QUERY_REWRITE_ENABLED, SKILL_QUERY_REWRITE_TIMEOUT, SKILL_QUERY_REWRITE_CACHE_SIZE, CHROMA_URL）
+  - ConfigMap 包含 Skill 检索相关环境变量：4 个 SKILL_ 变量（SKILL_QUERY_REWRITE_ENABLED / SKILL_QUERY_REWRITE_TIMEOUT / SKILL_QUERY_REWRITE_CACHE_SIZE / SKILL_HYBRID_VECTOR_WEIGHT）+ CHROMA_SKILLS_COLLECTION（现状口径；实施时点曾描述 6 个变量，实际不存在 SKILL_EMBEDDING_MODEL 与 CHROMA_URL，embedding 模型由 LLM_EMBEDDING_MODEL 控制）
   - MySQL skill_store 表包含 summary 列（migration 006）
   - Docker 镜像 `k8s-local-v4` 部署成功
   - 所有 Pod 正常运行
@@ -132,7 +134,7 @@
 | 集成点 | 状态 | 说明 |
 |--------|------|------|
 | summary 字段注入 Skill 创建链路 | PASS | SkillProposer → SkillStore → MySQL |
-| embed() 方法接入 LLMClient | PASS | LLMClient.embed() → OpenRouter |
+| embed() 方法接入 LLMClient | PASS | LLMClient.embed() → SiliconFlow（硅基流动，2026-08-14 切换；实施时点为 OpenRouter） |
 | Chroma 向量库存储与检索 | PASS | SkillStore.search() → Chroma ANN |
 | Query Rewriting 接入 SkillInjector | PASS | _build_query() → _rewrite_query() → search() |
 | Hybrid 检索加权合并 | PASS | 向量 + BM25 → final_score |
@@ -142,7 +144,7 @@
 
 | 项目 | 状态 | 详情 |
 |------|------|------|
-| ConfigMap 环境变量 | ✅ | 6 个新变量全部注入 |
+| ConfigMap 环境变量 | ✅ | SKILL_ 相关 4 个变量 + CHROMA_SKILLS_COLLECTION 全部注入（现状口径） |
 | MySQL migration | ✅ | skill_store 表 summary 列已添加 |
 | Docker 镜像 | ✅ | k8s-local-v4 部署成功 |
 | Pod 状态 | ✅ | 所有 Pod 正常运行 |
@@ -150,10 +152,10 @@
 
 ## 已知限制
 
-### OpenRouter 账户余额不足（402）
+### embedding 供应商不可用时的降级行为（历史背景：OpenRouter 402）
 
-- **现象**：OpenRouter API 返回 402 Payment Required
-- **影响**：远程 Embedding 调用失败
+- **历史背景**：2026-08-08 验证时点 OpenRouter API 返回 402 Payment Required，触发该降级链路验证；2026-08-14 起 embedding 供应商已切换为硅基流动 SiliconFlow（BAAI/bge-m3）
+- **影响**：embedding 供应商不可用时，远程 Embedding 调用失败
 - **Fallback 行为**：自动降级为纯 BM25 关键词检索，不阻断检索链路
 - **验证**：Fallback 机制正常工作，Skill 检索功能可用（召回质量下降但不中断）
 
@@ -176,7 +178,7 @@
 | Skill 专项测试 158/158 通过 | ✅ | 全部通过 |
 | 6 个集成点验证 PASS | ✅ | 全部通过 |
 | K8s 部署验证通过 | ✅ | Helm revision 18 |
-| OpenRouter 余额不足时 Fallback 降级正常 | ✅ | 已验证 |
+| embedding 供应商不可用时 Fallback 降级正常 | ✅ | 已验证（验证时点为 OpenRouter 402；现行供应商为硅基流动） |
 | 文档与代码状态一致 | ✅ | RFC-005 Implemented |
 
 ## 相关文档

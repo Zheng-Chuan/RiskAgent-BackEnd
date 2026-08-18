@@ -96,6 +96,15 @@ services:
       MEMORY_MAX_LEN: 2000
       # 统一语义记忆配置
       SEMANTIC_MEMORY_ENABLED: ${SEMANTIC_MEMORY_ENABLED:-true}
+      # LLM 配置 (Chat: DeepSeek 官方 API; Embedding: 硅基流动 SiliconFlow)
+      # LLM_API_KEY / LLM_EMBEDDING_API_KEY 无默认值, 缺失即空, 请在本地 .env 中配置真实密钥
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-v4-flash}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-BAAI/bge-m3}
+      LLM_EMBEDDING_BASE_URL: ${LLM_EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      # 独立 embedding key; 为空时代码内回退 LLM_API_KEY
+      LLM_EMBEDDING_API_KEY: ${LLM_EMBEDDING_API_KEY}
       # 应用配置
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -140,6 +149,13 @@ services:
       APP_ENV: test
       LOG_LEVEL: INFO
       SEMANTIC_MEMORY_ENABLED: ${SEMANTIC_MEMORY_ENABLED:-true}
+      # LLM 配置 (与 mcp-server 一致; 测试如需真实调用请在本地 .env 配置密钥)
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-v4-flash}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-BAAI/bge-m3}
+      LLM_EMBEDDING_BASE_URL: ${LLM_EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      LLM_EMBEDDING_API_KEY: ${LLM_EMBEDDING_API_KEY}
     depends_on:
       mysql:
         condition: service_healthy

@@ -4,16 +4,84 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-18: CI Docker 构建修复
+
+### Fixed
+
+- CI Docker 构建补装 g++，修复 chroma-hnswlib 源码编译失败（chromadb >= 0.5.23 升级触发）；同步更新 README Phase 11/14 描述（commit 496952d）
+
+## 2026-08-14: K8s Chroma 镜像对齐 + OpenRouter 注释清理
+
+### Changed
+
+- K8s Chroma 镜像版本对齐 0.5.23，与客户端 chromadb 版本统一（commit f58b8a6）
+- requirements.txt chromadb 升至 >=0.5.23,<0.6（此前 pin 0.5.0）
+- 清除集成测试中过时的 OpenRouter 注释
+
+## 2026-08-13: Phase 14 方向取消 + 测试修复
+
+### Removed
+
+- 取消 Phase 14 方向二十一（系统压测）与方向二十二（SLO 定义），按用户要求不纳入范围（commit bedbd2d）
+
+### Fixed
+
+- Redis 感知测试显式传递 redis_url，避免环境变量覆盖（commit 10ec8a0）
+- MCP 子进程显式传递鉴权环境变量 + acceptance 适配 summary_only（commit cdeadee）
+
+## 2026-08-12: summary_only 契约修复 + 测试适配
+
+### Fixed
+
+- 修复 summary_only 注入契约缺口与 3 个 skill 流程测试（commit 6b88ec1）
+- 适配 Orchestrator ReAct 重构后的 proactive unit 测试（commit 57f351e）
+
+## 2026-08-11: 安全加固批次（HITL 默认关闭 / API 鉴权 fail-closed）
+
+### Security
+
+- HITL_AUTO_APPROVE 默认改为 false（fail-safe，需显式开启才自动审批 side_effect 工具）（commit ee6ae70）
+- /api/* 全部端点强制鉴权（fail-closed）（commit 4553eb5）
+- Redis 启用密码 + 端口暴露收敛到 localhost（commit 8274d30）
+- 弱密码治理：secrets 强校验 + 移除默认弱密码（commit 805ed0b）
+
+### Fixed
+
+- 后台 fire-and-forget 任务保持强引用，防止被 GC 提前回收（commit 0b85cb5）
+- 感知采集卸载到线程池，不再阻塞事件循环（commit 79b4d08）
+- 工具执行路径同步 DB 查询卸载到线程池（commit dce7314）
+
+## 2026-08-11: orchestration 模块拆分与工程治理重构
+
+### Changed
+
+- orchestration 拆分：_run_internal 拆出 setup/intent/planning/TaskGraph 执行/finalization/Agent 结果处理等独立模块（workflow_execution.py / workflow_finalization.py / workflow_agent_results.py 等）
+- 引入 agent registry 作为 Agent 定义唯一事实来源（commit bdd3b92）
+- prompt 外置到 prompts/agent_prompts/（commit ddd9b0b）
+- 环境变量读取统一收敛到 config 层 + CI lint（commit fdd971a）
+- services 提取共享状态归一化到 task_status.py（commit 03bdfe0）
+
+### Added
+
+- workflow 阶段数据 TypedDict 契约（commit d5f49df）
+- orchestration 契约针对性 mypy gate（commit f1f5089）
+
 ## 2026-08-14: LLM 网关切换 — Chat 切 DeepSeek 官方 API, embedding 切硅基流动
 
 ### Changed
 
-- Chat 链路从 OpenRouter（deepseek/deepseek-v4-pro）切换到 DeepSeek 官方 API（https://api.deepseek.com, deepseek-v4-flash），OpenRouter key 完全移除
+- Chat 链路从 OpenRouter（deepseek/deepseek-v4-flash）切换到 DeepSeek 官方 API（https://api.deepseek.com, deepseek-v4-flash），OpenRouter key 完全移除
 - 请求体按 DeepSeek 官方格式显式开启深度思考（`thinking: {"type": "enabled"}`），替代被官方 API 忽略的 `enable_thinking` 参数
 - embedding 链路切换到硅基流动 SiliconFlow（BAAI/bge-m3, 1024 维）：DeepSeek 官方无 embeddings 端点；硅基流动不提供 text-embedding-3-small
 - 新增配置 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY`（为空时回退主 LLM 配置），K8s configmap/secrets 同步注入
 - cost_model.py 新增 DeepSeek 官方模型名（无供应商前缀）定价条目与 BAAI/bge-m3 免费条目
-- K8s values/configmap/secrets 全部切到新网关；Chroma Skill 向量索引维度 1536→1024，启动时自动重建（代码无维度硬约束）
+- K8s values/configmap/secrets 全部切到新网关；Chroma Skill 向量索引维度 1536→1024，启动时自动重建（代码无维度硬约束）（commit 06ea0ab）
+
+## 2026-08-10: 文档诚实性全量修复
+
+### Fixed
+
+- 文档诚实性全量修复（11 步，22 项问题）（commit 9f650e8）
 
 ## 2026-08-08: Phase 11 Skill 语义检索升级实施完成（RFC-005 Implemented）
 
@@ -54,7 +122,7 @@
 - Checkpoint 20.1.3: 成本预估表 5min/1h/24h/7d 四窗口，去重场景成本降低 80%
 - Checkpoint 20.1.4: CostCircuitBreaker 三级熔断（5min/1h/24h），集成 ProactiveBudgetManager
 - 新增 /api/llm/cost-model API 端点
-- 37 个新增测试，836 单元测试（总计 1067 测试）无回归
+- 24 个新增测试全部通过（test_cost_model.py 实测），836 单元测试（总计 1067 测试）无回归；成本相关测试现已扩至 37 个（cost_model 24 + cost_report 13）
 
 ## 2026-08-07: Phase 12 BDI 信念去重实施完成（RFC-006）
 

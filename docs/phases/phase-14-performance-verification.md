@@ -16,7 +16,7 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 当前缺乏以下关键能力：
 
-1. **LLM 调用成本模型**：每次调用 token 消耗未量化，OpenRouter 定价未纳入计算，日/月成本估算缺失
+1. **LLM 调用成本模型**：每次调用 token 消耗未量化，供应商定价（2026-08-07 规划时点为 OpenRouter 历史口径；2026-08-14 起为 DeepSeek 官方 + 硅基流动）未纳入计算，日/月成本估算缺失
 
 > **Phase 10 验证暴露的可靠性问题**：信念累积（同一 Redis 异常在 10 轮感知循环中被重复处理）、LLM 调用频率线性增长（不做去重时 133 次/5min → ~38304 次/天）、成本模型缺失（无法量化主动监控的运行成本）. 详见 [RFC-006](../decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) 的 Phase 10 验证发现.
 
@@ -53,17 +53,17 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 - [x] Checkpoint 20.1.1 Token 消耗量化 ✅
   - 实现项: 在 LLM 调用链路中采集每次调用的 prompt tokens + completion tokens，按 Agent 角色和调用阶段分类统计
-  - 验收方法: 运行一次完整监控链路，检查 token 统计记录与 OpenRouter API 返回值一致
+  - 验收方法: 运行一次完整监控链路，检查 token 统计记录与 LLM API 返回值一致（2026-08-07 验收时点为 OpenRouter，历史口径）
   - 验收证据: token 消耗明细表（按 Agent × 阶段维度）
   - 通过标准: 每次调用均有 token 消耗记录，统计值与 API 返回值偏差 < 1%
   - 实施结果: TokenUsageRecord 新增 agent_name + stage 字段，summary() 输出 by_agent_stage 维度聚合
 
 - [x] Checkpoint 20.1.2 单次链路成本计算 ✅
-  - 实现项: 基于 OpenRouter 定价计算单次完整监控链路的平均 LLM 成本（意图识别 + 编排规划 + 评审 + ReAct 循环）
+  - 实现项: 基于供应商定价计算单次完整监控链路的平均 LLM 成本（意图识别 + 编排规划 + 评审 + ReAct 循环）（2026-08-07 实施时点为 OpenRouter 定价，历史口径）
   - 验收方法: 对比 5 次完整链路的实际成本与计算模型预估值
   - 验收证据: 成本计算模型 + 5 次实测对照表
   - 通过标准: 模型预估值与实际成本偏差 < 10%
-  - 实施结果: cost_model.py 内置 OpenRouter 定价表（deepseek/deepseek-chat: prompt $0.14/1M, completion $0.28/1M），calculate_call_cost() 成本不再为 0
+  - 实施结果: cost_model.py 内置定价表（2026-08-07 实施时点为 OpenRouter 定价：deepseek/deepseek-chat: prompt $0.14/1M, completion $0.28/1M；2026-08-14 commit 06ea0ab 后更新为 DeepSeek 官方模型名定价 + BAAI/bge-m3 免费条目），calculate_call_cost() 成本不再为 0
 
 - [x] Checkpoint 20.1.3 成本预估表 ✅
   - 实现项: 建立 5min / 1h / 24h / 7d 四个时间窗口的成本预估表，区分「有信念去重」和「无信念去重」两种场景
@@ -83,9 +83,9 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 - **实施日期**: 2026-08-07
 - **Checkpoint 完成情况**: 4 个 Checkpoint（20.1.1 ~ 20.1.4）全部完成
-- **测试覆盖**: 24 个新增测试全部通过，742/747 现有测试无回归
+- **测试覆盖**: 24 个新增测试全部通过，742/747 现有测试无回归（2026-08-07 验收时点；成本相关测试现已扩至 37 个：cost_model 24 + cost_report 13）
 - **关键成果**:
-  1. 成本计算不再为 0 — cost_model.py 内置 OpenRouter 定价表，calculate_call_cost() 正确计算 prompt + completion 成本
+  1. 成本计算不再为 0 — cost_model.py 内置定价表（实施时点为 OpenRouter 定价，历史口径；2026-08-14 起为 DeepSeek 官方定价 + BAAI/bge-m3 免费条目），calculate_call_cost() 正确计算 prompt + completion 成本
   2. by_agent_stage 维度 — TokenTracker 新增 agent_name + stage 字段，支持按 Agent × 阶段聚合统计
   3. 三级熔断器 — CostCircuitBreaker 支持 5min/1h/24h 三级预算上限，超限触发熔断降级
   4. 成本预估表 — generate_cost_estimate_table() 输出 5min/1h/24h/7d 四窗口预估，区分去重/未去重场景
@@ -105,7 +105,7 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 
 | 风险 | 影响 | 缓解措施 |
 |------|------|---------|
-| 成本模型定价与实际偏差 | 成本预估不准确 | 定期同步 OpenRouter 定价表；使用 default 兜底定价 |
+| 成本模型定价与实际偏差 | 成本预估不准确 | 定期同步当前供应商定价表（现为 DeepSeek 官方 + 硅基流动）；使用 default 兜底定价 |
 
 ## 实施计划
 

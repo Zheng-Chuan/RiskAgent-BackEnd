@@ -10,6 +10,6 @@ kubectl get svc -n {{ .Release.Namespace }}
 kubectl exec -it deploy/{{ .Release.Name }}-mcp-server -n {{ .Release.Namespace }} -- curl http://localhost:8000/health
 
 === 访问服务 ===
-MCP Server: kubectl port-forward svc/{{ .Release.Name }}-mcp-server 8000:8000 -n {{ .Release.Namespace }}
-Prometheus:  kubectl port-forward svc/{{ .Release.Name }}-prometheus 9090:9090 -n {{ .Release.Namespace }}
-Grafana:     kubectl port-forward svc/{{ .Release.Name }}-grafana 3000:3000 -n {{ .Release.Namespace }}
+MCP Server: kubectl port-forward svc/mcp-server 8000:8000 -n {{ .Release.Namespace }}
+Prometheus:  kubectl port-forward svc/prometheus 9090:9090 -n {{ .Release.Namespace }}
+Grafana:     kubectl port-forward svc/grafana 3000:3000 -n {{ .Release.Namespace }}

@@ -74,31 +74,31 @@
   - [8.7 主链执行](#section-8-7)
   - [8.8 频率控制与预算熔断](#section-8-8)
   - [8.9 关键代码出处](#section-8-9)
-- [10. REST BFF 服务层](#section-10)
-  - [10.1 端点概览](#section-10-1)
-  - [10.2 运行时任务注册表](#section-10-2)
-  - [10.3 SSE 事件流与快照去重](#section-10-3)
-  - [10.4 脱敏机制](#section-10-4)
-  - [10.5 nginx 反向代理](#section-10-5)
+- [9. REST BFF 服务层](#section-9)
+  - [9.1 端点概览](#section-9-1)
+  - [9.2 运行时任务注册表](#section-9-2)
+  - [9.3 SSE 事件流与快照去重](#section-9-3)
+  - [9.4 脱敏机制](#section-9-4)
+  - [9.5 nginx 反向代理](#section-9-5)
+  - [9.6 缺点与风险](#section-9-6)
+- [10. LLM 成本治理](#section-10)
+  - [10.1 TokenTracker](#section-10-1)
+  - [10.2 cost_model.py 定价表](#section-10-2)
+  - [10.3 CostCircuitBreaker 三级熔断](#section-10-3)
+  - [10.4 与 ProactiveBudgetManager 集成](#section-10-4)
+  - [10.5 暴露端点](#section-10-5)
   - [10.6 缺点与风险](#section-10-6)
-- [11. LLM 成本治理](#section-11)
-  - [11.1 TokenTracker](#section-11-1)
-  - [11.2 cost_model.py 定价表](#section-11-2)
-  - [11.3 CostCircuitBreaker 三级熔断](#section-11-3)
-  - [11.4 与 ProactiveBudgetManager 集成](#section-11-4)
-  - [11.5 暴露端点](#section-11-5)
-  - [11.6 缺点与风险](#section-11-6)
-- [12. 评估体系](#section-12)
-  - [12.1 参考框架与基准](#section-12-1)
-  - [9.2 评估维度与指标体系](#section-9-2)
-  - [9.3 指标计算方式](#section-9-3)
-  - [9.4 LLM 辅助评估](#section-9-4)
-  - [9.5 质量门禁](#section-9-5)
-  - [9.6 测试数据集](#section-9-6)
-  - [9.7 评估报告](#section-9-7)
-  - [9.8 优点](#section-9-8)
-  - [9.9 缺点与风险](#section-9-9)
-  - [9.10 关键代码出处](#section-9-10)
+- [11. 评估体系](#section-11)
+  - [11.1 参考框架与基准](#section-11-1)
+  - [11.2 评估维度与指标体系](#section-11-2)
+  - [11.3 指标计算方式](#section-11-3)
+  - [11.4 LLM 辅助评估](#section-11-4)
+  - [11.5 质量门禁](#section-11-5)
+  - [11.6 测试数据集](#section-11-6)
+  - [11.7 评估报告](#section-11-7)
+  - [11.8 优点](#section-11-8)
+  - [11.9 缺点与风险](#section-11-9)
+  - [11.10 关键代码出处](#section-11-10)
 <a id="section-1"></a>
 # 1. 系统统一主流程
 ```text
@@ -240,7 +240,7 @@ while remaining_nodes:
     → 回到 ①
 ```
 
-核心代码位于 [task_graph_executor.py:61 `execute()`](../src/riskagent_backend/orchestration/task_graph_executor.py)，单节点执行位于 [node_executors.py:109 `execute_node()`](../src/riskagent_backend/orchestration/node_executors.py)。
+核心代码位于 [task_graph_executor.py `execute()`](../src/riskagent_backend/orchestration/task_graph_executor.py)，单节点执行位于 [node_executors.py `execute_node()`](../src/riskagent_backend/orchestration/node_executors.py)。
 
 <a id="section-2-2"></a>
 ## 2.2 关键执行步骤
@@ -250,7 +250,7 @@ while remaining_nodes:
 `execute()` 方法接收 `execution_state`（上次执行的状态快照）和 `resume_from_step_id`（恢复入口），从中恢复已完成节点、已跳过节点、节点输出、receipts、审批记录等：
 
 ```python
-# task_graph_executor.py:69-94
+# task_graph_executor.py
 prior_state = dict(execution_state) if isinstance(execution_state, dict) else {}
 completed = self._extract_completed_steps(prior_state)     # 已完成的 step_id 集合
 skipped = self._extract_skipped_steps(prior_state)         # 已跳过的 step_id 集合
@@ -265,7 +265,7 @@ resume_history = list(prior_state.get("resume_history", []))  # 恢复历史
 然后构建依赖图并标记恢复点下游节点为 `pending`（清除其已完成状态）：
 
 ```python
-# task_graph_executor.py:128-142
+# task_graph_executor.py
 if self._should_resume_node(step_id=step_id, resume_from_step_id=resume_from_step_id, dependency_map=dependency_map):
     node["status"] = "pending"         # 重置为待执行
     completed.discard(step_id)           # 从已完成集合移除
@@ -280,7 +280,7 @@ if self._should_resume_node(step_id=step_id, resume_from_step_id=resume_from_ste
 每轮循环首先找出所有依赖已满足的节点：
 
 ```python
-# task_graph_executor.py:144-164
+# task_graph_executor.py
 terminal_steps = completed | skipped   # 已终态节点
 ready_nodes = [
     node
@@ -296,7 +296,7 @@ ready_nodes = [
 对于每个就绪节点，调用 `_evaluate_node_readiness()` 检查入边条件。条件不满足的节点被标记为 `skipped`，不执行：
 
 ```python
-# task_graph_executor.py:439-485
+# task_graph_executor.py
 readiness = self._evaluate_node_readiness(
     task=task, node=node,
     incoming_edges=incoming_edges_map.get(step_id, []),
@@ -315,7 +315,7 @@ else:
 所有就绪节点通过 `asyncio.gather` 并行执行，每个节点由 `NodeExecutor.execute_with_retry()` 处理：
 
 ```python
-# task_graph_executor.py:172-181
+# task_graph_executor.py
 results = await asyncio.gather(
     *(
         self._node_executor.execute_with_retry(
@@ -326,10 +326,10 @@ results = await asyncio.gather(
 )
 ```
 
-`execute_with_retry()` 的重试逻辑（[node_executors.py:47-78](../src/riskagent_backend/orchestration/node_executors.py)）：
+`execute_with_retry()` 的重试逻辑（[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 ```python
-# node_executors.py:47-78
+# node_executors.py
 for attempt in range(retry_budget + 1):
     result = await self.execute_once(task=task, node=node, node_outputs=node_outputs)
     if result["status"] in {"completed", "stopped"}:
@@ -348,7 +348,7 @@ for attempt in range(retry_budget + 1):
 执行完成后，更新节点状态并触发下游：
 
 ```python
-# task_graph_executor.py:188-298
+# task_graph_executor.py
 for node, node_result in zip(processed_nodes, processed_results):
     step_id = str(node["step_id"])
     node["status"] = node_result["status"]     # 更新节点状态
@@ -375,7 +375,7 @@ for node, node_result in zip(processed_nodes, processed_results):
 #### Step 6: 终止判断与结果输出
 
 ```python
-# task_graph_executor.py:297-334
+# task_graph_executor.py
 if should_stop or status == "failed":
     break                       # 遇到 blocked/failed/stop，跳出循环
 
@@ -417,7 +417,7 @@ return {
 <a id="section-2-3"></a>
 ## 2.3 节点类型与执行分发
 
-`execute_node()` 根据 `node.kind` 分发到不同执行路径（[node_executors.py:109-137](../src/riskagent_backend/orchestration/node_executors.py)）：
+`execute_node()` 根据 `node.kind` 分发到不同执行路径（[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 | kind | 执行逻辑 | 输出 |
 |------|---------|------|
@@ -432,7 +432,7 @@ return {
 <a id="section-2-4"></a>
 ## 2.4 审批拦截机制
 
-在执行节点前，`execute_node()` 先调用 `_check_step_approval()` 检查节点级审批（[node_executors.py:292-309](../src/riskagent_backend/orchestration/node_executors.py)）：
+在执行节点前，`execute_node()` 先调用 `_check_step_approval()` 检查节点级审批（[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)）：
 
 ```python
 step_approval_result = self._check_step_approval(node=node)
@@ -446,17 +446,17 @@ if step_approval_result is not None:
 
 ### HITL_AUTO_APPROVE 自动审批机制（Phase 10 引入）
 
-当环境变量 `HITL_AUTO_APPROVE=1`（默认值）时，`side_effect` 工具的审批参数会被自动注入，无需人工介入即可执行处置动作。代码位置：[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)。
+当环境变量 `HITL_AUTO_APPROVE=1` 显式开启时，`side_effect` 工具的审批参数会被自动注入，无需人工介入即可执行处置动作。**默认值为关闭（fail-safe）**：2026-08-11 安全加固（commit ee6ae70）将该开关改为默认关闭，需显式设置 `HITL_AUTO_APPROVE=1` 才会启用自动审批。代码位置：[node_executors.py](../src/riskagent_backend/orchestration/node_executors.py)、[hitl_policy.py](../src/riskagent_backend/orchestration/hitl_policy.py)。
 
 **工作原理**：
 - `execute_node()` 在处理 `tool_call` 节点时检查 `HITL_AUTO_APPROVE` 环境变量
 - 当 `HITL_AUTO_APPROVE=1` 时，自动将 `approval_state` 设为 `approved`，跳过 `pending → approved` 的人工等待
-- 主动监控场景下不使用 `ask_human` 节点人类升级，改用自动审批，消除全链路阻塞
+- 主动监控场景下不使用 `ask_human` 节点人类升级，开启自动审批后可消除全链路阻塞
 - 审批记录仍会写入 `approval_trace`，确保审计可追溯
 
 **设计权衡**：
 - 自动审批适用于主动监控等需要快速响应的场景，避免因人工等待导致全链路阻塞
-- 高风险操作仍可通过设置 `HITL_AUTO_APPROVE=0` 恢复人工审批模式
+- 默认保持人工审批（fail-safe），仅在显式设置 `HITL_AUTO_APPROVE=1` 时开启自动审批
 - Phase 10 验证中，此机制替代了原计划的 `ask_human` 人类升级流程
 
 <a id="section-2-5"></a>
@@ -503,7 +503,7 @@ resume_from_step_id = (
 `_should_resume_node()` 使用递归 DFS 遍历 `dependency_map`，判断目标节点是否在恢复点的下游链路上：
 
 ```python
-# task_graph_executor.py:406-437
+# task_graph_executor.py
 def _should_resume_node(self, *, step_id, resume_from_step_id, dependency_map) -> bool:
     if step_id == resume_from_step_id:
         return True                                    # 是恢复点本身
@@ -528,7 +528,7 @@ def _depends_on(self, *, step_id, target_step_id, dependency_map) -> bool:
 每次恢复都会在 `resume_history` 中插入一条记录：
 
 ```python
-# task_graph_executor.py:86-94
+# task_graph_executor.py
 resume_history.insert(0, {
     "resume_from_step_id": resume_from_step_id,
     "mode": "step_resume",
@@ -608,7 +608,7 @@ if should_replan(critic_result.output):
     )
 ```
 
-`append_replan_subgraph()` 的挂接逻辑（[task_graph.py:309-426](../src/riskagent_backend/contracts/task_graph.py)）：
+`append_replan_subgraph()` 的挂接逻辑（[task_graph.py](../src/riskagent_backend/contracts/task_graph.py)）：
 
 ```
 原 TaskGraph:                      重规划后:
@@ -776,7 +776,7 @@ class Intention:     # 意图：Agent 承诺要执行的行动
     created_timestamp_ms: int  # 创建时间戳
 ```
 
-**关键设计**：三个心智池都是**进程内 list**（[base.py:143-145](../src/riskagent_backend/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
+**关键设计**：三个心智池都是**进程内 list**（[base.py](../src/riskagent_backend/proactive_agents/base.py)），不是外部存储。持久化由 MemoryStore 负责，BDI 层专注运行时状态。
 
 ### 五种 Agent 的愿望与感知配置
 
@@ -836,7 +836,7 @@ Belief(
 
 ### `_PERCEPTION_SOURCES` 白名单
 
-`_deliberate()` 只处理以下 6 种 source 的信念（[base.py:68-75](../src/riskagent_backend/proactive_agents/base.py)）：
+`_deliberate()` 只处理以下 6 种 source 的信念（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 _PERCEPTION_SOURCES = frozenset({
@@ -854,7 +854,7 @@ _PERCEPTION_SOURCES = frozenset({
 <a id="section-3-3"></a>
 ## 3.3 状态流转：Perceive → Deliberate → Act
 
-后台监控循环（[base.py:353 `_monitor_loop`](../src/riskagent_backend/proactive_agents/base.py)）实现 BDI 经典循环：
+后台监控循环（[base.py `_monitor_loop`](../src/riskagent_backend/proactive_agents/base.py)）实现 BDI 经典循环：
 
 ```
 [后台监控循环 _monitor_loop]
@@ -886,7 +886,7 @@ _PERCEPTION_SOURCES = frozenset({
 <a id="section-3-4"></a>
 ## 3.4 意图状态机
 
-意图状态流转（[base.py:486-525](../src/riskagent_backend/proactive_agents/base.py)）：
+意图状态流转（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```
 pending → executing → completed
@@ -900,7 +900,7 @@ pending → executing → completed
 
 **关键约束**：主动意图不直接执行工具，而是转成统一系统事件投递回 `proactive_workflow.start_from_event`，走和用户任务**完全相同**的主链（intent → plan → task_graph → receipt）。
 
-接入点代码（[base.py:497-514](../src/riskagent_backend/proactive_agents/base.py)）：
+接入点代码（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 from riskagent_backend.orchestration.proactive_workflow import get_proactive_workflow
@@ -920,17 +920,17 @@ await workflow.start_from_event(
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
 | 数据结构定义 | [base_models.py](../src/riskagent_backend/proactive_agents/base_models.py) | `Belief` / `Desire` / `Intention` |
-| 心智池初始化 | [base.py:143-145](../src/riskagent_backend/proactive_agents/base.py) | `__init__` |
-| 后台监控循环 | [base.py:353](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
-| 感知环境 | [base.py:418](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
-| 信念→意图 | [base.py:422](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
-| 意图→行动 | [base.py:486](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
-| 意图状态机 | [base.py:224](../src/riskagent_backend/proactive_agents/base.py) | `update_intention_status` |
-| 状态快照导出 | [base.py:232](../src/riskagent_backend/proactive_agents/base.py) | `get_bdi_state` |
-| 意图→事件 | [base.py:527](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
-| ReAct 主循环 | [base.py:565](../src/riskagent_backend/proactive_agents/base.py) | `run_with_react` |
-| CoT 推理步 | [base.py:727](../src/riskagent_backend/proactive_agents/base.py) | `_generate_reasoning` |
-| CoT 证据步 | [base.py:800](../src/riskagent_backend/proactive_agents/base.py) | `_generate_evidence` |
+| 心智池初始化 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `__init__` |
+| 后台监控循环 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
+| 感知环境 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
+| 信念→意图 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
+| 意图→行动 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
+| 意图状态机 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `update_intention_status` |
+| 状态快照导出 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `get_bdi_state` |
+| 意图→事件 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
+| ReAct 主循环 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `run_with_react` |
+| CoT 推理步 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_reasoning` |
+| CoT 证据步 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_generate_evidence` |
 
 <a id="section-4"></a>
 # 4. ReAct / CoT 推理循环
@@ -1125,7 +1125,7 @@ prompt = f"""Choose an action type and parameters:
 
 **差异分析**：
 
-- **IntentAgent 独享 max_tokens=None**：意图识别需要让 GPT-4.5 自由输出，不受 token 限制。其他 Agent 都限制在 512-1024。
+- **IntentAgent 独享 max_tokens=None**：意图识别需要让模型（当前为 deepseek-v4-flash）自由输出，不受 token 限制。其他 Agent 都限制在 512-1024。
 - **SystemEngineerAgent 监控最频繁（30s）**：系统工程师需要最快感知基础设施异常（Docker/K8s + Redis + MySQL + Prometheus 四源采集）。
 - **IntentAgent 和 OrchestratorAgent 步数最多（5 步）**：意图识别和编排规划是最关键的决策环节，需要更多迭代轮次。
 - **CriticAgent 有 final_review 旁路**：当 `phase="final_review"` 时，不走 ReAct 循环，直接用 `_build_execution_review()` 基于 receipts 确定性判断（检查 blocked/failed），不走 LLM 推理。
@@ -1659,7 +1659,7 @@ steps_summary = "\n".join([
 |----------|-----|------------|------|
 | `EPHEMERAL` | 24h | `working_memory`, `plan`, `step`, `command`, `receipt`, `approval`, `message`, `private_task_state`, `working` | 运行中的工作态记忆,任务结束后自然过期 |
 | `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
-| `LONG_TERM` | **永久** | `few_shot`, `knowledge`, `fact`, `example` | 经 Critic 审核通过的高置信经验,永不过期,会触发 MySQL 落盘 |
+| `LONG_TERM` | **永久** | `lesson`, `semantic_case`, `few_shot`, `knowledge`, `fact`, `example` | 经 Critic 审核通过的高置信经验,永不过期,会触发 MySQL 落盘（其中 lesson/semantic_case 为历史 kind 映射残留,现行长期经验沉淀已统一走 Skill 系统） |
 | `PERMANENT` | **永久** | `skill`, `policy`, `config`, `procedure`, `playbook` | Skill 和系统配置,永不过期,会触发 MySQL 落盘 |
 
 **分类优先级**（`classify()` 方法,5 级决策链）：
@@ -1704,19 +1704,23 @@ steps_summary = "\n".join([
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `entry_id` | VARCHAR(64) PK | 记忆唯一 ID |
+| `entry_id` | VARCHAR(128) PK | 记忆唯一 ID |
 | `ts_ms` | BIGINT | 创建时间戳（毫秒） |
 | `agent_id` | VARCHAR(64) | Agent ID |
 | `scope` | VARCHAR(16) | shared / private |
 | `kind` | VARCHAR(32) | 业务语义标签 |
-| `memory_type` | VARCHAR(16) | episodic / procedural / semantic |
+| `memory_type` | VARCHAR(32) | episodic / procedural / semantic |
 | `content` | JSON | 记忆内容（Python dict → JSON 序列化） |
-| `confidence` | DOUBLE | 置信度 [0,1] |
+| `source` | VARCHAR(128) | 来源 |
+| `confidence` | FLOAT | 置信度 [0,1] |
+| `created_by` | VARCHAR(64) | 创建者 |
 | `trace_ref` | JSON | 溯源引用（run_id/step_id/command_id） |
 | `tags` | JSON | 标签列表 |
-| `session_id` | VARCHAR(64) | 会话 ID |
+| `session_id` | VARCHAR(128) | 会话 ID |
 | `run_id` | VARCHAR(128) | 运行 ID |
 | `ttl_tier` | VARCHAR(16) | TTL 层级标记 |
+| `created_at` | TIMESTAMP | 创建时间 |
+| `updated_at` | TIMESTAMP | 更新时间 |
 
 **核心方法**：
 
@@ -1736,7 +1740,7 @@ MemoryStore.append(entry)
   ├─ TTLPolicyEngine.classify(entry) → tier
   │
   ├─ TTLPolicyEngine.should_persist(entry)
-  │   ├─ LONG_TERM / PERMANENT → asyncio.ensure_future(persist_memory_entry())
+  │   ├─ LONG_TERM / PERMANENT → spawn_background_task(persist_memory_entry())
   │   └─ EPHEMERAL / SHORT_TERM → 仅 Redis,不落盘
   │
   └─ 落盘失败 → 仅写 warning 日志,不中断主流程
@@ -1753,7 +1757,7 @@ MemoryStore.restore_from_persistence()
 ```
 
 **关键设计**：
-- **Fire-and-forget**：落盘使用 `asyncio.ensure_future()`,不阻塞主执行链路
+- **Fire-and-forget**：落盘使用 `spawn_background_task()`（内部为 `asyncio.create_task()` 并保持强引用防止 GC 丢失）,不阻塞主执行链路
 - **Upsert 语义**：`INSERT ON DUPLICATE KEY UPDATE` 保证幂等,重复写入不会产生脏数据
 - **同步引擎异步包装**：SQLAlchemy 同步 Engine 通过 `asyncio.to_thread` 包装为异步,避免阻塞事件循环
 - **JSON 透明序列化**：`content`/`trace_ref`/`tags` 等复杂字段自动 JSON 序列化/反序列化,上层无感知
@@ -1831,7 +1835,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
     v
 [SkillStore]                       # 存储
     | 内存 dict[skill_id, skill]
-    | Chroma 向量库 (riskagent-skills collection, 1536维 embedding)
+    | Chroma 向量库 (riskagent-skills collection, 1024维 embedding, BAAI/bge-m3)
     | MySQL 持久化 (异步, 含 summary 列)
     v
 [planning 阶段]
@@ -1940,13 +1944,13 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 | 层 | 存储 | 作用 | 持久化 |
 |---|---|---|---|
 | **内存** | `dict[skill_id, skill]` | 运行时快速读写 | 重启丢失 |
-| **向量库** | Chroma `riskagent-skills` collection (1536维) | 语义向量检索 (ANN) | 重启不丢失 |
+| **向量库** | Chroma `riskagent-skills` collection (1024维, BAAI/bge-m3) | 语义向量检索 (ANN) | 重启不丢失 |
 | **MySQL** | `skill_store` 表 (含 `summary` 列) | 永久持久化 | 重启不丢失 |
 
 **Redis 不存储 Skill**：与记忆模块不同,Skill 不用 Redis,直接走 MySQL 持久化。
 
 **Phase 11 升级（RFC-005 Implemented）**：
-- 向量库从进程内 `SemanticIndexer`（词袋模型,128 维）升级为 Chroma `riskagent-skills` collection（远程 embedding：初期 text-embedding-3-small/1536 维，2026-08 切换为硅基流动 BAAI/bge-m3/1024 维）
+- 向量库从进程内 `SemanticIndexer`（词袋模型,128 维）升级为 Chroma `riskagent-skills` collection（远程 embedding：初期为 OpenAI 系 embedding 模型，2026-08 切换为硅基流动 BAAI/bge-m3/1024 维）
 - MySQL `skill_store` 表新增 `summary` 列,存储 LLM 生成的一句话摘要
 - Embedding 基于 `summary` 字段生成（而非全字段拼接）,提升语义密度
 - 检索采用 Hybrid 模式：向量 ANN 检索 + BM25 关键词加权合并 (α=0.7)
@@ -2042,7 +2046,7 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 - **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
 - **Hybrid 检索**：向量 ANN 检索（Chroma, 当前 1024 维 BAAI/bge-m3）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化
 - **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
-- **Fallback 降级**：embedding 供应商不可用（如 OpenRouter 402 余额不足）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
+- **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
 
 **关键设计**：
 - **max_skills=3**：防止 prompt 膨胀
@@ -2159,7 +2163,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 | 缺点 | 风险等级 | 缓解措施 |
 |---|---|---|
 | **内存存储,重启丢失** | 中 | MySQL 异步持久化,启动时 restore_from_persistence() |
-| **语义索引精度有限** | 中 | 进程内 SemanticIndexer 不如专业向量库,但降低部署复杂度 |
+| **语义索引仅作 fallback** | 低 | Phase 11 后主检索链路为 Chroma ANN + BM25 Hybrid；进程内 SemanticIndexer 仅在 Chroma 未注入/不可用时作为降级路径保留（记忆系统仍独立使用它） |
 | **Skill 噪音污染** | 高 | confidence policy + 自动降级 + SkillGovernor 过滤 |
 | **异步落盘失败** | 低 | fire-and-forget 可能丢失,但影响小(可重新创建) |
 | **修订质量不可控** | 中 | SkillReviser 基于 critic issues,但 LLM 生成的修订可能不准确 |
@@ -2524,7 +2528,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 <a id="section-8-1"></a>
 ## 8.1 启动与停止
 
-**启动**（[base.py:329](../src/riskagent_backend/proactive_agents/base.py)）：
+**启动**（[base.py](../src/riskagent_backend/proactive_agents/base.py) ）：
 
 ```python
 async def start_background_monitor(self) -> None:
@@ -2534,7 +2538,7 @@ async def start_background_monitor(self) -> None:
     self._monitor_task = asyncio.create_task(self._monitor_loop())
 ```
 
-**停止**（[base.py:339](../src/riskagent_backend/proactive_agents/base.py)）：
+**停止**（[base.py](../src/riskagent_backend/proactive_agents/base.py) ）：
 
 ```python
 async def stop_background_monitor(self) -> None:
@@ -2551,7 +2555,7 @@ async def stop_background_monitor(self) -> None:
 <a id="section-8-2"></a>
 ## 8.2 监控循环
 
-**核心循环**（[base.py:353](../src/riskagent_backend/proactive_agents/base.py)）：
+**核心循环**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _monitor_loop(self):
@@ -2571,7 +2575,7 @@ async def _monitor_loop(self):
 <a id="section-8-3"></a>
 ## 8.3 感知层：数据源采集与过滤
 
-**数据采集**（[base.py:400](../src/riskagent_backend/proactive_agents/base.py)）：
+**数据采集**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _collect_and_filter(self, data_sources: list) -> list:
@@ -2595,7 +2599,7 @@ async def _collect_and_filter(self, data_sources: list) -> list:
 <a id="section-8-4"></a>
 ## 8.4 信念更新
 
-**感知环境**（[base.py:418](../src/riskagent_backend/proactive_agents/base.py)）：
+**感知环境**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _perceive_environment(self) -> None:
@@ -2604,7 +2608,7 @@ async def _perceive_environment(self) -> None:
     pass
 ```
 
-**信念写入**（[base.py:172](../src/riskagent_backend/proactive_agents/base.py)）：
+**信念写入**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Belief:
@@ -2621,7 +2625,7 @@ def add_belief(self, content: Any, source: str, confidence: float = 1.0) -> Beli
 <a id="section-8-5"></a>
 ## 8.5 意图形成
 
-**思考过程**（[base.py:422](../src/riskagent_backend/proactive_agents/base.py)）：
+**思考过程**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _deliberate(self) -> None:
@@ -2682,7 +2686,7 @@ async def _deliberate(self) -> None:
 <a id="section-8-6"></a>
 ## 8.6 意图执行与事件投递
 
-**行动过程**（[base.py:486](../src/riskagent_backend/proactive_agents/base.py)）：
+**行动过程**（[base.py](../src/riskagent_backend/proactive_agents/base.py)）：
 
 ```python
 async def _act(self) -> None:
@@ -2757,27 +2761,27 @@ proactive_event → workflow.start_from_event()
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|
-| 启动监控 | [base.py:329](../src/riskagent_backend/proactive_agents/base.py) | `start_background_monitor` |
-| 停止监控 | [base.py:339](../src/riskagent_backend/proactive_agents/base.py) | `stop_background_monitor` |
-| 监控循环 | [base.py:353](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
-| 数据采集 | [base.py:400](../src/riskagent_backend/proactive_agents/base.py) | `_collect_and_filter` |
-| 感知环境 | [base.py:418](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
-| 信念写入 | [base.py:172](../src/riskagent_backend/proactive_agents/base.py) | `add_belief` |
-| 意图形成 | [base.py:422](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
-| 意图执行 | [base.py:486](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
-| 意图→事件 | [base.py:527](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
-| 事件投递 | [base.py:497](../src/riskagent_backend/proactive_agents/base.py) | `workflow.start_from_event` |
+| 启动监控 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `start_background_monitor` |
+| 停止监控 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `stop_background_monitor` |
+| 监控循环 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_monitor_loop` |
+| 数据采集 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_collect_and_filter` |
+| 感知环境 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_perceive_environment` |
+| 信念写入 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `add_belief` |
+| 意图形成 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_deliberate` |
+| 意图执行 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_act` |
+| 意图→事件 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `_build_proactive_event` |
+| 事件投递 | [base.py](../src/riskagent_backend/proactive_agents/base.py) | `workflow.start_from_event` |
 | 感知过滤引擎 | [perception/](../src/riskagent_backend/perception/) | `PerceptionFilterEngine` |
 | 升级管理 | [perception/](../src/riskagent_backend/perception/) | `EscalationManager` |
-| 预算熔断 | [scheduling/](../src/riskagent_backend/scheduling/) | `ProactiveBudgetManager` |
+| 预算熔断 | [governance/proactive_budget.py](../src/riskagent_backend/governance/proactive_budget.py) | `ProactiveBudgetManager` |
 
-<a id="section-10"></a>
-# 10. REST BFF 服务层
+<a id="section-9"></a>
+# 9. REST BFF 服务层
 
 REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层，为浏览器提供友好的 REST API 和 SSE 事件流，打通 `提交任务 → 轮询状态 → 展示智能体 → 展示结果` 的联调闭环。
 
-<a id="section-10-1"></a>
-## 10.1 端点概览
+<a id="section-9-1"></a>
+## 9.1 端点概览
 
 | 端点 | 方法 | 用途 |
 |------|------|------|
@@ -2791,8 +2795,8 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 
 除上述 7 个 BFF 端点外，server.py 还提供 5 个基础设施端点：`/health`、`/ready`、`/metrics`、`/api/llm/usage`、`/api/llm/cost-model`
 
-<a id="section-10-2"></a>
-## 10.2 运行时任务注册表
+<a id="section-9-2"></a>
+## 9.2 运行时任务注册表
 
 [runtime_task_store.py](../src/riskagent_backend/services/runtime_task_store.py) 维护运行中任务的状态快照，解决运行中任务无可轮询状态的问题：
 
@@ -2801,8 +2805,8 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 - 任务完成后更新 `status=completed` / `result` / `error`
 - 任务详情的权威来源优先级：运行时注册表 > MemoryStore.get_run_context > RunTraceStore.get_snapshot
 
-<a id="section-10-3"></a>
-## 10.3 SSE 事件流与快照去重
+<a id="section-9-3"></a>
+## 9.3 SSE 事件流与快照去重
 
 `GET /api/stream` 返回 `text/event-stream`，推送四类事件：
 
@@ -2815,8 +2819,8 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 
 **快照去重**：SSE 推送前对快照做内容哈希比对，相同快照不重复推送，避免前端重连抖动和无效事件洪泛。
 
-<a id="section-10-4"></a>
-## 10.4 脱敏机制
+<a id="section-9-4"></a>
+## 9.4 脱敏机制
 
 所有 API 响应在返回前经过脱敏处理，确保不暴露 Redis 原始结构或明文敏感信息：
 
@@ -2824,13 +2828,13 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 - `_sanitize_public_text()`：对公开文本做安全清洗，移除潜在敏感信息
 - 验收标准：全部响应无明文 API Key
 
-<a id="section-10-5"></a>
-## 10.5 nginx 反向代理
+<a id="section-9-5"></a>
+## 9.5 nginx 反向代理
 
 前端通过 nginx 反向代理将 `/api/*` 请求转发到后端 mcp-server 服务（K8s ClusterIP）。nginx 配置不在本仓库，前端代码也不在本仓库。
 
-<a id="section-10-6"></a>
-## 10.6 缺点与风险
+<a id="section-9-6"></a>
+## 9.6 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |------|---------|------|
@@ -2839,13 +2843,13 @@ REST BFF（Backend For Frontend）服务层是 Phase 13 新增的产品能力层
 | **运行时注册表与持久化状态短暂不一致** | 低 | 运行时注册表是内存态，任务完成后异步持久化到 MemoryStore |
 | **智能体状态是派生态** | 低 | `GET /api/agents` 来源于工作流单例角色对象和最近 trace，不能承诺强一致 |
 
-<a id="section-11"></a>
-# 11. LLM 成本治理
+<a id="section-10"></a>
+# 10. LLM 成本治理
 
 LLM 成本治理是 Phase 14 新增的治理层，对多 Agent 调用的 token 消耗和成本进行全维度统计、预估和熔断控制。
 
-<a id="section-11-1"></a>
-## 11.1 TokenTracker
+<a id="section-10-1"></a>
+## 10.1 TokenTracker
 
 TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑动窗口设计：
 
@@ -2853,17 +2857,30 @@ TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑�
 - **滑动窗口**：5min / 1h / 24h 三个窗口同时维护
 - **数据结构**：内存中的 `deque` + `defaultdict`，按时间戳自动淘汰过期记录
 
-<a id="section-11-2"></a>
-## 11.2 cost_model.py 定价表
+<a id="section-10-2"></a>
+## 10.2 cost_model.py 定价表
 
-[cost_model.py](../src/riskagent_backend/llm/cost_model.py) 内置模型定价表（含 DeepSeek 官方模型名与 OpenRouter 格式）：
+[cost_model.py](../src/riskagent_backend/llm/cost_model.py) 内置 `PRICING_TABLE` 模型定价表，单价单位为 **USD per 1K tokens**：
 
-- 按 `model_name` 查询 `prompt_price_per_1k` 和 `completion_price_per_1k`
-- 支持 USD 和 CNY 双币种换算
-- 定价表可通过 `/api/llm/cost-model` 端点查询
+- `get_pricing(model)` 按模型名查询，返回 `{"prompt": float, "completion": float}`（每 1K token 的美元价格）；未知模型回退 `default` 条目
+- `calculate_call_cost(prompt_tokens, completion_tokens, model)` 计算单次调用成本（美元，保留 6 位小数）
+- `calculate_chain_cost(records)` 汇总完整链路成本，按 stage 维度拆分
+- `generate_cost_estimate_table(summary)` 基于 TokenTracker 实测数据生成 5min / 1h / 24h / 7d 四窗口成本预估表
 
-<a id="section-11-3"></a>
-## 11.3 CostCircuitBreaker 三级熔断
+**定价表覆盖范围**：
+
+| 条目类型 | 示例 |
+|---------|------|
+| DeepSeek 官方模型名（无供应商前缀） | `deepseek-v4-flash`（prompt $0.00010 / completion $0.00020 per 1K）、`deepseek-v4-pro` |
+| 带供应商前缀的历史兼容条目 | `deepseek/deepseek-chat` 等，与官方同名模型定价一致 |
+| Embedding 模型 | `BAAI/bge-m3`（硅基流动免费额度，$0.00；embedding 无 completion 计费） |
+| 其他对照模型 | `openai/gpt-4o`、`google/gemini-2.0-flash-exp:free` 等 |
+| `default` 兜底 | prompt $0.00014 / completion $0.00028 per 1K |
+
+定价表可通过 `/api/llm/cost-model` 端点查询。当前仅 USD 计价，无 CNY 换算。
+
+<a id="section-10-3"></a>
+## 10.3 CostCircuitBreaker 三级熔断
 
 CostCircuitBreaker 实现三级熔断机制，防止 LLM 成本失控：
 
@@ -2875,8 +2892,8 @@ CostCircuitBreaker 实现三级熔断机制，防止 LLM 成本失控：
 
 熔断后系统自动降级，恢复条件为窗口滑过后预算余量恢复。
 
-<a id="section-11-4"></a>
-## 11.4 与 ProactiveBudgetManager 集成
+<a id="section-10-4"></a>
+## 10.4 与 ProactiveBudgetManager 集成
 
 CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 
@@ -2884,8 +2901,8 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 - `CostCircuitBreaker` 负责成本维度的熔断
 - 两者协同：频控先触发（防止瞬时风暴），成本熔断后触发（防止累计超标）
 
-<a id="section-11-5"></a>
-## 11.5 暴露端点
+<a id="section-10-5"></a>
+## 10.5 暴露端点
 
 | 端点 | 方法 | 用途 |
 |------|------|------|
@@ -2894,8 +2911,8 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 
 成本预估表支持 5min / 1h / 24h / 7d 四种时间窗口的预估。
 
-<a id="section-11-6"></a>
-## 11.6 缺点与风险
+<a id="section-10-6"></a>
+## 10.6 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |------|---------|------|
@@ -2903,13 +2920,13 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 | **定价表需手动更新** | 低 | 供应商定价变更时需手动更新 cost_model.py |
 | **预估精度依赖历史数据** | 低 | 新部署时无历史数据，预估精度较低 |
 
-<a id="section-12"></a>
-# 12. 评估体系
+<a id="section-11"></a>
+# 11. 评估体系
 
 本项目的评估体系采用 **自动化指标 + LLM 辅助评估 + 质量门禁** 三层架构，覆盖 7 大维度、40+ 项指标。
 
-<a id="section-9-1"></a>
-## 9.1 参考框架与基准
+<a id="section-11-1"></a>
+## 11.1 参考框架与基准
 
 评估体系参考了以下业界框架：
 
@@ -2926,8 +2943,8 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 - **领域定制**：在通用框架基础上增加金融风控领域特有指标（如工具风险、记忆价值）
 - **可插拔**：指标定义与计算解耦，可通过 `get_metric_definitions()` 动态扩展
 
-<a id="section-9-2"></a>
-## 9.2 评估维度与指标体系
+<a id="section-11-2"></a>
+## 11.2 评估维度与指标体系
 
 **7 大维度 + 1 行为维度**：
 
@@ -2966,11 +2983,11 @@ overall_score = 0.23 * task_accuracy
              + 0.09 * memory
 ```
 
-<a id="section-9-3"></a>
-## 9.3 指标计算方式
+<a id="section-11-3"></a>
+## 11.3 指标计算方式
 
-<a id="section-9-3-1"></a>
-### 9.3.1 任务准确度 (TaskAccuracyMetrics)
+<a id="section-11-3-1"></a>
+### 11.3.1 任务准确度 (TaskAccuracyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -2979,8 +2996,8 @@ overall_score = 0.23 * task_accuracy
 | `execution_success_rate` | trace.success ? 1.0 : 0.0 | trace.success |
 | `answer_quality` | LLMJudge 评估（accuracy/completeness/relevance/clarity） | LLMJudge.evaluate_answer_quality() |
 
-<a id="section-9-3-2"></a>
-### 9.3.2 问题理解度 (ComprehensionMetrics)
+<a id="section-11-3-2"></a>
+### 11.3.2 问题理解度 (ComprehensionMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -2989,8 +3006,8 @@ overall_score = 0.23 * task_accuracy
 | `ambiguity_resolution` | 启发式：有 intent=0.7，有 intent+react_steps=0.85 | trace |
 | `context_understanding` | 启发式：基于 trace 完整性分级 | trace |
 
-<a id="section-9-3-3"></a>
-### 9.3.3 协作深度 (CollaborationMetrics)
+<a id="section-11-3-3"></a>
+### 11.3.3 协作深度 (CollaborationMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -3000,8 +3017,8 @@ overall_score = 0.23 * task_accuracy
 | `role_specialization` | active_agents >= 3 → 0.85, >= 2 → 0.7, >= 1 → 0.5 | trace.agent_outputs |
 | `conflict_resolution_rate` | 启发式：success + active_agents >= 2 → 0.85 | trace |
 
-<a id="section-9-3-4"></a>
-### 9.3.4 执行效率 (EfficiencyMetrics)
+<a id="section-11-3-4"></a>
+### 11.3.4 执行效率 (EfficiencyMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -3012,8 +3029,8 @@ overall_score = 0.23 * task_accuracy
 | `tool_timeout_rate` | timeout_tools / total_tools | trace.tool_calls |
 | `tool_retry_rate` | retried_tools / total_tools | trace.tool_calls |
 
-<a id="section-9-3-5"></a>
-### 9.3.5 推理质量 (ReasoningMetrics)
+<a id="section-11-3-5"></a>
+### 11.3.5 推理质量 (ReasoningMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -3023,8 +3040,8 @@ overall_score = 0.23 * task_accuracy
 | `logical_consistency` | LLMJudge 或启发式 | LLMJudge / trace |
 | `reasoning_depth` | min(1.0, step_count / 5) | trace.react_steps |
 
-<a id="section-9-3-6"></a>
-### 9.3.6 工具风险 (ToolRiskMetrics)
+<a id="section-11-3-6"></a>
+### 11.3.6 工具风险 (ToolRiskMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -3034,8 +3051,8 @@ overall_score = 0.23 * task_accuracy
 | `approval_flow_compliance` | 期望审批且有审批轨迹 ? 0.9 : 0.3 | trace.tool_calls |
 | `dangerous_action_blocked` | 危险工具均有审批状态 ? 1.0 | trace.tool_calls |
 
-<a id="section-9-3-7"></a>
-### 9.3.7 记忆价值 (MemoryMetrics)
+<a id="section-11-3-7"></a>
+### 11.3.7 记忆价值 (MemoryMetrics)
 
 | 指标 | 计算方式 | 数据来源 |
 |---|---|---|
@@ -3046,8 +3063,8 @@ overall_score = 0.23 * task_accuracy
 | `role_drift_rate` | planning_memory.role_drift_rate（越低越好） | trace.planning_memory |
 | `memory_cross_talk_rate` | planning_memory.memory_cross_talk_rate（越低越好） | trace.planning_memory |
 
-<a id="section-9-4"></a>
-## 9.4 LLM 辅助评估
+<a id="section-11-4"></a>
+## 11.4 LLM 辅助评估
 
 对于主观指标，采用 **LLM-as-Judge** 模式，由独立 LLM 评估器打分：
 
@@ -3067,8 +3084,8 @@ overall_score = 0.23 * task_accuracy
 - **降级策略**：LLM Judge 失败时返回 0.5 默认分，不阻断评估流程
 - **确定性优先**：行为事实（如工具调用、审批轨迹）用确定性规则判定，不依赖 LLM Judge
 
-<a id="section-9-5"></a>
-## 9.5 质量门禁
+<a id="section-11-5"></a>
+## 11.5 质量门禁
 
 质量门禁（Quality Gate）是评估体系的 **硬约束层**，用于判定评估结果是否可发布：
 
@@ -3115,8 +3132,8 @@ class GateResult:
     decision_log: list[dict]  # 每个指标的决策日志
 ```
 
-<a id="section-9-6"></a>
-## 9.6 测试数据集
+<a id="section-11-6"></a>
+## 11.6 测试数据集
 
 **Gold 数据集**（[eval/datasets/gold/](../eval/datasets/gold/)）：
 
@@ -3151,8 +3168,8 @@ class GateResult:
 
 **标注一致性**：通过 [compute_iaa.py](../eval/scripts/compute_iaa.py) 计算 Inter-Annotator Agreement，确保标注质量。
 
-<a id="section-9-7"></a>
-## 9.7 评估报告
+<a id="section-11-7"></a>
+## 11.7 评估报告
 
 [report.py](../eval/core/report.py) 支持三种报告格式：
 
@@ -3170,8 +3187,8 @@ class GateResult:
 - Comparison：与历史/benchmark 的对比
 - Case Results：逐 case 结果表
 
-<a id="section-9-8"></a>
-## 9.8 优点
+<a id="section-11-8"></a>
+## 11.8 优点
 
 | 优点 | 说明 |
 |---|---|
@@ -3185,8 +3202,8 @@ class GateResult:
 | **场景分类覆盖** | 12 类 benchmark 场景，覆盖从简单查询到复杂多步推理 |
 | **行为指标独立** | BehavioralMetrics 与 OverallMetrics 分离，门禁不受主观评分影响 |
 
-<a id="section-9-9"></a>
-## 9.9 缺点与风险
+<a id="section-11-9"></a>
+## 11.9 缺点与风险
 
 | 缺点 | 风险等级 | 说明 |
 |---|---|---|
@@ -3200,8 +3217,8 @@ class GateResult:
 | **无回归检测** | 低 | 缺乏自动化的回归检测机制，无法发现指标劣化趋势 |
 | **LLM Judge 成本高** | 低 | 每个 case 需要多次 LLM 调用，评估成本随用例数线性增长 |
 
-<a id="section-9-10"></a>
-## 9.10 关键代码出处
+<a id="section-11-10"></a>
+## 11.10 关键代码出处
 
 | 组件 | 文件 | 方法/类 |
 |---|---|---|

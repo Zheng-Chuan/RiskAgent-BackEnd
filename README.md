@@ -11,7 +11,7 @@
 - resume 请求会先构造 resume payload 并恢复 task_graph execution_state memory_state run_summary 再回到同一套 workflow
 - 所有工具执行都走统一 `command -> receipt` 主链
 - step 级审批 恢复执行 运行时 replan 已接到真实执行链路
-- 记忆检索会真实参与规划 恢复和 lesson 沉淀
+- 记忆检索会真实参与规划 恢复和 Skill 沉淀（长期经验沉淀由 SkillProposer → Skill 系统承担）
 - `run_trace.v2` 会记录 task message version_snapshot plan step command receipt approval memory final
 - replay 和评测会直接消费统一 trace
 - benchmark v2 已收敛为 `basic simple medium complex collaboration memory reasoning recovery approval safety prompt_layering real_world` 十二类，共 90 条用例
@@ -110,7 +110,8 @@ kubectl create secret generic riskagent-secrets \
   --from-literal=MYSQL_ROOT_PASSWORD=root \
   --from-literal=MYSQL_PASSWORD=change_me \
   --from-literal=MYSQL_USER=admin \
-  --from-literal=LLM_API_KEY=your-api-key
+  --from-literal=LLM_API_KEY=your-api-key \
+  --from-literal=LLM_EMBEDDING_API_KEY=<硅基流动 key>
 
 # 部署
 make k8s-deploy
@@ -125,9 +126,9 @@ make k8s-uninstall
 
 - `tests/unit`: 纯逻辑和 contract 测试
 - `tests/integration`: 真实 adapter 和基础设施对接测试
-- `tests/workflows`: 面向主工作流的回归测试 当前先收敛 monitoring 和 unified memory 两条稳定主链
+- `tests/workflows`: 面向主工作流的回归测试 当前收敛为三个回归文件: `test_monitoring_workflow_regression.py` `test_unified_memory_workflow_regression.py` `test_approval_resume_workflow_regression.py`（monitoring、unified memory、审批-恢复三条主链）
 - `tests/acceptance`: 发布前验收测试
-- `tests/smoke`: 冒烟测试（预留，暂无测试）
+- `tests/smoke`: 冒烟测试目录（规划中，尚未创建）
 - 推荐执行: `pytest tests/unit`
 - 基础设施接线: `pytest tests/integration`
 - 主工作流回归: `pytest tests/workflows`
@@ -147,7 +148,7 @@ make k8s-uninstall
 - `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
 - **Phase 10**: 5min 主动感知与自主运维 — ✓ 完成 — 全链路验证通过（2026-08-03），感知→告警→LLM处置→Trace completed（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配）
-- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，158/158 → 222/222 Skill 相关测试通过，K8s 部署验证通过（Helm revision 18），已知限制：embedding 供应商不可用时降级为纯 BM25 关键词检索
+- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：embedding 供应商不可用时降级为纯 BM25 关键词检索
 - **Phase 12**: BDI 信念去重与意图幂等性修复 — ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07），双层去重防护（信念层 + 意图层），RFC-006 Accepted, Implemented
 - **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9/9 API 端点 + 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
 - **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消

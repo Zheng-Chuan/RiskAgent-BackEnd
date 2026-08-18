@@ -13,7 +13,8 @@ data:
   REDIS_PORT: {{ .Values.redis.port | default "6379" | quote }}
   REDIS_DB: {{ .Values.redis.db | default "0" | quote }}
   CHROMA_HOST: {{ .Values.chroma.host | default "chroma" | quote }}
-  CHROMA_PORT: {{ .Values.chroma.port | default "8001" | quote }}
+  # K8s 内 Service 端口为 8000 (8001 是 compose 的宿主映射), 回退默认同步为 8000
+  CHROMA_PORT: {{ .Values.chroma.port | default "8000" | quote }}
   CHROMA_COLLECTION: {{ .Values.chroma.collection | default "riskagent-alerts" | quote }}
   CHROMA_MEMORY_COLLECTION: {{ .Values.chroma.memoryCollection | default "riskagent-memory" | quote }}
   APP_ENV: {{ .Values.app.env | default "production" | quote }}
@@ -40,4 +41,3 @@ data:
   SKILL_HYBRID_VECTOR_WEIGHT: {{ .Values.skill.hybridVectorWeight | default "0.7" | quote }}
   PROMETHEUS_URL: {{ printf "http://%s:%s" (.Values.prometheus.host | default "prometheus") (.Values.prometheus.port | default "9090" | toString) | quote }}
   RISKAGENT_NAMESPACE: {{ .Release.Namespace | quote }}
-  DEPLOYMENT_ENV: "k8s"

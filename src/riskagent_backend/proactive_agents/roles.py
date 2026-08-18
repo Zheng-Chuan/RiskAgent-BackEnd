@@ -104,7 +104,7 @@ class ProactiveIntentAgent(BaseProactiveAgent):
         return await self.run_with_react(
             task=task,
             context={"metadata": metadata},
-            max_tokens=None,  # 不限制 token 数,让 GPT-4.5 自由输出
+            max_tokens=None,  # 不限制 token 数,让模型(当前为 deepseek-v4-flash)自由输出
             max_steps=5,
         )
 

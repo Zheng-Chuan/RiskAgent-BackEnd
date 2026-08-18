@@ -177,5 +177,6 @@ grafana:
 
 # Test Runner 配置 (可选 — 默认禁用)
 # 激活: helm install ... --set testRunner.enabled=true
+# 镜像不含 tests/ (.dockerignore 排除), 启用前需调整镜像构建或挂载源码
 testRunner:
   enabled: false

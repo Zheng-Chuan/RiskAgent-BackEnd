@@ -403,7 +403,7 @@ field 对应的 value
 |----------|-----|------------|------|
 | `EPHEMERAL` | 24h | `working_memory`, `plan`, `step`, `command`, `receipt`, `approval`, `message`, `private_task_state`, `working` | 运行中的工作态记忆,任务结束后自然过期 |
 | `SHORT_TERM` | 7d | `final`, `analysis`, `task`, `intent_disambiguation` | 任务级别的产物,保留一周供复盘和对照 |
-| `LONG_TERM` | **永久** | `few_shot`, `knowledge`, `fact`, `example` | 经验类型，永不过期，会触发 MySQL 落盘 |
+| `LONG_TERM` | **永久** | `lesson`, `semantic_case`, `few_shot`, `knowledge`, `fact`, `example` | 经验类型，永不过期，会触发 MySQL 落盘（其中 lesson/semantic_case 为历史 kind 映射残留,现行长期经验沉淀已统一走 Skill 系统） |
 | `PERMANENT` | **永久** | `skill`, `policy`, `config`, `procedure`, `playbook` | Skill 和系统配置,永不过期,会触发 MySQL 落盘 |
 
 **分类优先级**（5 级决策链）：
@@ -425,7 +425,7 @@ field 对应的 value
 **存储模型**：使用 `memory_store` 表（`INSERT ON DUPLICATE KEY UPDATE` 语义），核心字段：`entry_id`, `ts_ms`, `agent_id`, `scope`, `kind`, `memory_type`, `content`(JSON), `confidence`, `trace_ref`(JSON), `tags`(JSON), `session_id`, `run_id`, `ttl_tier`。
 
 **落盘触发时机**：
-- `MemoryStore.append()` 写入时，若 `TTLPolicyEngine.should_persist()` 返回 True，则通过 `asyncio.ensure_future()` fire-and-forget 异步落盘
+- `MemoryStore.append()` 写入时，若 `TTLPolicyEngine.should_persist()` 返回 True，则通过 `spawn_background_task()`（内部为 `asyncio.create_task()`，保持强引用防止 GC 丢失）fire-and-forget 异步落盘
 - `flush_to_persistence()` 定期批量同步，遍历 shared:memory 和各 agent 私有记忆，将 LONG_TERM/PERMANENT 条目批量落盘
 
 **故障恢复**：`restore_from_persistence()` 从 MySQL 批量加载记忆 → 逐条写回 Redis → 重建 SemanticIndexer 索引
@@ -468,6 +468,8 @@ TaskGraphExecutor.execute()
   -> on_node_completed
   -> memory_store.record_working_memory()
 ```
+
+注: `record_working_memory()` 实际定义在写入编排层 `memory/memory_operations.py`（`MemoryWriteOperationsMixin`，通过 Mixin 集成到 MemoryStore），调用方为 `orchestration/workflow_execution.py`.
 
 ### 3.3 finalize 链
 

@@ -5,10 +5,6 @@ mcp[cli]>=1.12.4,<2.0.0
 pymysql>=1.1.0
 sqlalchemy>=2.0.23
 
-# 数据处理
-pandas>=2.1.4
-numpy>=1.26.2
-
 # 消息队列
 
 # HTTP 客户端

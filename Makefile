@@ -89,13 +89,13 @@ kb-query:
 	python ./scripts/knowledge/kb.py query --query "$(QUERY)" --top-k "$(if $(TOP_K),$(TOP_K),5)"
 
 eval-run:
-	python -m eval.cli run --category "$(if $(CATEGORY),$(CATEGORY),all)" --output "$(if $(OUTPUT),$(OUTPUT),results/run_$(if $(RUN_TAG),$(RUN_TAG),baseline).json)" $(if $(MODEL),--model $(MODEL))
+	PYTHONPATH=src python -m eval.cli run --category "$(if $(CATEGORY),$(CATEGORY),all)" --output "$(if $(OUTPUT),$(OUTPUT),results/run_$(if $(RUN_TAG),$(RUN_TAG),baseline).json)" $(if $(MODEL),--model $(MODEL))
 
 eval-compare:
-	python -m eval.cli compare --current "$(BASE)" $(if $(CAND),--history "$(CAND)")
+	PYTHONPATH=src python -m eval.cli compare --current "$(BASE)" $(if $(CAND),--history "$(CAND)")
 
 eval-gate:
-	python -m eval.cli gate --run-id "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --gate-config "$(if $(GATE),$(GATE),eval/gates/default.json)"
+	PYTHONPATH=src python -m eval.cli gate --run-id "$(if $(RUN_TAG),$(RUN_TAG),baseline)" --gate-config "$(if $(GATE),$(GATE),eval/gates/default.json)"
 
 eval-prompt-benchmark:
 	python eval/scripts/run_prompt_layering_benchmark.py $(ARGS)
@@ -169,7 +169,7 @@ shell-db:
 
 phpmyadmin:
 	docker compose --profile tools up -d
-	@echo "phpMyAdmin available at http://localhost:8080"
+	@echo "phpMyAdmin available at http://localhost:8081"
 	@echo "Server: mysql"
 	@echo "Username: admin"
 

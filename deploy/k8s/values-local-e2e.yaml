@@ -39,6 +39,7 @@ redis:
     size: "2Gi"
 
 chroma:
+  skillsCollection: riskagent-skills
   resources:
     requests:
       cpu: "100m"
@@ -54,9 +55,6 @@ prometheus:
 
 grafana:
   enabled: false
-
-chroma:
-  skillsCollection: riskagent-skills
 
 llm:
   baseUrl: https://api.deepseek.com
