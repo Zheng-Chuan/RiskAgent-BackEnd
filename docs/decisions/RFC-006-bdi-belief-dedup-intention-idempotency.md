@@ -356,6 +356,8 @@ def add_intention(
 
 ## Unresolved Questions
 
+> 注：以下未决问题经 2026-08-25 决策全部不实施，仅作历史归档记录。
+
 | 问题 | 当前倾向 | 待确认 |
 |------|---------|--------|
 | `_cleanup_beliefs` 的 `max_age_seconds` 默认值 | 300s | 需要根据实际监控间隔和信号频率调优 |

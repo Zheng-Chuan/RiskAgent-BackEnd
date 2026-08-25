@@ -86,7 +86,6 @@
 | Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
 | Phase 14 | 性能验证与 LLM 成本模型 | ✓ 已完成 — LLM 成本模型 4 Checkpoint 完成，37 测试通过（test_cost_model 24 + test_cost_report 13，2026-08-07）；方向二十一（系统压测）、方向二十二（SLO 定义）已取消 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
-| Phase 15 | 治理与能力追赶（RFC-007） | 已立项，未实施 | [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md) |
 
 ---
 
@@ -105,7 +104,6 @@
 | K8s 全量迁移 | Accepted, Implemented | [RFC-004](./decisions/RFC-004-k8s-migration.md) |
 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary + Hybrid + Query Rewrite + skill_view） | Accepted, Implemented | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | BDI 信念去重与意图幂等性修复 | Accepted, Implemented | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
-| 治理与能力追赶路线（治理可信度生产准入） | Accepted, Not Implemented | [RFC-007](./decisions/RFC-007-governance-trust-production-readiness.md) |
 | LLM 成本模型与三级熔断 | Implemented | [Phase 14 方向二十](./phases/phase-14-performance-verification.md) |
 
 ---

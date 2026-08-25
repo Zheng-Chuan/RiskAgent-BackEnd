@@ -4,11 +4,21 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-08-25: 取消全部规划中事项 — 移除 RFC-007 及前瞻引用，文档体系回归已交付现状
+
+### Removed
+
+- 经决策取消全部规划中/未实施事项：RFC-007 治理与能力追赶路线（P0 治理五项 / P1 能力增强 / P2 生态扩展）及全部 12 个规划 feature flag、tests/smoke 预留、RFC-006 遗留未决问题、INTERVIEW 后续方向（后两者不实施，仅加注记归档）
+- 移除 `docs/decisions/RFC-007-governance-trust-production-readiness.md`，同步清理 PRD（Phase 15 行与决策表行）/ STRATEGY（治理与能力追赶小节）/ README（下一阶段与 tests/smoke 预留）/ ARCHITECTURE（§7.7 规划演进段）/ .env.example（规划 flag 注释预告块）中的前瞻引用与死链
+- .env.example 中 12 个规划 flag 注释预告（HITL_APPROVAL_MODE 等）全部删除，未引入过任何生效变量，无代码变更
+
+> 本条目为**决策记录**：文档体系现仅反映已交付现状；历史立项与取消事实如实保留于本文件。
+
 ## 2026-08-18: RFC-007 立项 — 治理与能力追赶路线（Accepted, Not Implemented）
 
 ### Added
 
-- 新增 `docs/decisions/RFC-007-governance-trust-production-readiness.md`：治理可信度五项准入门槛（分级审批 / 独立验证器 / 可回滚 / pass^k 一致性 / 注入防御）+ P0/P1/P2 追赶路线 + 三态灰度策略 + 性能预算表 + MAST 闸门
+- 新增治理与能力追赶 RFC 文档（该 RFC 已于 2026-08-25 取消并从仓库移除）：治理可信度五项准入门槛（分级审批 / 独立验证器 / 可回滚 / pass^k 一致性 / 注入防御）+ P0/P1/P2 追赶路线 + 三态灰度策略 + 性能预算表 + MAST 闸门
 - 同步更新 PRD（Phase 15 立项行）/ STRATEGY（扩展路径小节）/ README（下一阶段）/ ARCHITECTURE（§7.7 规划演进）/ .env.example（规划 flag 注释预告）
 
 > 本条目为**决策立项**，非代码实施。治理五项均为 Not Implemented，相关 feature flag 全部为规划中，实施时才引入代码。
