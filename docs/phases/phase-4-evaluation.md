@@ -144,5 +144,5 @@
 
 - PRD：[docs/PRD.md](../PRD.md)
 - 架构：[docs/ARCHITECTURE.md](../ARCHITECTURE.md)
-- 评测结果：[eval/reports/](../../eval/reports/)
+- 评测结果：`eval/reports/`（结果未归档入库）
 - 标注集：[eval/datasets/gold/](../../eval/datasets/gold/)

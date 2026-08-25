@@ -150,4 +150,4 @@
 
 - PRD：[docs/PRD.md](../PRD.md)
 - 架构：[docs/ARCHITECTURE.md](../ARCHITECTURE.md)
-- A/B 结果：[eval/results/memory_ab/](../../eval/results/memory_ab/)
+- A/B 结果：`eval/results/memory_ab/`（结果未归档入库）
