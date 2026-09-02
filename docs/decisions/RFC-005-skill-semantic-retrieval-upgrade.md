@@ -104,7 +104,7 @@
 
 ### 需求二：远程调用 OpenRouter 模型计算语义相似度
 
-> **2026-08-14 实现口径更新**：本章节描述的 OpenRouter embedding 调用为提案时点口径。实际实现已改为独立 embedding 端点（`LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置），现行供应商为硅基流动 SiliconFlow（`BAAI/bge-m3`，1024 维），详见 Update Log 2026-08-14 条目；下文各小节中“OpenRouter”字样均按此口径理解，不再逐句改写。
+> **2026-08-14 实现口径更新**：本章节描述的 OpenRouter embedding 调用为提案时点口径。实际实现已改为独立 embedding 端点（`LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置），现行供应商为硅基流动 SiliconFlow（`BAAI/bge-m3`，1024 维），详见 Update Log 2026-08-14 条目；下文各小节中“OpenRouter”以及 chat 模型名“deepseek/deepseek-chat”（提案时点口径，现行 chat 模型为 DeepSeek 官方 `deepseek-v4-flash`）字样均按此口径理解，不再逐句改写。
 
 **目标**：Skill 查询时不再用本地词袋向量计算相似度，改为远程调用 OpenRouter 提供的 embedding 接口，为 query 文本和 Skill `summary` 生成语义向量后计算相似度。
 

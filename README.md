@@ -88,12 +88,13 @@
 
 ## 开发环境
 
-本项目使用 conda 环境 MCP：
+本项目使用项目内虚拟环境 `.venv`（Python 3.13）：
 
 ```bash
-conda activate MCP
-# 或使用完整路径
-# /Users/zhengchuan/anaconda3/envs/MCP/bin/python
+# 首次初始化
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
 # 运行测试
 PYTHONPATH=src python -m pytest tests/ -v

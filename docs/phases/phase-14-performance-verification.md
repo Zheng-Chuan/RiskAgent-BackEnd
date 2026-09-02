@@ -40,7 +40,7 @@ Phase 10 的 5 分钟主动监控全链路验证已于 2026-08-03 完成. 验证
 ### Out of Scope
 
 - 前端性能监控仪表盘：归属前端项目，本期仅保证后端数据可被消费
-- LLM 模型选型优化：本期不更换模型，仅在当前 deepseek/deepseek-chat 基线上量化成本
+- LLM 模型选型优化：本期不更换模型，仅在当前 deepseek/deepseek-chat 基线上量化成本（Phase 14 时点口径；2026-08-14 起 Chat 已切换 DeepSeek 官方 `deepseek-v4-flash`）
 - 系统压测与 SLO 定义：已取消，不纳入 Phase 14 范围
 
 ## 详细 Checkpoint

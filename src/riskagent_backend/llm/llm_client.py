@@ -339,7 +339,7 @@ class LlmClient:
         """
         调用 Embedding API 生成语义向量.
 
-        RFC-005 需求二: embedding (1536 维).
+        RFC-005 需求二: 远程 embedding (当前 BAAI/bge-m3, 1024 维).
         DeepSeek 官方无 embeddings 端点, 故此处使用独立的 embedding
         Base URL / API Key (config.get_llm_embedding_base_url / _api_key),
         未配置时回退主 LLM_BASE_URL / LLM_API_KEY.

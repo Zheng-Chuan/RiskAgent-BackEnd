@@ -99,6 +99,10 @@
   - [11.8 优点](#section-11-8)
   - [11.9 缺点与风险](#section-11-9)
   - [11.10 关键代码出处](#section-11-10)
+- [12. 渠道接入与调度](#section-12)
+  - [12.1 多平台网关（gateway/）](#section-12-1)
+  - [12.2 内置调度（scheduling/）](#section-12-2)
+  - [12.3 CLI 辅助（cli/）](#section-12-3)
 <a id="section-1"></a>
 # 1. 系统统一主流程
 ```text
@@ -169,7 +173,7 @@
     |       | 构造标准 command
     |       | 注入 timeout_ms retry_budget
     |       v
-    |   [ToolExecutor]
+    |   [tool_executor.py]
     |       | 检查 tool registry
     |       | 检查 RBAC
     |       | 检查 budget
@@ -219,6 +223,8 @@
     | system_event 产出统一 run_trace 和 follow-up result
     | resume 返回继续执行后的结果
 ```
+
+> **角色命名约定**：本文档以 `IntentAgent` / `OrchestratorAgent` / `CriticAgent` 等角色概念名叙述架构；代码中的实现类为 `ProactiveIntentAgent` / `ProactiveOrchestratorAgent` / `ProactiveCriticAgent` 等（[roles.py](../src/riskagent_backend/proactive_agents/roles.py)，完整映射见 4.10 节）。`ToolExecutor` 同理，指 [tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) 模块（入口函数 `execute_agent_command()`），代码中并无同名类。
 
 <a id="section-2"></a>
 # 2. TaskGraph 执行内核详解
@@ -442,7 +448,7 @@ if step_approval_result is not None:
 
 审批状态机：`pending` → `approved`（放行）/ `rejected`（blocked）/ `expired`（blocked）。只有 `approved` 和 `resumed` 状态才允许继续执行。
 
-对于 `tool_call` 节点，审批在 `Receipt` 层处理：`execute_agent_command()` 内部通过 ToolExecutor 的五道关卡检查 RBAC 权限和审批要求。
+对于 `tool_call` 节点，审批在 `Receipt` 层处理：`execute_agent_command()` 内部通过 tool_executor.py 的五道关卡检查 RBAC 权限和审批要求。
 
 ### HITL_AUTO_APPROVE 自动审批机制（Phase 10 引入）
 
@@ -3232,3 +3238,29 @@ class GateResult:
 | Gold 数据集 | [cases.jsonl](../eval/datasets/gold/cases.jsonl) | 21 条标准用例 |
 | Benchmark 数据集 | [eval/benchmarks/](../eval/benchmarks/) | 12 类场景基准 |
 | CLI 入口 | [cli.py](../eval/cli.py) | 命令行评估工具 |
+
+<a id="section-12"></a>
+# 12. 渠道接入与调度
+
+Phase 7 交付（口径：抽象层收口）。调度能力完整落地并接入主链；Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。
+
+<a id="section-12-1"></a>
+## 12.1 多平台网关（gateway/）
+
+- **抽象层**：[adapter.py](../src/riskagent_backend/gateway/adapter.py) 定义 `GatewayAdapter` 基类与 `GatewayMessage` 统一消息格式，新增平台只需实现该接口
+- **统一路由**：[router.py](../src/riskagent_backend/gateway/router.py) 按消息类型决定入口（user_task 或 system_event），网关只做入口适配，不改变执行内核
+- **兼容实现**：`slack_adapter.py` / `wechat_work_adapter.py` 为示例级实现，不在正式验收范围（Phase 7 口径）
+- 测试：tests/unit/test_gateway.py
+
+<a id="section-12-2"></a>
+## 12.2 内置调度（scheduling/）
+
+- **CronManager**：[cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py) 提供 `CronTask` 定义、任务 CRUD、自然语言转 cron 表达式、触发检测与递归防护
+- **接入主链**：Cron 触发的任务统一走 `system_event → ModeratorAgent → TaskGraphExecutor` 执行内核，不允许绕过治理体系（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) 导入 `CronTask`）
+- **场景模板**：[cron_templates.py](../src/riskagent_backend/scheduling/cron_templates.py) 预置金融风控定时任务模板
+- 测试：tests/unit/test_cron_manager.py、test_cron_manager_enhanced.py
+
+<a id="section-12-3"></a>
+## 12.3 CLI 辅助（cli/）
+
+- [replay.py](../src/riskagent_backend/cli/replay.py) 提供 run 回放命令行工具（开发调试用）；完整评估工具链见第 11 章 `eval/cli.py`

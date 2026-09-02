@@ -4,6 +4,16 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-09-02: 文档-代码一致性审计修复
+
+### Fixed
+
+- README 开发环境段失真修复：conda 环境 MCP（已不存在）改为 `.venv`（Python 3.13）真实指引
+- llm_client.py embed() docstring 残留"1536 维"笔误改为当前 BAAI/bge-m3 1024 维
+- ARCHITECTURE.md 第 1 章新增角色命名约定注记（概念名 IntentAgent/OrchestratorAgent/ToolExecutor 与实现类 ProactiveIntentAgent 等的对照），架构图与 2.4 节的 ToolExecutor 表述改为 tool_executor.py 模块实际名称
+- ARCHITECTURE.md 新增第 12 章"渠道接入与调度"：补齐此前 0 覆盖的 gateway/（抽象层收口，平台适配器为兼容实现）、scheduling/（CronManager 已接入主链）、cli/（replay 工具）三个真实模块
+- phase-14 Out of Scope"当前 deepseek-chat"措辞、RFC-005 统一口径注记补历史口径标注（现行 chat 模型为 deepseek-v4-flash）
+
 ## 2026-08-25: 取消全部规划中事项 — 移除 RFC-007 及前瞻引用，文档体系回归已交付现状
 
 ### Removed
