@@ -4,7 +4,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3；收尾 commit 586220b：补附 commit 引用）
+## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3；收尾 commit 586220b：补附 commit 引用；评审收尾 commit eddd3fe）
 
 ### Fixed
 
