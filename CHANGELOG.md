@@ -4,7 +4,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-03: 第三轮文档-代码一致性深度审计修复
+## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3）
 
 ### Fixed
 
@@ -16,7 +16,6 @@
 
 - 新建 docs/KNOWN_ISSUES.md 缺陷登记册：代码层已知缺口（KI-001 调度生产入口未挂载、KI-002 Skill Chroma 未注入、KI-003 自主处置工具缺失、KI-004 remediation Skill 沉淀仅内存、KI-011 评测报告未归档等）与需求分离登记，文档保持反映已交付现状、不再以"已修复"掩盖缺口
 
-> 本轮条目不附 commit hash：由收尾 agent 提交后以第二个小 commit 补附（沿用 2026-08-25 轮惯例）。
 
 ## 2026-09-02: 文档-代码一致性审计修复（commit 4c5b2fa）
 
