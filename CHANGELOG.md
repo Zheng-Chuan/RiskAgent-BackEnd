@@ -4,7 +4,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3）
+## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3；收尾 commit 586220b：补附 commit 引用）
 
 ### Fixed
 
@@ -15,7 +15,6 @@
 ### Added
 
 - 新建 docs/KNOWN_ISSUES.md 缺陷登记册：代码层已知缺口（KI-001 调度生产入口未挂载、KI-002 Skill Chroma 未注入、KI-003 自主处置工具缺失、KI-004 remediation Skill 沉淀仅内存、KI-011 评测报告未归档等）与需求分离登记，文档保持反映已交付现状、不再以"已修复"掩盖缺口
-
 
 ## 2026-09-02: 文档-代码一致性审计修复（commit 4c5b2fa）
 
@@ -151,7 +150,7 @@
 
 ### Added
 
-- GitHub Actions CI/CD 管道（commit 26293a7）：新增 `.github/workflows/ci.yml`（lint / test / build-and-deploy）、`deploy/k8s/values-ci.yaml`（CI 环境专用 values）、`docs/ci-cd.md`（管道说明文档）；Makefile 部署参数化（KUBECONFIG / NAMESPACE / VALUES_FILE 变量注入）
+- GitHub Actions CI/CD 管道（commit 26293a7）：新增 `.github/workflows/ci.yml`（test / build / deploy 三 Job；build 与 deploy 后于 commit 8ef9f23 合并为 build-and-deploy，见下方 Fixed；ci.yml 从未包含 lint job，静态检查仅在 make lint）、`deploy/k8s/values-ci.yaml`（CI 环境专用 values）、`docs/ci-cd.md`（管道说明文档）；Makefile 部署参数化（注入 IMAGE_TAG / K8S_NAMESPACE 两个变量，docker build tag 与 helm -n / --set image.tag 改为引用变量；values 文件仍硬编码 values-prod.yaml）
 
 ### Fixed
 
@@ -314,6 +313,7 @@
 - RFC-004: docs/decisions/RFC-004-k8s-migration.md
 - Helm Chart: deploy/k8s/
 
+<a id="phase-9-收口---2026-07-09"></a>
 ## 2026-07-09: Phase 9 收口
 
 ### 概述

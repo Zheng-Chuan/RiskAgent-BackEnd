@@ -181,9 +181,9 @@ A: 通过两层指标体系量化衡量：
 A: 从 Phase 0 到 Phase 14 的渐进路径（截至 2026-08-08，Phase 11 实施日）：
 
 ```
-Phase 0-9 [已完成] → 真实执行闭环 + 统一记忆 + 事件驱动 + HITL审批 + 评测体系 + Skill自创 + 记忆永久化 + 调度网关 + 提示词优化 + 证据优先收口
+Phase 0-9 [已完成] → 真实执行闭环 + 统一记忆 + 事件驱动 + HITL审批 + 评测体系 + Skill自创 + 记忆永久化 + 调度网关 + 提示词优化 + 证据优先收口（调度网关：库层已实现、生产未挂载，见 KI-001）
     |
-Phase 10 [已完成 2026-08-03] → 5min 主动监控全链路完成（感知→升级→告警→LLM处置→Trace completed）
+Phase 10 [已完成 2026-08-03] → 5min 主动监控全链路完成（感知→升级→告警→LLM处置→Trace completed）（处置为规则判定+日志建议，容器重启/缓存清理工具未落地，见 KI-003）
     |  常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配
     |  HITL_AUTO_APPROVE 自动审批替代 ask_human，消除全链路阻塞
     |
@@ -191,10 +191,10 @@ Phase 12 [已完成 2026-08-07] → BDI 信念去重与意图幂等性修复（R
     |  双层去重防护（信念层 processed 标记 + 意图层内容去重）
     |  6 个 Checkpoint 全部通过，36 个测试通过
     |
-Phase 13 [已完成 2026-08-07] → REST BFF 浏览器闭环（9/9 API + 5/5 前端联调通过）
+Phase 13 [已完成 2026-08-07] → REST BFF 浏览器闭环（9 项验收全部通过 + 5/5 前端联调通过）
     |  7 个 BFF 端点 + SSE 实时推送 + 脱敏机制 + nginx 反向代理
     |
-Phase 14 [已完成 2026-08-07] → LLM 成本模型（4 个 Checkpoint，三级熔断器 5min/1h/24h）
+Phase 14 [已完成 2026-08-07] → LLM 成本模型（4 个 Checkpoint，三级熔断器 5min/1h/24h（5min 为档位标签，实际共用 1h 窗口，见 KI-012））
     |  by_agent_stage 维度统计，成本预估表（5min/1h/24h/7d）
     |  集成 ProactiveBudget，新增 /api/llm/cost-model 端点
     |
@@ -206,7 +206,7 @@ Phase 11 [Implemented 2026-08-08] → Skill 语义检索升级全部完成（RFC
 
 > 注：上述排序按实际完成日期，非 Phase 编号顺序（Phase 11 于 2026-08-08 最后完成，排在 Phase 14 之后）。
 
-扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent。
+扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent（现状核查：调度柱尚未挂载生产入口，见 KI-001）。
 
 ### Q: 与竞品（如单一 LLM Agent、规则引擎）的成本对比？
 

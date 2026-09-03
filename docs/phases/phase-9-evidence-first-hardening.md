@@ -98,7 +98,7 @@
   - 验收方法: 检查汇总报告
   - 验收证据: 报告中的 before/after 对照
   - 通过标准: `token_total` 下降 `15%-20%`, `cache_hit_rate > 0`
-  - 完成说明 (2026-07-09): Token 总消耗下降 48.40% (远超 20% 目标), 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens. 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`
+  - 完成说明 (2026-07-09): Token 总消耗下降 48.40% (远超 20% 目标), 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens. 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（该报告文件为运行期产物、未入库，不可复核，见 KI-011）
 
 ## 成功标准 (Exit Criteria)
 

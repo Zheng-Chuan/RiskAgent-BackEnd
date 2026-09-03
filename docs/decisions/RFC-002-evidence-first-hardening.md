@@ -1,8 +1,8 @@
 # RFC-002: Evidence-First Hardening Round
 
-**状态**: Accepted and Completed  
-**日期**: 2026-06-27  
-**作者**: RiskAgent-BackEnd 项目组
+**状态**：Accepted and Completed
+**日期**：2026-06-27
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Motivation / 动机
 
@@ -232,4 +232,4 @@ memory benchmark 拆成 3 类:
 
 ## Update Log
 
-- 2026-07-09: Phase 9 所有 8 个 checkpoint 全部通过。Memory A/B 退化已修复（evidence_coverage 评分公式修正、best_effort_fallback 移除、意图识别隔离、delegate 存在性校验）。Prompt A/B 对照实验完成。成本收益报告生成（Token 下降 48.40%）。
+- 2026-07-09: Phase 9 所有 8 个 checkpoint 全部通过。Memory A/B 退化已修复（evidence_coverage 评分公式修正、best_effort_fallback 移除、意图识别隔离、delegate 存在性校验）。Prompt A/B 对照实验完成。成本收益报告生成（Token 下降 48.40%）（证据文件为运行期产物、未入库，不可复核，见 KI-011）。

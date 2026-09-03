@@ -22,7 +22,7 @@
 | [KI-003](#ki-003) | High | 补救动作绕过治理（无五道关卡/无 receipt/工具缺失） | 未修复 |
 | [KI-004](#ki-004) | Medium | remediation Skill 沉淀仅内存（重启丢失） | 未修复 |
 | [KI-005](#ki-005) | Medium | embedding base_url 代码默认值与部署配置不一致 | 未修复 |
-| [KI-006](#ki-006) | Medium | docker-compose 未透传 11 个已声明变量 | 未修复 |
+| [KI-006](#ki-006) | Medium | docker-compose 未透传 12 个已声明变量 | 未修复 |
 | [KI-007](#ki-007) | Medium | K8s configmap 缺成本单价变量 | 未修复 |
 | [KI-008](#ki-008) | Medium | requirements.txt 缺显式依赖（aiohttp / starlette） | 未修复 |
 | [KI-009](#ki-009) | Low | 迁移脚本 006 无执行通道 | 未修复 |
@@ -41,7 +41,7 @@
 
 ### 现象与证据
 
-- `CronManager` 类定义于 [cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py)（`class CronManager`，约 L130），但在 `src/` 全目录中**从未被实例化**——`CronManager()` 构造调用只出现在 `tests/`（`tests/unit/test_cron_manager.py`、`tests/unit/test_cron_manager_enhanced.py`、`tests/acceptance/test_self_improving_loop.py`）。
+- `CronManager` 类定义于 [cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py)（`class CronManager`，约 L130），但在 `src/` 全目录中**从未被实例化**——`CronManager()` 构造调用只出现在 `tests/`（`tests/unit/test_cron_manager.py`、`tests/unit/test_cron_manager_enhanced.py`、`tests/integration/test_cron_workflow.py` L280/L357/L442/L479、`tests/acceptance/test_self_improving_loop.py` L956）。
 - `run_cron_triggered_workflow()`（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) L272）在 `src/` 中**零生产调用方**，唯一调用点在 `tests/integration/test_cron_workflow.py`。
 - `set_trigger_callback()`（cron_manager.py L523）与 `check_recursion()`（cron_manager.py L297）在 `src/` 中**无调用方**，调用点全部位于 `tests/`。
 - `proactive_workflow.py` L69 `from ...scheduling.cron_manager import CronTask` 仅导入 `CronTask` 数据类用于类型标注，并非挂载调度器。
@@ -50,8 +50,8 @@
 ### 核验命令
 
 ```bash
-# src/ 中是否有 CronManager 实例化（预期：无，仅类定义与 __init__ 导出）
-grep -rn "CronManager(" src/
+# src/ 中是否有 CronManager 实例化（预期：src/ 无，仅类定义与 __init__ 导出；构造调用全在 tests/）
+grep -rn "CronManager(" src/ tests/
 # run_cron_triggered_workflow 的调用方（预期：src/ 仅定义处，调用全在 tests/）
 grep -rn "run_cron_triggered_workflow" src/ tests/
 # server.py 是否启动调度器（预期：无 cron/scheduler 启动）
@@ -194,7 +194,7 @@ grep -rn "EMBEDDING_BASE_URL\|embeddingBaseUrl" docker-compose.yml deploy/k8s/
 ---
 
 <a id="ki-006"></a>
-## KI-006 · docker-compose 未透传 11 个已声明变量
+## KI-006 · docker-compose 未透传 12 个已声明变量
 
 - **严重度**：Medium
 - **状态**：未修复
@@ -202,7 +202,7 @@ grep -rn "EMBEDDING_BASE_URL\|embeddingBaseUrl" docker-compose.yml deploy/k8s/
 
 ### 现象与证据
 
-[docker-compose.yml](../docker-compose.yml) 的 `mcp-server.environment`（L83-116）缺失以下 **11 个**在 `.env.example` 与代码中已声明的变量，导致用户在 `.env` 修改这些值时容器内不生效：
+[docker-compose.yml](../docker-compose.yml) 的 `mcp-server.environment`（L83-116）缺失以下 **12 个**在 `.env.example` 与代码中已声明的变量，导致用户在 `.env` 修改这些值时容器内不生效：
 
 1. `HITL_AUTO_APPROVE`（.env.example L64；config_pydantic.py L101 `hitl_auto_approve`）
 2. `CHROMA_SKILLS_COLLECTION`（.env.example L32；config_pydantic.py L153）
@@ -215,8 +215,11 @@ grep -rn "EMBEDDING_BASE_URL\|embeddingBaseUrl" docker-compose.yml deploy/k8s/
 9. `REDIS_DB`（.env.example L43；config_pydantic.py L96）
 10. `LLM_COST_PROMPT_PER_1K`（.env.example L67；token_tracker.py L451 经 `safe_env_float` 读取）
 11. `LLM_COST_COMPLETION_PER_1K`（.env.example L68；token_tracker.py L452）
+12. `REDIS_PASSWORD`（.env.example L44；config_pydantic.py L97 `redis_password` 字段、L208-209 用于构造 `redis_url`；[redis_source.py](../src/riskagent_backend/perception/data_sources/redis_source.py) L41 读取）
 
-> 说明：compose 已通过 `REDIS_URL`（L91）整体覆盖 Redis 连接，故 `REDIS_HOST/PORT/DB` 三者在本部署形态下即便透传也会被 `REDIS_URL` 优先覆盖（config_pydantic.py L203 `redis_url` 属性显式 URL 优先）；但作为"已声明却未透传"的变量仍登记在此，供非 compose 部署形态参考。当前这些变量的缺失**恰好**由 pydantic 默认值 / `safe_env_float` 默认值兜底，与 `.env.example` 示例值一致，故未暴露为运行故障。
+> 排除项：`MYSQL_ROOT_PASSWORD`（.env.example L3）虽在 `.env.example` 声明，但仅由 docker-compose `mysql` 服务使用、未被 `src/` 任何代码读取，故不计入本条“已声明却未透传给 mcp-server”的清单。
+
+> 说明：compose 已通过 `REDIS_URL`（L91）整体覆盖 Redis 连接，故 `REDIS_HOST/PORT/DB/PASSWORD` 四者在本部署形态下即便透传也会被 `REDIS_URL` 优先覆盖（config_pydantic.py L203 `redis_url` 属性显式 URL 优先；`REDIS_PASSWORD` 已被插入 `REDIS_URL` 的 `redis://:${REDIS_PASSWORD}@...`）；但作为"已声明却未透传"的变量仍登记在此，供非 compose 部署形态参考。当前这些变量的缺失**恰好**由 pydantic 默认值 / `safe_env_float` 默认值兜底，与 `.env.example` 示例值一致，故未暴露为运行故障。
 
 ### 核验命令
 
@@ -227,6 +230,9 @@ for v in HITL_AUTO_APPROVE CHROMA_SKILLS_COLLECTION SKILL_QUERY_REWRITE_ENABLED 
          REDIS_HOST REDIS_PORT REDIS_DB LLM_COST_PROMPT_PER_1K LLM_COST_COMPLETION_PER_1K; do
   echo -n "$v: "; grep -c "$v" docker-compose.yml
 done
+# REDIS_PASSWORD 未作为独立 env 透传给 mcp-server（仅被插入 REDIS_URL）——
+# 提取 mcp-server.environment 段确认无独立 REDIS_PASSWORD 键（预期：0）
+sed -n '/^  mcp-server:/,/^  test-runner:/p' docker-compose.yml | grep -cE "^[[:space:]]+REDIS_PASSWORD:"
 ```
 
 ### 影响
@@ -362,15 +368,17 @@ python -c "import typing; from riskagent_backend.orchestration.tool_executor imp
 
 - `eval/results/`、`eval/reports/` 目录**当前不存在**于仓库（`ls eval/` 无此二目录）。
 - 多份文档引用的"实测"数字因此**不可复核**：
-  - Token 总消耗下降 **48.40%**、缓存命中率 **83.33%**、前缀缓存节省 1,213 tokens —— 见 [phase-8-prompt-optimization.md](phases/phase-8-prompt-optimization.md) L68/L93/L100、[phase-9](phases/phase-9-evidence-first-hardening.md) L101、[STRATEGY.md](STRATEGY.md) L140、[PRD.md](PRD.md) L188、[RESUME.md](RESUME.md) L56-59、[RFC-001](decisions/RFC-001-hermes-upgrade.md) L289、[RFC-002](decisions/RFC-002-evidence-first-hardening.md) L235。
+  - Token 总消耗下降 **48.40%**、缓存命中率 **83.33%**、前缀缓存节省 1,213 tokens —— 见 [phase-8-prompt-optimization.md](phases/phase-8-prompt-optimization.md) L68/L93/L100、[phase-9](phases/phase-9-evidence-first-hardening.md) L101、[STRATEGY.md](STRATEGY.md) L140、[PRD.md](PRD.md) §11「LLM token 成本较当前下降 20% 以上」行、[RESUME.md](RESUME.md) L56-59、[RFC-001](decisions/RFC-001-hermes-upgrade.md) L289、[RFC-002](decisions/RFC-002-evidence-first-hardening.md) L235。
   - 引用的报告路径 `eval/results/prompt_layering/20260709_155819_cost_report.md`、`eval/results/memory_ab/...`（phase-2 L59/L111）均指向不存在的文件。
-- `.gitignore` L60-61 仅保留 `eval/results/.gitkeep`，评测产物为运行期生成、未入库。
+- `.gitignore` L60-61 注释意图为“保留 `.gitkeep`、忽略其余产物”，但实际仅 `eval/results/.gitkeep` 一条模式（并未忽略 `eval/results/` 产物，注释与模式亦相互矛盾）；且 `git ls-files eval/results` 零命中——该目录与 `.gitkeep` 在仓库中均不存在，即历史上从未有任何评测结果入库。
 
 ### 核验命令
 
 ```bash
 # 目录是否存在（预期：No such file or directory）
 ls eval/results eval/reports
+# 历史上是否有任何评测结果入库（预期：零命中）
+git ls-files eval/results
 # 引用实测数字的文档位置
 grep -rn "48.40%\|83.33%" docs/
 ```

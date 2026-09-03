@@ -48,7 +48,7 @@ RiskAgent-BackEnd Memory Architecture
 前 2 种更像协作记忆流.
 后 2 种更像运行态快照和恢复执行基础设施.
 
-### A. shared memory list
+#### A. shared memory list
 
 作用
 
@@ -127,7 +127,7 @@ value 格式
 }
 ```
 
-### B. agent private memory list
+#### B. agent private memory list
 
 作用
 
@@ -203,7 +203,7 @@ value 格式
 }
 ```
 
-### C. run context hash
+#### C. run context hash
 
 作用
 
@@ -311,7 +311,7 @@ field 对应的 value
 }
 ```
 
-### D. run summary hash
+#### D. run summary hash
 
 作用
 

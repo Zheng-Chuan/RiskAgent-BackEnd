@@ -12,6 +12,7 @@
 | 2026-08-07 | Status 从 Proposed 更新为 Accepted；6 个待解决问题全部填写决策结果；新增需求四（Hybrid 检索）、需求五（Query Rewriting）、需求六（skill_view 工具）三项优化方案设计；更新实施顺序与 Drawbacks |
 | 2026-08-08 | Status 从 Accepted 更新为 Implemented；6 项需求全部实施完成：需求三 summary 字段（commit 249fe2e）、需求二远程 Embedding（commit c7b80d0）、需求六 skill_view 工具（commit 5e2833d）、需求一 Chroma 向量库迁移、需求五 Query Rewriting（commit 57daf39）、需求四 Hybrid 检索（commit 4cbd799）、审查修复（commit 16c2886）；K8s 部署验证通过（Helm revision 18，Docker 镜像 k8s-local-v4）；158/158 Skill 专项测试通过；6 个集成点全部验证 PASS；已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级机制正常工作 |
 | 2026-08-14 | LLM 网关切换（commit 06ea0ab）：embedding 链路从 OpenRouter `text-embedding-3-small`（1536 维）切换到硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维）；新增 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置（为空时回退主 LLM 配置）；Chroma 维度不匹配自动自愈（`restore_from_persistence()` 时删除并重建 collection，1536→1024 无需手动迁移）；Resolved Question 1 的选型决策被推翻，见其 superseded 标注 |
+| 2026-09-03 | 复核需求一（Chroma 向量库）生产生效情况：生产主链以无参 `SkillStore()` 构造，`_chroma_enabled` 恒为 False，Chroma ANN 向量通道从未在主链生效，实际检索为 SemanticIndexer（词袋 128 维）+BM25；“6 个集成点 PASS”为含 mock 注入的单测验收时点结论；缺口登记 KI-002。 |
 
 ## 上下文
 

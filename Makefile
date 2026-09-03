@@ -1,4 +1,4 @@
-.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm pylint lint-env typecheck lint
+.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm pylint lint-env typecheck lint k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status docker-build
 
 IMAGE_TAG ?= latest
 K8S_NAMESPACE ?= riskagent
@@ -185,7 +185,6 @@ phpmyadmin:
 	@echo "Username: admin"
 
 ## K8s 部署
-.PHONY: k8s-deploy k8s-deploy-dev k8s-uninstall k8s-status docker-build
 
 docker-build: ## Build Docker image for K8s deployment
 	docker build -t riskagent/backend:$(IMAGE_TAG) -f Dockerfile .

@@ -10,6 +10,7 @@
 |------|------|
 | 2026-07-18 | 初始创建 |
 | 2026-08-03 | 状态更新为 Completed。全链路验证通过：感知 → 升级 → 告警 → 意图识别 → 编排规划 → 评审 → 重规划 → TaskGraph 执行 → Trace 记录（status=completed）。LLM 真实调用 deepseek/deepseek-chat（非 fallback）。修复 LLM Fallback 降级机制、semantic_indexer 递归 Bug、Orchestrator 输出验证顺序。移除 ask_human 步骤改用 HITL_AUTO_APPROVE 自动审批。K8s 部署 LLM_API_KEY 注入验证通过。 |
+| 2026-09-03 | 复核§4 自主处置口径：容器重启/缓存清理与 SkillProposer 沉淀均未落地（仅规则判定+日志，不经 tool_executor/五道关卡、无 receipt；docker_stats/redis_info/mysql_health_check 三工具未注册），已在§4 节标题下插入复核注记，缺口登记 KI-003/KI-004。 |
 
 ## 上下文
 
@@ -42,6 +43,8 @@
 - LLM 推理频率控制（每小时不超过 N 次调用，复用 `ProactiveBudgetManager`）
 
 ### 4. 自主处置与人类升级
+
+> **复核注记（2026-09-03）**：本节描述的容器重启/缓存清理自主处置与 SkillProposer 沉淀均未落地——`RemediationManager._execute_low_risk_action()` 仅规则判定+`logger.info`，不经 `tool_executor`/五道关卡、无 receipt；`docker_stats`/`redis_info`/`mysql_health_check` 三工具在 `tool_registry` 不存在（实为 `mysql_health`/`chroma_health`）；详见 KI-003/KI-004。下文为提案时点口径，不再逐句改写。
 - **简单问题自主处置**：容器重启、缓存清理等低风险操作，自动执行（受五道关卡治理，经 `tool_executor` 主路径）
 - **复杂问题人类升级**：通过 TaskGraph `ask_human` 节点升级，包含问题描述、建议方案、影响范围
 - **处置结果追踪**：所有处置动作记录到 `run_trace.v2`，成功处置通过 `SkillProposer` 沉淀为 Skill

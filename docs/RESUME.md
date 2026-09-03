@@ -61,7 +61,7 @@
 
 ## 后续进度 (Phase 10-14)
 
-- Phase 10-14 全部完成: Phase 10 5min 主动监控闭环 (2026-08-03 验证通过)、Phase 11 Skill 语义检索 (RFC-005 Implemented)、Phase 12 BDI 信念去重 (36 测试通过)、Phase 13 REST BFF (9 端点验收)、Phase 14 LLM 成本模型 (方向二十一/二十二已取消)
+- Phase 10-14 全部完成: Phase 10 5min 主动监控闭环 (2026-08-03 验证通过)、Phase 11 Skill 语义检索 (RFC-005 Implemented)、Phase 12 BDI 信念去重 (36 测试通过)、Phase 13 REST BFF (9 端点验收)、Phase 14 LLM 成本模型 (方向二十一/二十二已取消)（其中 Phase 10 Checkpoint 16.4.1 自主处置部分实现，见 KI-003/KI-004；Phase 11 生产主链未注入 Chroma，见 KI-002）
 - LLM 网关切换 (2026-08-14): Chat 切 DeepSeek 官方 API (deepseek-v4-flash, 显式深度思考), embedding 切硅基流动 BAAI/bge-m3 (1024 维, Chroma 维度自愈)
 - 安全加固 (2026-08-11): HITL_AUTO_APPROVE 默认关闭 (fail-safe)、/api/* 鉴权 fail-closed、Redis 密码、弱密码治理
 - K8s/CI 演进: Chroma 镜像与客户端对齐 0.5.23; CI Docker 构建补 g++ (chroma-hnswlib 源码编译), pipeline 全绿

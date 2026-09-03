@@ -65,7 +65,7 @@
   - 验收方法: 在同一 benchmark 上跑 `baseline` 和 `optimized` 两组实验, 生成一次汇总 `json` 和 `md` 报告.
   - 验收证据: case 清单. 两组实验结果. `token_total` `cache_hit_rate` `prefix_cache_savings` `task_success_rate` `evidence_coverage` `approval_correctness` 对照表.
   - 通过标准: `task_success_rate` 不低于 baseline. `evidence_coverage` 不低于 baseline 的 `95%`. `approval_correctness` 不低于 baseline. `token_total` 下降 `15%-20%`. `cache_hit_rate > 0`.
-  - 完成说明 (2026-07-09): 使用 `eval/scripts/run_prompt_layering_benchmark.py --skip-eval` 模式运行, 质量指标 PASS (off/on 使用相同代码路径, 指标一致). Token 总消耗下降 48.40% (远超 20% 目标), 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens. 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`
+  - 完成说明 (2026-07-09): 使用 `eval/scripts/run_prompt_layering_benchmark.py --skip-eval` 模式运行, 质量指标 PASS (off/on 使用相同代码路径, 指标一致). Token 总消耗下降 48.40% (远超 20% 目标), 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens. 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（该报告文件为运行期产物、未入库，不可复核，见 KI-011）
 
 ## 风险与缓解
 
@@ -97,7 +97,7 @@
 - 三层 prompt 构建器, TokenTracker 扩展, CostReportGenerator, TrendTracker 已在代码中实现
 - 固定 case 集和 one-shot benchmark runner 已落地, 可以通过 `make eval-prompt-benchmark` 触发
 - 但 `7 day` 连续运行不再作为本期硬验收方式
-- 对照实验已完成 (2026-07-09): Token 总消耗下降 48.40%, 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens
+- 对照实验已完成 (2026-07-09): Token 总消耗下降 48.40%, 缓存命中率 83.33%, 前缀缓存节省 1,213 tokens（证据文件为运行期产物、未入库，不可复核，见 KI-011）
 - Phase 9 Checkpoint 15.3.2 和 15.3.3 已通过
 - 本 Phase 验收已收口
 

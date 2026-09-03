@@ -137,7 +137,7 @@ make k8s-uninstall
 - `tests/workflows`: 面向主工作流的回归测试 当前收敛为三个回归文件: `test_monitoring_workflow_regression.py` `test_unified_memory_workflow_regression.py` `test_approval_resume_workflow_regression.py`（monitoring、unified memory、审批-恢复三条主链）
 - `tests/acceptance`: 发布前验收测试
 - `tests/scenarios`: 场景级端到端测试
-- `tests/diagnostics`: 诊断与调试辅助测试
+- `tests/diagnostics`: 手工诊断脚本（非 pytest 收集范围）
 - 推荐执行: `pytest tests/unit`
 - 基础设施接线: `pytest tests/integration`
 - 主工作流回归: `pytest tests/workflows`
@@ -154,10 +154,10 @@ make k8s-uninstall
 
 - `Phase 2`: memory relevance gate 和 resume completeness contract 已落地, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
 - `Phase 7`: Gateway public API 已收口到 `GatewayAdapter` `GatewayMessage` `GatewayRouter`
-- `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
+- `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%（证据文件为运行期产物、未入库，不可复核，见 KI-011）
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
-- **Phase 10**: 5min 主动感知与自主运维 — ✓ 完成 — 全链路验证通过（2026-08-03），感知→告警→LLM处置→Trace completed（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配）
+- **Phase 10**: 5min 主动感知与自主运维 — ✓ 完成 — 全链路验证通过（2026-08-03），感知→告警→LLM处置→Trace completed（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配）（Checkpoint 16.4.1 部分实现，见 KI-003/KI-004）
 - **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：主链未注入 Chroma/llm_client，向量通道从未启用，实际始终为 SemanticIndexer + BM25（见 KNOWN_ISSUES KI-002）
 - **Phase 12**: BDI 信念去重与意图幂等性修复 — ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07），双层去重防护（信念层 + 意图层），RFC-006 Accepted, Implemented
 - **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9 项验收全部通过（含 /health 基础设施端点与脱敏验证；BFF 业务端点实为 7 个，参见 ARCHITECTURE §9.1）+ 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
-- **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消
+- **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h（5min 为档位标签，实际共用 1h 窗口，见 KI-012）），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消

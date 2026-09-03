@@ -10,6 +10,8 @@
 
 > **2026-08-14 更新**：LLM 网关切换后 embedding 链路从 OpenRouter `text-embedding-3-small`（1536 维）切换到硅基流动 SiliconFlow `BAAI/bge-m3`（1024 维），新增 `LLM_EMBEDDING_BASE_URL` / `LLM_EMBEDDING_API_KEY` 解耦配置；Chroma 集合维度不匹配时自动自愈（`restore_from_persistence()` 启动时重建向量索引，1536→1024 无需手动迁移）。下文部分描述为 2026-08-08 实施时点的历史口径，已逐处标注。
 
+> **2026-09-03 复核**：本文 Chroma ANN / Hybrid / “6 个集成点 PASS”均为含 mock 注入的单测验收时点结论；生产主链以无参 `SkillStore()` 构造、`_chroma_enabled` 恒为 False、向量通道从未启用，实际检索为 SemanticIndexer（词袋 128 维）+BM25，见 KI-002。
+
 ## 目标
 
 将 Skill 语义检索链路从进程内词袋模型升级为完整的语义检索闭环，包含向量库存储、远程 Embedding、Summary 摘要字段、Hybrid 检索、Query Rewriting 和 skill_view 按需加载工具，共 6 项子需求。
@@ -178,7 +180,7 @@
 | Skill 专项测试 158/158 通过 | ✅ | 全部通过 |
 | 6 个集成点验证 PASS | ✅ | 全部通过 |
 | K8s 部署验证通过 | ✅ | Helm revision 18 |
-| embedding 供应商不可用时 Fallback 降级正常 | ✅ | 已验证（验证时点为 OpenRouter 402；现行供应商为硅基流动） |
+| embedding 供应商不可用时 Fallback 降级正常 | ✅ | 已验证（验证时点为 OpenRouter 402；现行供应商为硅基流动）。注：此为含 mock 注入的单测验收时点结论，生产主链未注入 Chroma、向量通道从未启用，实际为 SemanticIndexer+BM25（见 KI-002） |
 | 文档与代码状态一致 | ✅ | RFC-005 Implemented |
 
 ## 相关文档

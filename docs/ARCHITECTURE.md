@@ -2201,7 +2201,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 <a id="section-7"></a>
 # 7. MCP 工具调用与治理
 
-本系统通过 MCP（Model Context Protocol）对外暴露工具能力，所有 Agent 的工具调用统一经过 **ToolRegistry → ToolExecutor** 主路径，不形成旁路。
+本系统通过 MCP（Model Context Protocol）对外暴露工具能力，所有 Agent 的工具调用统一经过 **ToolRegistry → tool_executor.py** 主路径，不形成旁路。
 
 <a id="section-7-1"></a>
 ## 7.1 协议与传输层
@@ -2384,7 +2384,7 @@ _ORCHESTRATOR_ALLOWLIST = {
 3. 即使工具在 `_TOOL_REGISTRY` 中注册，不在角色 allowlist 中也无法执行
 
 **关键设计**：
-- **双重隔离**：ToolMeta.allowed_targets + ToolExecutor allowlist，两层校验
+- **双重隔离**：ToolMeta.allowed_targets + tool_executor.py allowlist，两层校验
 - **副作用工具仅 manager**：`submit_alerts` 和 `write_alert` 只有 manager 角色可调用
 - **owner 字段**：每个工具声明所属角色，用于 MCP 层路由
 
@@ -2742,7 +2742,7 @@ proactive_event → workflow.start_from_event()
     → CriticAgent 审查
     → TaskGraphExecutor 执行
         → delegate / tool_call / finalize
-        → ToolExecutor → receipt
+        → tool_executor.py → receipt
     → 审批（如需要）
     → finalize output
     → persist and trace（run_trace.v2）
@@ -2904,6 +2904,8 @@ CostCircuitBreaker（[cost_circuit_breaker.py](../src/riskagent_backend/governan
 | L2 | 1h | 500,000 | $0.10 | 同上 |
 | L3 | 24h | 10,000,000 | $2.00 | 同上 |
 
+> **窗口口径注（KI-012）**：三级档位共用 TokenTracker `summary()` 的同一份 1h 窗口数据，L1“5min”为档位标签而非真实统计窗口，实际按 1h 累计值判断，详见 KI-012。
+
 **熔断行为**：三级触发返回同构 `{"should_block": bool, "reason": str, "level": str}`，唯一消费方 `ProactiveBudgetManager` 统一阻断本次主动运行（不区分级别差异行为）。
 
 **恢复机制**：固定 30 秒冷却（`cooldown_s=30`），冷却期满后自动重置该级别的 `_tripped` 标志。
@@ -2935,6 +2937,7 @@ CostCircuitBreaker 与 `ProactiveBudgetManager` 联动：
 | **纯内存存储** | 中 | TokenTracker 和 CostCircuitBreaker 数据存储在内存中，服务重启后丢失统计数据 |
 | **定价表需手动更新** | 低 | 供应商定价变更时需手动更新 cost_model.py |
 | **预估精度依赖历史数据** | 低 | 新部署时无历史数据，预估精度较低 |
+| **5min 档位与数据窗口错配** | 中 | 三级档位共用 TokenTracker `summary()` 的同一份 1h 窗口数据，L1“5min”为档位标签而非真实统计窗口，实际按 1h 累计值判断（KI-012） |
 
 <a id="section-11"></a>
 # 11. 评估体系
@@ -3252,7 +3255,7 @@ class GateResult:
 <a id="section-12"></a>
 # 12. 渠道接入与调度
 
-Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现并有单元测试覆盖，但生产入口未挂载（详见 §12.2）。
+Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现，其中 CronManager 有单元测试覆盖（`tests/unit/test_cron_manager*.py`，纳入 CI）、`run_cron_triggered_workflow()` 仅有集成测试覆盖（`tests/integration/test_cron_workflow.py`，不在 CI 的 `tests/unit/` 范围内），但生产入口未挂载（详见 §12.2）。
 
 <a id="section-12-1"></a>
 ## 12.1 多平台网关（gateway/）
@@ -3266,7 +3269,7 @@ Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为�
 ## 12.2 内置调度（scheduling/）
 
 - **CronManager**：[cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py) 提供 `CronTask` 定义、任务 CRUD、自然语言转 cron 表达式（`parse_natural_language()`）、触发检测与递归防护（`check_recursion()`）
-- **库层实现完整、生产未挂载**：`CronManager` 与 `run_cron_triggered_workflow()`（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py)）均有单元测试覆盖，但 src/ 中从未实例化 `CronManager`、未注册触发回调，`server.py` 启动流程不含调度器。`proactive_workflow.py` 导入 `CronTask` 仅为类型标注用途。`check_recursion()` 递归防护同为库级能力，无生产调用方
+- **库层实现完整、生产未挂载**：`CronManager` 有单元测试覆盖（`tests/unit/test_cron_manager*.py`，纳入 CI）；`run_cron_triggered_workflow()`（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py)）仅有集成测试覆盖（`tests/integration/test_cron_workflow.py`，不在 CI 的 `tests/unit/` 范围内）；但 src/ 中从未实例化 `CronManager`、未注册触发回调，`server.py` 启动流程不含调度器。`proactive_workflow.py` 导入 `CronTask` 仅为类型标注用途。`check_recursion()` 递归防护同为库级能力，无生产调用方
 - **设计意图**：Cron 触发的任务统一走 `system_event → ModeratorAgent → TaskGraphExecutor` 执行内核，不允许绕过治理体系
 - **场景模板**：[cron_templates.py](../src/riskagent_backend/scheduling/cron_templates.py) 预置金融风控定时任务模板
 - 测试：tests/unit/test_cron_manager.py、test_cron_manager_enhanced.py
