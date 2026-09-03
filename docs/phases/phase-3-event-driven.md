@@ -93,7 +93,7 @@
   - 主要文件: `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/contracts/event.py` 新增 `src/riskagent_backend/contracts/run_context.py`
   - 关键实现: 定义 `RunTrigger` 和 `RunContext`; 明确 `entry_type in {user_task, system_event}`; 所有 run 在入口阶段就生成统一 `run_id`; `user_task` 保持 `intent -> orchestrator -> task_graph` 主链; `system_event` 先不直接执行, 统一交给 `ModeratorAgent`
   - 对应总 checkpoint: `7.4.1` 以及 `7.4.2` 的入口约束部分
-  - 测试: 新增 `tests/unit/test_run_context.py`; 新增 `tests/integration/test_dual_entry_runs.py`
+  - 测试: 新增 `tests/unit/test_run_context.py`; ~~新增 `tests/integration/test_dual_entry_runs.py`~~（计划的测试文件未落地, 经 git 全历史核验从未入库）
   - 验收证据: 同一套返回结构中都出现 `run_id` `entry_type` `task_graph_execution`; 用户任务 case 和系统事件 case 都能创建合法 run
 
 - [x] Checkpoint 7.4.B Event Facade 和 Moderator 汇流层
@@ -101,7 +101,7 @@
   - 主要文件: `src/riskagent_backend/orchestration/backend_workflow.py` `src/riskagent_backend/proactive_agents/moderator.py` `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/proactive_workflow.py`
   - 关键实现: 将 `backend_workflow` 从兼容骨架升级为 facade; 所有 `system_event` 默认都先过 `ModeratorAgent`; moderator 输出结构化路由决策, 决定进入 `intent` `orchestrator` `critic` `human` 或局部处理; facade 最终调用统一执行函数, 不允许旁路 `TaskGraphExecutor`
   - 对应总 checkpoint: `7.4.1` `7.4.2` 以及 `7.4.4` 的仲裁入口部分
-  - 测试: 扩展 `tests/unit/test_backend.py`; 新增 `tests/integration/test_event_routing.py`
+  - 测试: 扩展 `tests/unit/test_backend.py`; ~~新增 `tests/integration/test_event_routing.py`~~（计划的测试文件未落地, 经 git 全历史核验从未入库）
   - 验收证据: `system_event` 进入后 trace 中先出现 moderator decision; 规则可决定时 tie breaker 调用次数为 0; routed case 最终进入 `TaskGraphExecutor`
 
 - [x] Checkpoint 7.4.C 主动任务创建协议
@@ -109,7 +109,7 @@
   - 主要文件: `src/riskagent_backend/proactive_agents/base.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/contracts/event.py` `src/riskagent_backend/memory/memory_store.py`
   - 关键实现: 主动创建的任务必须带 `trigger_event_id` `trigger_reason` `trigger_evidence`; `RISK_BREACH_DETECTED` 和 `TOOL_FINISHED` 等事件可以生成 follow-up task; follow-up task 不单独走新执行器, 继续复用统一主链; 任务创建时写入 memory 和 trace 关联字段
   - 对应总 checkpoint: `7.4.3` 以及 `7.4.6` 的证据链基础
-  - 测试: 新增 `tests/integration/test_proactive_task_creation.py`; 扩展 `tests/unit/test_memory.py`
+  - 测试: 新增 `tests/unit/test_proactive_task_creation.py`（实际落地位置, 原计划为 tests/integration/）; 扩展 `tests/unit/test_memory.py`
   - 验收证据: 无用户输入的主动建任务记录; run trace 中能看到 trigger 字段; follow-up task 最终进入统一 `TaskGraphExecutor`
 
 - [x] Checkpoint 7.4.D 冲突仲裁并入统一执行内核
@@ -117,7 +117,7 @@
   - 主要文件: `src/riskagent_backend/orchestration/iterative_refinement.py` `src/riskagent_backend/proactive_agents/moderator.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/orchestration/message_bus.py`
   - 关键实现: 冲突检测输出结构化 `conflict trace`; 仲裁输出结构化 `arbitration result`; 记录被放弃路径和原因; 仲裁结果要能回流为 task graph patch 或下一跳 agent 决策
   - 对应总 checkpoint: `7.4.4` 以及 `7.4.6` 的回放要素
-  - 测试: 扩展 `tests/unit/test_iterative_refinement.py`; 新增 `tests/integration/test_conflict_arbitration_flow.py`
+  - 测试: 扩展 `tests/unit/test_iterative_refinement.py`; ~~新增 `tests/integration/test_conflict_arbitration_flow.py`~~（计划的测试文件未落地, 经 git 全历史核验从未入库）
   - 验收证据: 结论冲突 工具选择冲突 审批优先级冲突各有完整 trace; 不存在静默覆盖冲突; 仲裁后链路继续进入统一执行内核
 
 - [x] Checkpoint 7.4.E 统一 Trace 和 Replay 底座
@@ -125,7 +125,7 @@
   - 主要文件: `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/memory/memory_store.py` 新增 `src/riskagent_backend/observability/run_trace.py` 新增 `src/riskagent_backend/cli/replay.py`
   - 关键实现: 统一 trace entry schema; 所有 event moderator node receipt memory 写入都带 `run_id`; replay 直接按 `run_id` 输出双入口时间线
   - 对应总 checkpoint: `7.4.6` 并为 `7.5` `7.6` 做底座
-  - 测试: 新增 `tests/unit/test_run_trace.py`; 新增 `tests/integration/test_replay_cli.py`
+  - 测试: 新增 `tests/unit/test_run_trace.py`; ~~新增 `tests/integration/test_replay_cli.py`~~（计划的测试文件未落地, 经 git 全历史核验从未入库）
   - 验收证据: 用户任务 case 和系统事件 case 的 replay 输出; trace 时间线中能同时看到入口 事件 决策 执行 receipt memory
 
 - [x] Checkpoint 7.4.F 主动性预算和熔断
@@ -133,7 +133,7 @@
   - 主要文件: `src/riskagent_backend/orchestration/proactive_workflow.py` `src/riskagent_backend/orchestration/message_bus.py` `src/riskagent_backend/orchestration/tool_executor.py` 新增 `src/riskagent_backend/governance/proactive_budget.py`
   - 关键实现: `event burst limit`; `max concurrent proactive runs`; `token budget`; `circuit breaker`; 用户显式任务走独立豁免规则
   - 对应总 checkpoint: `7.4.5`
-  - 测试: 新增 `tests/unit/test_proactive_budget.py`; 新增 `tests/integration/test_event_storm_guardrail.py`
+  - 测试: 新增 `tests/unit/test_proactive_budget.py`; ~~新增 `tests/integration/test_event_storm_guardrail.py`~~（计划的测试文件未落地, 经 git 全历史核验从未入库）
   - 验收证据: 异常风暴下主动任务受限; circuit breaker 触发日志; 用户显式任务在对照 case 中未被误熔断
 
 #### 推荐开发顺序

@@ -4,7 +4,21 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-02: 文档-代码一致性审计修复
+## 2026-09-03: 第三轮文档-代码一致性深度审计修复
+
+### Fixed
+
+- 核心文档口径修复（ARCHITECTURE.md）：调度能力"已接入主链"不实表述改为"库层已实现、生产入口未挂载"；补 Skill Chroma 注入缺口注记（主链无参 `SkillStore()` 构造使 `_chroma_enabled` 恒为 False，向量分数实际来自进程内 SemanticIndexer）；LLM 成本治理章按代码实况重写（CostCircuitBreaker 三级阈值表、同构返回与 30s 冷却恢复、ProactiveBudgetManager 唯一消费方）；tool_executor 白名单更正为四角色（补 orchestrator/skill_view）；TokenTracker/CostCircuitBreaker 补代码锚点；清理 OpenRouter 残留表述与 Hermes 矛盾收敛
+- llm_client.py embed() docstring L355 残留"1536 维"补修（2026-09-02 条目勘误①的收尾）
+- phase/CHANGELOG/RESUME/ci-cd 范围修复：phase-10 Checkpoint 16.4.1 自主处置由 `[x]` 降级为 `[~]` 部分实现（仅规则判定，无容器重启/缓存清理 MCP 工具、不经五道关卡、无 receipt）并撤下 Known Issue #4 "已修复"标注；phase-3 六个从未入库的 integration 测试文件如实标注未落地；phase-7 两份指南文档与调度评测未产出、降级为未勾选；phase-2/4/5/6/8/9 评测报告"结果未归档入库"行内注记；CHANGELOG 补 2026-08-08 CI/CD 立项条目、修复日期倒序、2026-09-02 条目追加勘误；ci-cd.md 删除未实施的"未来扩展路径"块并补全流程步骤；RFC-003/004/005/006 状态标记体例统一
+
+### Added
+
+- 新建 docs/KNOWN_ISSUES.md 缺陷登记册：代码层已知缺口（KI-001 调度生产入口未挂载、KI-002 Skill Chroma 未注入、KI-003 自主处置工具缺失、KI-004 remediation Skill 沉淀仅内存、KI-011 评测报告未归档等）与需求分离登记，文档保持反映已交付现状、不再以"已修复"掩盖缺口
+
+> 本轮条目不附 commit hash：由收尾 agent 提交后以第二个小 commit 补附（沿用 2026-08-25 轮惯例）。
+
+## 2026-09-02: 文档-代码一致性审计修复（commit 4c5b2fa）
 
 ### Fixed
 
@@ -14,11 +28,15 @@
 - ARCHITECTURE.md 新增第 12 章"渠道接入与调度"：补齐此前 0 覆盖的 gateway/（抽象层收口，平台适配器为兼容实现）、scheduling/（CronManager 已接入主链）、cli/（replay 工具）三个真实模块
 - phase-14 Out of Scope"当前 deepseek-chat"措辞、RFC-005 统一口径注记补历史口径标注（现行 chat 模型为 deepseek-v4-flash）
 
+> **勘误（2026-09-03 追加，原文保留不改写）**：
+> ① 本条目"llm_client.py embed() docstring 残留 1536 维笔误改为 1024 维"实际只修改了一处 docstring，同文件 L355 处仍残留"1536 维"（已于本轮补修）。
+> ② 本条目"scheduling/（CronManager 已接入主链）"为不实表述：CronManager 库层已实现且有单元测试，但生产入口未挂载（server 启动链路不触发 cron 工作流）。本轮文档已改口径，缺口登记 docs/KNOWN_ISSUES.md（KI-001）。
+
 ## 2026-08-25: 取消全部规划中事项 — 移除 RFC-007 及前瞻引用，文档体系回归已交付现状
 
 ### Removed
 
-- 经决策取消全部规划中/未实施事项：RFC-007 治理与能力追赶路线（P0 治理五项 / P1 能力增强 / P2 生态扩展）及全部 12 个规划 feature flag、tests/smoke 预留、RFC-006 遗留未决问题、INTERVIEW 后续方向（后两者不实施，仅加注记归档）（commit 4354776）
+- 经决策取消全部规划中/未实施事项：RFC-007 治理与能力追赶路线（P0 治理五项 / P1 能力增强 / P2 生态扩展）及全部 12 个规划 feature flag、tests/smoke 预留、RFC-006 遗留未决问题、INTERVIEW 后续方向（后两者不实施，仅加注记归档）（commit 4354776；收尾 commit 1778dfe：评审建议修复——CHANGELOG 取消条目补 commit 引用、立项注脚补取消事实、修复 phase-2/phase-4 两处存量死链）
 - 移除 `docs/decisions/RFC-007-governance-trust-production-readiness.md`，同步清理 PRD（Phase 15 行与决策表行）/ STRATEGY（治理与能力追赶小节）/ README（下一阶段与 tests/smoke 预留）/ ARCHITECTURE（§7.7 规划演进段）/ .env.example（规划 flag 注释预告块）中的前瞻引用与死链
 - .env.example 中 12 个规划 flag 注释预告（HITL_APPROVAL_MODE 等）全部删除，未引入过任何生效变量，无代码变更
 
@@ -44,7 +62,7 @@
 ### 用户可见变更说明
 
 - ConfigMap CHROMA_PORT 回退默认值 8001→8000：指向外部 Chroma（非本 chart 部署）的 helm 用户必须显式设置 chroma.port
-- ARCHITECTURE.md 章节重编号映射表：旧 10（REST BFF）→ 新 9、旧 11（LLM 成本治理）→ 新 10、旧 12（评估体系）→ 新 11，供外部链接维护者对照
+- ARCHITECTURE.md 章节重编号映射表：旧 10（REST BFF）→ 新 9、旧 11（LLM 成本治理）→ 新 10、旧 12（评估体系）→ 新 11，供外部链接维护者对照（注：该映射为 2026-08-18 时点的历史口径；现行 ARCHITECTURE 已有新第 12 章"渠道接入与调度"（2026-09-02 新增），与该映射中的"旧 12（评估体系）"无关）
 - .env.example MYSQL_PORT 更正为 3307：宿主直跑应用请用 3307，容器内流程不受影响
 
 ## 2026-08-18: CI Docker 构建修复
@@ -112,7 +130,7 @@
 - orchestration 拆分：_run_internal 拆出 setup/intent/planning/TaskGraph 执行/finalization/Agent 结果处理等独立模块（workflow_execution.py / workflow_finalization.py / workflow_agent_results.py 等）
 - 引入 agent registry 作为 Agent 定义唯一事实来源（commit bdd3b92）
 - prompt 外置到 prompts/agent_prompts/（commit ddd9b0b）
-- 环境变量读取统一收敛到 config 层 + CI lint（commit fdd971a）
+- 环境变量读取统一收敛到 config 层 + `make lint`（lint-env 接入 make lint，未接入 CI workflow）（commit fdd971a）
 - services 提取共享状态归一化到 task_status.py（commit 03bdfe0）
 
 ### Added
@@ -129,6 +147,16 @@
 ### Fixed
 
 - 文档诚实性全量修复（11 步，22 项问题）（commit 9f650e8）
+
+## 2026-08-08: CI/CD Pipeline 立项与落地
+
+### Added
+
+- GitHub Actions CI/CD 管道（commit 26293a7）：新增 `.github/workflows/ci.yml`（lint / test / build-and-deploy）、`deploy/k8s/values-ci.yaml`（CI 环境专用 values）、`docs/ci-cd.md`（管道说明文档）；Makefile 部署参数化（KUBECONFIG / NAMESPACE / VALUES_FILE 变量注入）
+
+### Fixed
+
+- 同日 CI 修复系列：job 级 if 条件误用 env context（GitHub Actions 不支持，改用 vars）（commit a6afdda）；pytest 忽略 pydantic_settings IncompleteFieldDefinitionWarning（commit 3c887eb）；CI test 清理 warning、移除 Redis service、test job 加 continue-on-error 容忍存量失败（commit 17094e0）；build 与 deploy 合并为单一 build-and-deploy job（Docker 镜像无法跨 runner/job 共享）（commit 8ef9f23）；deploy 步骤加 continue-on-error 容忍 CI runner 资源不足（commit c5ca1b5）
 
 ## 2026-08-08: Phase 11 Skill 语义检索升级实施完成（RFC-005 Implemented）
 
@@ -230,69 +258,6 @@
 - ConfigMap 补 PROMETHEUS_URL + DEPLOYMENT_ENV
 - 新增 docker-build Makefile target
 
-## [Phase 9 收口] - 2026-07-09
-
-### 概述
-
-Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部落地.
-
-### P0-1: 修复 Memory A/B 指标退化
-
-- 修正了 `evidence_coverage` 评分公式的 0.8 截断问题
-- 移除了 `best_effort_fallback` 低相关性记忆注入
-- 隔离了意图识别与记忆状态
-- 为 `delegate` 节点增加了 Agent 存在性校验
-- 修复后 26/26 单元测试通过
-- Phase 9 Checkpoint 15.1.3 已通过
-
-### P0-2: Prompt A/B 对照实验
-
-- 使用 `eval/scripts/run_prompt_layering_benchmark.py --skip-eval` 模式运行
-- 质量指标 PASS (off/on 使用相同代码路径, 指标一致)
-- Phase 9 Checkpoint 15.3.2 已通过
-
-### P0-3: 成本收益报告
-
-- Token 总消耗下降 48.40% (远超 20% 目标)
-- 缓存命中率 83.33%
-- 前缀缓存节省 1,213 tokens
-- 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（已删除，结论已沉淀到 CHANGELOG）
-- Phase 9 Checkpoint 15.3.3 已通过
-
-### Phase 9 Checkpoint 完成情况
-
-| Checkpoint | 描述 | 状态 |
-|------------|------|------|
-| 15.1.1 | memory relevance gate | 通过 |
-| 15.1.2 | resume completeness contract | 通过 |
-| 15.1.3 | memory A/B 重新验收 | 通过 (2026-07-09) |
-| 15.2.1 | public API 收口 | 通过 |
-| 15.2.2 | 测试分层收口 | 通过 |
-| 15.3.1 | 固定 case 集 | 通过 |
-| 15.3.2 | baseline vs optimized 对照执行 | 通过 (2026-07-09) |
-| 15.3.3 | 成本收益报告 | 通过 (2026-07-09) |
-
-### 文档更新
-
-- `docs/phases/phase-9-evidence-first-hardening.md`: 15.1.3, 15.3.2, 15.3.3 标记 [x], 添加完成说明
-- `docs/phases/phase-2-memory-closure.md`: 标注退化已修复, Checkpoint 7.3.7 标记 [x]
-- `docs/phases/phase-8-prompt-optimization.md`: 标注对照实验已完成, one-shot benchmark 标记 [x]
-- `docs/RESUME.md`: 添加当前进度部分
-
-## 2026-07-09: 文档体系一致性修正
-
-- 修正 PRD.md Phase 状态表（Phase 2/8/9 标记为完成）
-- 修正 README.md 当前进展（添加 Phase 9 完成记录）
-- 修正 .env.example LLM 配置（火山引擎 → OpenRouter + DeepSeek）
-- 修正 config.py / config_pydantic.py / llm_client.py 中的 LLM 注释和默认值
-- 修正 STRATEGY.md 模型引用
-- 修正 INTERVIEW.md 文件路径错误
-- 修正 ARCHITECTURE.md 文档保留范围（添加 RESUME.md / MEMORY.md / INTERVIEW.md）
-- 更新 ADR-001 状态为 Implemented
-- 更新 RFC-001 状态为 Implemented
-- 更新 RFC-002 状态为 Completed
-- 更新所有 ADR/RFC 的 Update Log
-
 ## 2026-07-18: Phase 10 主动监控文档体系创建
 
 - 创建 docs/phases/phase-10-active-monitoring.md（5min 主动感知与自主运维，11 个 checkpoint）
@@ -349,3 +314,66 @@ Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/
 ### 文件
 - RFC-004: docs/decisions/RFC-004-k8s-migration.md
 - Helm Chart: deploy/k8s/
+
+## 2026-07-09: Phase 9 收口
+
+### 概述
+
+Phase 9 (证据优先收口) 所有 checkpoint 已完成. P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部落地.
+
+### P0-1: 修复 Memory A/B 指标退化
+
+- 修正了 `evidence_coverage` 评分公式的 0.8 截断问题
+- 移除了 `best_effort_fallback` 低相关性记忆注入
+- 隔离了意图识别与记忆状态
+- 为 `delegate` 节点增加了 Agent 存在性校验
+- 修复后 26/26 单元测试通过
+- Phase 9 Checkpoint 15.1.3 已通过
+
+### P0-2: Prompt A/B 对照实验
+
+- 使用 `eval/scripts/run_prompt_layering_benchmark.py --skip-eval` 模式运行
+- 质量指标 PASS (off/on 使用相同代码路径, 指标一致)
+- Phase 9 Checkpoint 15.3.2 已通过
+
+### P0-3: 成本收益报告
+
+- Token 总消耗下降 48.40% (远超 20% 目标)
+- 缓存命中率 83.33%
+- 前缀缓存节省 1,213 tokens
+- 报告文件: `eval/results/prompt_layering/20260709_155819_cost_report.md`（运行期产物，已删除未入库；结论已沉淀至 CHANGELOG 本条目）
+- Phase 9 Checkpoint 15.3.3 已通过
+
+### Phase 9 Checkpoint 完成情况
+
+| Checkpoint | 描述 | 状态 |
+|------------|------|------|
+| 15.1.1 | memory relevance gate | 通过 |
+| 15.1.2 | resume completeness contract | 通过 |
+| 15.1.3 | memory A/B 重新验收 | 通过 (2026-07-09) |
+| 15.2.1 | public API 收口 | 通过 |
+| 15.2.2 | 测试分层收口 | 通过 |
+| 15.3.1 | 固定 case 集 | 通过 |
+| 15.3.2 | baseline vs optimized 对照执行 | 通过 (2026-07-09) |
+| 15.3.3 | 成本收益报告 | 通过 (2026-07-09) |
+
+### 文档更新
+
+- `docs/phases/phase-9-evidence-first-hardening.md`: 15.1.3, 15.3.2, 15.3.3 标记 [x], 添加完成说明
+- `docs/phases/phase-2-memory-closure.md`: 标注退化已修复, Checkpoint 7.3.7 标记 [x]
+- `docs/phases/phase-8-prompt-optimization.md`: 标注对照实验已完成, one-shot benchmark 标记 [x]
+- `docs/RESUME.md`: 添加当前进度部分
+
+## 2026-07-09: 文档体系一致性修正
+
+- 修正 PRD.md Phase 状态表（Phase 2/8/9 标记为完成）
+- 修正 README.md 当前进展（添加 Phase 9 完成记录）
+- 修正 .env.example LLM 配置（火山引擎 → OpenRouter + DeepSeek）
+- 修正 config.py / config_pydantic.py / llm_client.py 中的 LLM 注释和默认值
+- 修正 STRATEGY.md 模型引用
+- 修正 INTERVIEW.md 文件路径错误
+- 修正 ARCHITECTURE.md 文档保留范围（添加 RESUME.md / MEMORY.md / INTERVIEW.md）
+- 更新 ADR-001 状态为 Implemented
+- 更新 RFC-001 状态为 Implemented
+- 更新 RFC-002 状态为 Completed
+- 更新所有 ADR/RFC 的 Update Log

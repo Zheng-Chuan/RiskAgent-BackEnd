@@ -8,6 +8,11 @@
 - **技术决策记录**: [docs/decisions/](./decisions/)
 - **分阶段详细规划**: [docs/phases/](./phases/)
 - **架构设计**: [docs/ARCHITECTURE.md](./ARCHITECTURE.md)
+- **CI/CD 流水线**: [docs/ci-cd.md](./ci-cd.md)
+- **记忆系统设计**: [docs/MEMORY.md](./MEMORY.md)
+- **面试准备**: [docs/INTERVIEW.md](./INTERVIEW.md)
+- **简历素材**: [docs/RESUME.md](./RESUME.md)
+- **已知缺口登记**: [docs/KNOWN_ISSUES.md](./KNOWN_ISSUES.md)
 
 ---
 
@@ -59,6 +64,8 @@
 系统始终保持 Multi-Agent 架构, 绝不退化为单 Agent 系统.
 
 - 多角色 Agent 体系不变 (IntentAgent, OrchestratorAgent, CriticAgent, SystemEngineerAgent, RiskAnalystAgent, ModeratorAgent)
+
+> **角色命名约定**：上述为架构概念名；代码实现类为 `ProactiveIntentAgent` / `ProactiveOrchestratorAgent` / `ProactiveCriticAgent` 等（见 ARCHITECTURE.md §1 注记及 §4.10 完整映射）。
 - Hermes 能力增强每个 Agent, 不是替代多 Agent 协作
 - 统一执行内核不变: `intent -> orchestrator plan -> task_graph -> parallel delegation -> critic review -> finalize`
 - 角色隔离不变: 独立 private memory, 独立推理链, 独立 RBAC
@@ -83,7 +90,7 @@
 | Phase 9 | 证据优先收口与验收补强 | ✓ 完成 | [phase-9-evidence-first-hardening.md](./phases/phase-9-evidence-first-hardening.md) |
 | Phase 10 | 5min 主动感知与自主运维 | ✓ 完成 — 全链路验证通过（2026-08-03） | [phase-10-active-monitoring.md](./phases/phase-10-active-monitoring.md) |
 | Phase 11 | Skill 语义检索升级（向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view） | ✓ Implemented — 6 项需求全部实施，158/158 测试通过（Phase 11 验收时点；当前 Skill 相关测试共 213 条，见 README），K8s 部署验证（2026-08-08） | [phase-11-skill-semantic-retrieval.md](./phases/phase-11-skill-semantic-retrieval.md) |
-| Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
+| Phase 12 | BDI 信念去重与意图幂等性修复 | ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07） | [phase-12-bdi-belief-dedup.md](./phases/phase-12-bdi-belief-dedup.md), [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | Phase 13 | REST BFF 浏览器闭环与记忆可观测性 | ✓ 完成 — K8s 验收全部通过（2026-08-07） | [phase-13-rest-bff-bootstrap.md](./phases/phase-13-rest-bff-bootstrap.md) |
 | Phase 14 | 性能验证与 LLM 成本模型 | ✓ 已完成 — LLM 成本模型 4 Checkpoint 完成，37 测试通过（test_cost_model 24 + test_cost_report 13，2026-08-07）；方向二十一（系统压测）、方向二十二（SLO 定义）已取消 | [phase-14-performance-verification.md](./phases/phase-14-performance-verification.md) |
 
@@ -183,19 +190,23 @@
 
 - 技能自创闭环: 已接入主链并完成核心测试
 - 永久化记忆与上下文压缩: 已实现主链能力, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
-- 内置调度系统: 已接入统一执行内核
+- 内置调度系统: 库层已实现并有单元测试覆盖（`CronManager` + `run_cron_triggered_workflow()`），但生产入口未挂载（src/ 中未实例化、server.py 不含调度器）。见 KNOWN_ISSUES KI-001
 - 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层与统一路由. 代码库当前仍保留兼容性平台适配器实现, 但不作为对外交付承诺
 - 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 
-对外完整宣称 Hermes Phase 5-8 已全部完成前, 仍需同时满足以下标准:
+Hermes 五柱升级（Phase 5-8）已完成（与 STRATEGY.md 口径一致），实测结果见上表及 STRATEGY.md §Hermes ROI。以下为历史验收标准及其达成状态：
 
-- 系统具备从执行经验中自动创建和改进 Skill 的能力
-- 关键记忆跨会话永久保存, 不因 Redis 重启而丢失
-- 支持自然语言定义的定时风控任务
-- 正式能力口径只承诺 GatewayAdapter 抽象层和统一路由
-- LLM token 成本较当前下降 20% 以上
-- 自我改进结论可通过单次成组对照验收稳定复现
-- 所有新增能力都接入统一执行内核, 不形成旁路
+| 标准 | 状态 |
+|------|------|
+| 系统具备从执行经验中自动创建和改进 Skill 的能力 | ✅ Phase 5 完成 |
+| 关键记忆跨会话永久保存, 不因 Redis 重启而丢失 | ✅ Phase 6 完成 |
+| 支持自然语言定义的定时风控任务 | ⚠️ 库层实现完整，生产未挂载（KI-001） |
+| 正式能力口径只承诺 GatewayAdapter 抽象层和统一路由 | ✅ Phase 7 口径已收敛 |
+| LLM token 成本较当前下降 20% 以上 | ✅ 实测 48.40%（Phase 8） |
+| 自我改进结论可通过对照验收复现 | ✅ Phase 8 对照实验 PASS |
+| 所有新增能力都接入统一执行内核, 不形成旁路 | ⚠️ 调度能力未挂载（KI-001） |
+
+> **口径收敛说明**：五柱中四柱已完整交付并通过验收；调度柱库层实现完整但生产未挂载，该缺口如实登记于 KNOWN_ISSUES.md（KI-001），不影响其他四柱的完成判定。
 
 ---
 
@@ -205,4 +216,9 @@
 - [架构设计](./ARCHITECTURE.md)
 - [技术决策](./decisions/)
 - [分阶段规划](./phases/)
+- [CI/CD 流水线](./ci-cd.md)
+- [记忆系统设计](./MEMORY.md)
+- [面试准备](./INTERVIEW.md)
+- [简历素材](./RESUME.md)
+- [已知缺口登记](./KNOWN_ISSUES.md)
 - [README](../README.md)

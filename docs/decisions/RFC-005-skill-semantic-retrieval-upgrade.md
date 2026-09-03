@@ -1,10 +1,8 @@
 # RFC-005: Skill 语义检索升级（向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view）
 
-| 字段 | 值 |
-|------|-----|
-| Status | Implemented |
-| Date | 2026-07-22 |
-| Author | RiskAgent-BackEnd 项目组 |
+**状态**：Implemented
+**日期**：2026-07-22
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Update Log
 

@@ -1,4 +1,4 @@
-.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm
+.PHONY: help install up down restart logs test test-db test-unit test-integration test-all clean clean-cache shell-db phpmyadmin build mcp-logs mcp-shell setup-mcp test-cov up-kb ingest-knowledge kb-query eval-run eval-compare eval-gate eval-prompt-benchmark check-llm pylint lint-env typecheck lint
 
 IMAGE_TAG ?= latest
 K8S_NAMESPACE ?= riskagent
@@ -27,6 +27,17 @@ help:
 	@echo ""
 	@echo "Code Quality Commands:"
 	@echo "make test-cov         - Run tests with coverage report"
+	@echo "make pylint           - Run pylint on src/tests/main.py"
+	@echo "make lint-env         - Check env-var usage (scripts/lint_env_usage.py)"
+	@echo "make typecheck        - Run targeted mypy gate on orchestration contracts"
+	@echo "make lint             - Run all linters (pylint + lint-env + typecheck)"
+	@echo ""
+	@echo "K8s Deployment Commands:"
+	@echo "make docker-build     - Build Docker image for K8s, usage: make docker-build IMAGE_TAG=v1"
+	@echo "make k8s-deploy       - Deploy to Kubernetes via Helm (prod values)"
+	@echo "make k8s-deploy-dev   - Deploy to Kubernetes via Helm (dev values)"
+	@echo "make k8s-uninstall    - Uninstall the Helm release"
+	@echo "make k8s-status       - Show Helm release status and K8s pods/services"
 	@echo ""
 	@echo "Other Commands:"
 	@echo "make clean            - Clean up containers and volumes"

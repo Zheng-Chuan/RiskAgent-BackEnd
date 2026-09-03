@@ -138,7 +138,7 @@
 - [x] 代码：run_trace.v2 schema, 回放 CLI, 指标计算器, gate 引擎
 - [x] 测试：trace schema 单测, 指标公式单测, gate 对照测试
 - [x] 文档：指标定义表, 标注指南, 评测体系说明
-- [x] 评测：42+ benchmark case, 人工标注集, baseline 对比报告
+- [x] 评测：42+ benchmark case, 人工标注集, baseline 对比报告（结果未归档入库）
 
 ## 相关文档
 

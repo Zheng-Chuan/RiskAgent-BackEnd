@@ -36,7 +36,7 @@ RiskAgent-BackEnd：金融风控的自学习多智能体系统
 
 2. **多 Agent 专业协作，非单 LLM 万能回答**：IntentAgent、OrchestratorAgent、CriticAgent、SystemEngineerAgent、RiskAnalystAgent、ModeratorAgent 各司其职，通过 TaskGraph 并行委托和 MessageBus 消息驱动实现动态协作，而非单模型承担所有推理。
 
-3. **零信任治理体系，非黑箱自动化**：所有副作用工具强制经过 RBAC + 侧效应审批 + receipt 绑定，每个动作可审计、可拒绝、可回放。`dangerous_action_block_rate = 100%` 是系统硬约束。
+3. **零信任治理体系，非黑箱自动化**：所有副作用工具强制经过 RBAC + 侧效应审批 + receipt 绑定，每个动作可审计、可拒绝、可回放。`dangerous_action_block_rate` 目标值为 100%，实际强制门禁为 ≥0.95（eval/gates/default.json）。
 
 4. **自学习持续改进，非固定规则库**：从 Unified Memory 到 Skill 自创，系统通过高置信经验沉淀、few-shot 复用和 Skill 置信度动态更新实现越用越好，而非依赖人工维护规则库。
 
@@ -61,7 +61,7 @@ make setup-mcp
 make eval-run RUN_TAG=run1
 
 # 回放历史运行
-python -m riskagent_backend.cli.replay <run_id>
+PYTHONPATH=src python -m riskagent_backend.cli.replay <run_id>
 ```
 
 ---
@@ -137,12 +137,12 @@ A: Hermes 五柱升级（Phase 5-8）已完成，实测回报如下：
 | 升级维度 | 预期收益 | 实测结果 |
 |---------|----------|----------|
 | Skill 自创 | 相似任务不再重复推理，直接复用历史 Skill，预计减少 30%+ 的重复规划开销 | ✅ 已完成（Phase 5），SkillProposer + SkillInjector + SkillUsageTracker 全链路落地 |
-| 提示词缓存分层 | stable_tier 前缀复用命中提供商缓存，token 成本预计下降 20%+ | ✅ 已完成（Phase 8），实测 Token 总消耗下降 48.40%，缓存命中率 83.33%，前缀缓存节省 1,213 tokens |
+| 提示词缓存分层 | stable_tier 前缀复用命中提供商缓存，token 成本预计下降 20%+ | ✅ 已完成（Phase 8），实测 Token 总消耗下降 48.40%，缓存命中率 83.33%，前缀缓存节省 1,213 tokens（证据文件 eval/results/prompt_layering/... 为运行期产物、未入库，当前不可复核，登记于 KNOWN_ISSUES KI-011） |
 | 记忆永久化 | 关键经验跨会话保持，系统重启不丢失组织智慧，新团队成员可即时受益 | ✅ 已完成（Phase 6），MySQL 持久化 + TTL 分级策略 |
 | 上下文压缩 | 超长任务（20+ 步）不再因 context window 超限而失败，任务成功率提升 | ✅ 已完成（Phase 6），上下文压缩接入 working memory |
 | 自我改进闭环 | 系统随使用时间自动积累高质量 Skill 和经验，整体表现呈上升趋势 | ✅ 已完成（Phase 8），对照实验 PASS，质量指标稳定 |
 
-核心逻辑：让系统的边际成本随使用时间递减，边际价值随使用时间递增。Phase 8 实测数据已验证此逻辑。
+核心逻辑：让系统的边际成本随使用时间递减，边际价值随使用时间递增。Phase 8 实测数据已验证此逻辑（注：48.40%/83.33%/1213 tokens 的证据文件 eval/results/prompt_layering/... 为运行期产物、未入库，当前不可复核，登记于 KNOWN_ISSUES KI-011）。
 
 ### Q: 系统的主要技术风险是什么？
 
@@ -158,10 +158,13 @@ A: 四类核心风险及缓解措施：
 A: 通过两层指标体系量化衡量：
 
 **核心行为指标**（基于 trace 真实事件计算）：
+
+> **注**：以下为目标值；实际强制门禁阈值见 eval/gates/default.json（blocking: task_success_rate≥0.8, tool_selection_accuracy≥0.75, receipt_binding_rate≥0.95, dangerous_action_block_rate≥0.95, replan_success_rate≥0.7, resume_success_rate≥0.7 等）。
+
 - `task_success_rate`：任务端到端成功率 > 85%
 - `tool_selection_accuracy`：工具选择准确率 > 90%
 - `receipt_binding_rate`：结论引用 receipt 比例 > 95%
-- `dangerous_action_block_rate`：危险动作阻断率 = 100%
+- `dangerous_action_block_rate`：危险动作阻断率 = 100%（目标值；实际强制门禁 ≥0.95）
 - `replan_success_rate`：重规划后任务恢复成功率
 - `resume_success_rate`：中断恢复成功率 > 80%
 
@@ -175,7 +178,7 @@ A: 通过两层指标体系量化衡量：
 
 ### Q: 系统的扩展路径是什么？
 
-A: 从 Phase 0 到 Phase 14 的渐进路径（截至 2026-08-07）：
+A: 从 Phase 0 到 Phase 14 的渐进路径（截至 2026-08-08，Phase 11 实施日）：
 
 ```
 Phase 0-9 [已完成] → 真实执行闭环 + 统一记忆 + 事件驱动 + HITL审批 + 评测体系 + Skill自创 + 记忆永久化 + 调度网关 + 提示词优化 + 证据优先收口
@@ -191,15 +194,17 @@ Phase 12 [已完成 2026-08-07] → BDI 信念去重与意图幂等性修复（R
 Phase 13 [已完成 2026-08-07] → REST BFF 浏览器闭环（9/9 API + 5/5 前端联调通过）
     |  7 个 BFF 端点 + SSE 实时推送 + 脱敏机制 + nginx 反向代理
     |
-Phase 14 [已完成] → LLM 成本模型（4 个 Checkpoint，三级熔断器 5min/1h/24h）
+Phase 14 [已完成 2026-08-07] → LLM 成本模型（4 个 Checkpoint，三级熔断器 5min/1h/24h）
     |  by_agent_stage 维度统计，成本预估表（5min/1h/24h/7d）
     |  集成 ProactiveBudget，新增 /api/llm/cost-model 端点
     |
 Phase 11 [Implemented 2026-08-08] → Skill 语义检索升级全部完成（RFC-005 Implemented）
     |  6 项需求全部实施：Chroma 向量库 + 远程 Embedding + Summary + Hybrid 检索 + Query Rewriting + skill_view 工具
     |  158/158 Skill 专项测试通过，K8s 部署验证通过（Helm revision 18）
-    |  已知限制：OpenRouter 账户余额不足（402）时 Fallback 降级机制正常工作
+    |  已知限制：主链未注入 Chroma/llm_client，向量通道从未启用，实际始终为 SemanticIndexer + BM25（见 KNOWN_ISSUES KI-002）。当前 Chat 网关为 DeepSeek 官方 API（deepseek-v4-flash），Embedding 为硅基流动（BAAI/bge-m3）；LLM 层内置重试机制（UPSTREAM_UNAVAILABLE/TIMEOUT/BAD_STATUS 自动重试），无多供应商 Fallback 切换
 ```
+
+> 注：上述排序按实际完成日期，非 Phase 编号顺序（Phase 11 于 2026-08-08 最后完成，排在 Phase 14 之后）。
 
 扩展原则：所有新增能力接入统一执行内核（`ModeratorAgent → TaskGraphExecutor`），不形成旁路；始终保持多 Agent 架构，不退化为单 Agent。
 
@@ -215,7 +220,7 @@ A: 多 Agent 架构在实际运营中具备成本优势：
 | 错误恢复 | 失败即重跑全流程 | 需人工干预 | step 级重试 + 局部 replan |
 | 长期趋势 | 成本随复杂度线性增长 | 维护成本指数增长 | Skill 复用减少重复推理，成本递减 |
 
-关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测降低 48.40% token 消耗（远超 20% 目标）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。当前 Chat 默认配置为 DeepSeek 官方 API `deepseek-v4-flash`（config_pydantic.py 默认值，显式开启深度思考），embedding 走硅基流动 `BAAI/bge-m3`（DeepSeek 官方无 embeddings 端点）。生产部署时应根据实际需求选择模型。
+关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测降低 48.40% token 消耗（远超 20% 目标；证据文件未入库，见 KI-011）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。当前 Chat 默认配置为 DeepSeek 官方 API `deepseek-v4-flash`（config_pydantic.py 默认值，显式开启深度思考），embedding 走硅基流动 `BAAI/bge-m3`（DeepSeek 官方无 embeddings 端点）。生产部署时应根据实际需求选择模型。
 
 ---
 

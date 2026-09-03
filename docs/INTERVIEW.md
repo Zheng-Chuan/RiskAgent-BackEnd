@@ -820,6 +820,8 @@
 也就是说, 2.0 我不会优先追求更多 agent.
 我会优先追求更强的 correctness 和 governance."
 
+> **注**：上述方向与 2026-08-25 决策取消的规划事项重合，均不实施；其中属代码缺陷的部分已登记 docs/KNOWN_ISSUES.md。
+
 ---
 
 #### Q26: "最后一个问题. 你怎么用一句话定义这个项目的价值"
@@ -835,7 +837,7 @@
 - 面试前先把每个 section 的前 2 个问题背熟
 - 不要只背结论, 要能把 `为什么这样设计` 和 `为什么不那么设计` 说清楚
 - 对每个答案都至少准备 1 个失败案例 或 trade-off
-- 如果面试官继续深挖, 优先落到 `TaskGraphExecutor` `ToolExecutor` `memory_store` `run_trace.v2` 这四个核心点
+- 如果面试官继续深挖, 优先落到 `TaskGraphExecutor` `tool_executor.py` `memory_store` `run_trace.v2` 这四个核心点
 
 ---
 

@@ -352,7 +352,7 @@ class LlmClient:
             stage: 调用阶段标签,默认 "embedding"
 
         返回:
-            float 向量 (默认 1536 维)
+            float 向量 (默认 1024 维, BAAI/bge-m3)
 
         异常:
             LLMError: 当 API 调用失败、响应格式不正确或超过重试次数时抛出

@@ -42,7 +42,7 @@ RiskAgent-BackEnd Memory Architecture
 它对上承接 workflow 和 agent.
 对下同时管理 Redis 持久化和语义检索.
 
-## 1.1 Redis 数据形态
+### 1.1 Redis 数据形态
 
 这一层里实际有 4 种核心数据.
 前 2 种更像协作记忆流.
@@ -565,6 +565,8 @@ private memory 只是辅助角色隔离和局部状态保存.
 仓库里虽然有 Chroma.
 但它属于 knowledge 子系统.
 记忆主链当前真正使用的是 Redis + 进程内 `SemanticIndexer`.
+
+Skill 系统设计后端为 Chroma（RFC-005 需求一），但主链未注入 `llm_client`/`chroma_store`，故实际仍为 `SemanticIndexer`（见 KNOWN_ISSUES KI-002）。
 
 ## 6. 一句话总结
 

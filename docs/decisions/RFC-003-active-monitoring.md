@@ -1,10 +1,8 @@
 # RFC-003: 5min 主动感知与自主运维架构
 
-| 字段 | 值 |
-|------|-----|
-| Status | Accepted, Completed |
-| Date | 2026-07-18 |
-| Author | RiskAgent-BackEnd 项目组 |
+**状态**：Accepted, Completed
+**日期**：2026-07-18
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Update Log
 

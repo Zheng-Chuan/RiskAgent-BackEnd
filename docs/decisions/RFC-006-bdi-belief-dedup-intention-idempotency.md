@@ -1,10 +1,8 @@
 # RFC-006: BDI 信念去重与意图幂等性修复
 
-| 字段 | 值 |
-|------|-----|
-| Status | Accepted, Implemented |
-| Date | 2026-07-18 |
-| Author | RiskAgent-BackEnd 项目组 |
+**状态**：Accepted, Implemented
+**日期**：2026-07-18
+**作者**：RiskAgent-BackEnd 项目组
 
 ## Update Log
 

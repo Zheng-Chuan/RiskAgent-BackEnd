@@ -90,7 +90,7 @@
 - [x] 代码：三层 prompt 构建器 (含 tiktoken 可选精确计算), 版本管理器, 缓存失效控制, TokenTracker 扩展, CostReportGenerator, TrendTracker
 - [x] 测试：prompt 构建单测, 缓存失效测试, token 对比测试
 - [x] 文档：提示词分层策略说明, 成本优化报告模板
-- [x] 评测：分层前后 token 成本对比和 one-shot comparative benchmark 汇总报告. 对照实验已完成, Token 下降 48.40%, 缓存命中率 83.33%. 报告位于 `eval/results/prompt_layering/20260709_155819_cost_report.md`
+- [x] 评测：分层前后 token 成本对比和 one-shot comparative benchmark 汇总报告. 对照实验已完成, Token 下降 48.40%, 缓存命中率 83.33%. 报告位于 `eval/results/prompt_layering/20260709_155819_cost_report.md`（该文件为运行期产物, 已删除未入库; 结论数字见 CHANGELOG 2026-07-09 条目, 登记于 KNOWN_ISSUES KI-011）
 
 ## 当前结论
 

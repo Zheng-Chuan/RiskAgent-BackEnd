@@ -29,7 +29,7 @@
 
 ## 详细 Checkpoint
 
-- [x] 修正 README, ARCHETECTURE, PRD 中已完成状态的口径
+- [x] 修正 README, ARCHITECTURE, PRD 中已完成状态的口径
 - [x] 梳理唯一主流程和唯一工具执行入口
 - [x] 补齐 `write_alert` 等危险工具的评测覆盖
 - [x] 让评测结果中真实记录工具调用数
@@ -38,7 +38,7 @@
 
 ## 成功标准 (Exit Criteria)
 
-- README, ARCHETECTURE, PRD 的能力口径保持一致
+- README, ARCHITECTURE, PRD 的能力口径保持一致
 - 文档中不再把未完成能力标成已完成
 - 最新评测结果可看到真实 receipt 和真实工具调用数
 - 唯一主流程和唯一工具执行入口已确认
@@ -47,7 +47,7 @@
 
 - [x] 代码：梳理唯一主流程和唯一工具执行入口
 - [x] 测试：补齐危险工具的评测覆盖
-- [x] 文档：修正 README, ARCHETECTURE, PRD 口径
+- [x] 文档：修正 README, ARCHITECTURE, PRD 口径
 - [x] 评测：评测结果中真实记录工具调用数和 receipt
 
 ## 相关文档

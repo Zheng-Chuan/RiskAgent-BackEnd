@@ -108,7 +108,7 @@
 - [x] 代码：`src/riskagent_backend/skills/` 模块, SkillStore, SkillProposer, 置信度更新器
 - [x] 测试：Skill 契约单测, 创建链路集成测试, 注入对照测试, 置信度更新测试
 - [x] 文档：Skill 系统设计说明, 治理参数配置指南
-- [x] 评测：skill_on vs skill_off A/B 对照实验报告
+- [x] 评测：skill_on vs skill_off A/B 对照实验报告（结果未归档入库）
 
 ## 相关文档
 

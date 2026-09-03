@@ -113,7 +113,7 @@
 - [x] 代码: memory relevance gate, resume completeness contract, Gateway public API 收口, one-shot comparative benchmark runner
 - [x] 测试: memory benchmark 相关定点测试, Gateway contract 测试收口, prompt A/B benchmark 测试
 - [x] 文档: Phase 2, Phase 7, Phase 8 回写, benchmark 说明文档
-- [x] 评测: memory A/B 新报告, prompt A/B 新报告, 关键 case trace
+- [x] 评测: memory A/B 新报告, prompt A/B 新报告, 关键 case trace（结果未归档入库）
 
 ## 相关文档
 

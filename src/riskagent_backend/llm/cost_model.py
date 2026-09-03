@@ -1,15 +1,25 @@
 """LLM 成本模型：定价表 + 成本计算 + 预估表生成.
 
-Checkpoint 20.1.2 / 20.1.3 — 基于 OpenRouter 公开定价计算 LLM 调用成本，
+Checkpoint 20.1.2 / 20.1.3 — 基于内置定价表计算 LLM 调用成本，
 并支持四窗口（5min / 1h / 24h / 7d）成本预估。
+
+现行主供应商：chat 走 DeepSeek 官方 API（模型名无供应商前缀，如
+``deepseek-v4-flash``），embedding 走硅基流动 SiliconFlow ``BAAI/bge-m3``
+（免费额度）。定价表同时保留历史 OpenRouter 条目（带 ``供应商/模型``
+前缀，如 ``deepseek/deepseek-chat`` / ``openai/gpt-4o``），供回放旧
+run trace 时按当时模型名计费使用。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-# OpenRouter 定价表（per 1K tokens，美元）
-# 参考: https://openrouter.ai/models
+# LLM 定价表（per 1K tokens，美元）
+# 含两类条目：
+#   1) 现行主供应商 — DeepSeek 官方 API（无前缀，如 deepseek-v4-flash）、
+#      硅基流动 BAAI/bge-m3（免费额度）；
+#   2) 历史 OpenRouter 条目（带 供应商/模型 前缀），仅供回放旧 trace 计费。
+# OpenRouter 历史定价参考: https://openrouter.ai/models
 PRICING_TABLE: dict[str, dict[str, float]] = {
     "deepseek/deepseek-chat": {
         "prompt": 0.00014,       # $0.14 per 1M tokens

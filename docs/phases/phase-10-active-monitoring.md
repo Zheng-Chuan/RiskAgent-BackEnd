@@ -15,7 +15,7 @@
 1. **P4 链路断裂（已修复）**：_deliberate (base.py) 检查 `belief.source == "system_metrics"` 与实际产生的 source 不匹配，导致感知信号无法触发行动。已修复为 frozenset 集合匹配。
 2. **P6 RemediationManager 绕过五道关卡（已修复）**：SystemEngineer 直接调用 remediate() 只打日志，不经 tool_executor。已移除直接调用，改走 _act → start_from_event → tool_executor。
 3. **P7 人类升级字符串拼接（已修复）**：原实现只在 description 字符串拼"escalated to human"。后改为统一内核 ask_human 节点，Phase 10 验证时进一步改为 HITL_AUTO_APPROVE 自动审批，消除全链路阻塞。
-4. **P9 Skill 沉淀只存内存（已修复）**：原 _try_create_skill 只存内存 dict。现走统一内核 SkillProposer 持久化到 SkillStore。
+4. **P9 Skill 沉淀只存内存（2026-09-03 复核：仍未修复，撤下原"已修复"标注）**：`_try_create_skill`（perception/remediation.py）至今仍只写进程内 `_skill_patterns` dict；SkillProposer 持久化（经 SkillStore.create → PersistenceBackend）仅接入 workflow_finalization 工作流收尾链路，与 remediation 处置链路无关。已登记 docs/KNOWN_ISSUES.md（KI-004）。
 5. **Prometheus 指标名不匹配（已修复）**：http_requests_total 和 llm_token_total 从未注册，error_rate 恒为 0。已改为实际注册的指标名。
 6. **PerceptionBudgetManager 死代码（已删除）**：P4 验收测试测了死代码，实际生效的是 governance/ProactiveBudgetManager。
 7. **_deliberate 零测试覆盖（已补全）**：新增 test_deliberate_chain.py 覆盖 5 个场景。
@@ -54,7 +54,7 @@
 - 自主处置: 容器重启 / 缓存清理等低风险操作, 受五道关卡治理.
 - 复杂问题处置流程: 复杂问题通过 HITL_AUTO_APPROVE 自动审批 side_effect 工具执行处置（原计划使用 `ask_human` 节点升级人类，Phase 10 验证时改为自动审批以消除全链路阻塞）, 附带完整证据链.
 - 处置结果追踪与 Skill 沉淀: 处置动作产出 receipt 并进入 run_trace, 高置信经验沉淀为 Skill.
-- 新增 MCP 工具: 容器状态查询 / 容器重启 / 缓存清理 / Prometheus 指标查询.
+- 新增 MCP 工具: Prometheus 指标查询（已落地, 经 perception 数据源接入）。原计划的容器状态查询 / 容器重启 / 缓存清理工具**未落地**——tool_registry.py 现有 14 个工具中无此三类, 已登记 docs/KNOWN_ISSUES.md（KI-003）。
 
 ### Out of Scope
 
@@ -143,11 +143,12 @@
 
 简单问题由系统自主处置 (容器重启 / 缓存清理), 复杂问题升级人类, 处置结果全程追踪并沉淀为 Skill.
 
-- [x] Checkpoint 16.4.1 简单问题自主处置
-  - 实现项: 为常见低风险问题实现自主处置动作 (容器重启 / 缓存清理), 通过新增 MCP 工具执行, 受五道关卡治理 (RBAC → 预算 → 审批 → 超时重试 → 收据); 处置动作产出标准化 receipt 并进入 run_trace
-  - 验收方法: 注入容器 exited 信号, 观察系统是否自主重启容器; 检查 receipt 和 run_trace 记录
-  - 验收证据: 处置动作 trace, 工具调用 receipt, 容器恢复记录
-  - 通过标准: 低风险问题自主处置成功率 >= 90%; 所有处置动作经五道关卡且产出 receipt; 不存在绕过 tool_executor 的旁路
+- [~] Checkpoint 16.4.1 简单问题自主处置 **部分实现（2026-09-03 审计由 `[x]` 降级）**
+  - 实际实现: `RemediationManager._execute_low_risk_action()`（perception/remediation.py）仅做规则判定——`container_status in ("exited", "dead")` 时返回 `RemediationAction.RESTART_SUGGESTION` 枚举 + logger.info 日志, `success=True` 为无条件置位; 其余信号仅产出 LOG_ALERT / LOG_NOTIFICATION 日志记录
+  - 实际缺口: **不存在**容器状态查询 / 容器重启 / 缓存清理 MCP 工具（tool_registry.py 14 个工具中无此类）; 处置**不经过**五道关卡 / tool_executor; **无** receipt 产出; `remediate()` 在生产链路无调用方（仅 tests/unit/test_remediation_p5_p9.py 调用）。已登记 docs/KNOWN_ISSUES.md（KI-003/KI-004）
+  - 验收方法（按现状）: 单元测试注入 exited/dead 信号, 断言产出 RESTART_SUGGESTION 枚举与日志记录
+  - 验收证据（按现状）: tests/unit/test_remediation_p5_p9.py 通过记录
+  - 通过标准（原）: 低风险问题自主处置成功率 >= 90%; 所有处置动作经五道关卡且产出 receipt; 不存在绕过 tool_executor 的旁路 —— **未达成**, 原计划的容器重启 / 缓存清理执行能力未落地
 
 - [x] Checkpoint 16.4.2 复杂问题自动处置（原: 人类升级）
   - 实现项: 复杂问题 (无法用规则处置或处置失败) 通过 `HITL_AUTO_APPROVE=1` 自动审批 side_effect 工具执行处置（注：2026-08-11 起该开关默认关闭，需显式开启），处置消息附带完整证据链 (感知快照 + 诊断结果 + 候选处置方案). **原计划使用 `ask_human` 节点升级人类, Phase 10 验证时改为自动审批以消除全链路阻塞.**

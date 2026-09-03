@@ -33,12 +33,13 @@ test (单元测试) → build-and-deploy (Docker 构建 + kind 部署 + 冒烟�
 - **部署条件**：`vars.DEPLOY_TARGET != 'cloud'`
 - **流程**：
   1. 构建 Docker 镜像（`sha-<12位 commit SHA>` tag）
-  2. 使用 `helm/kind-action` 创建临时 kind 集群
-  3. `kind load docker-image` 将构建好的镜像加载到 kind 节点
-  4. Helm 部署：使用 `deploy/k8s/values-ci.yaml` + `--set image.tag` + `--set image.pullPolicy=Never`
-  5. `kubectl wait` 等待 mcp-server Pod 就绪（该步骤带 `continue-on-error`，等待超时不阻断后续流程）
-  6. 冒烟测试：port-forward + curl 健康检查（该步骤同样带 `continue-on-error` 容错语义：CI runner 资源有限，部署侧验证失败仅作告警不阻断 job 结果）
-  7. 无论成功失败，输出 Pod 状态
+  2. Push to registry (if configured)：当 `env.DOCKER_REGISTRY != ''` 时，docker login + tag + push 到远端 registry（如 GHCR）；为空时跳过此步
+  3. 使用 `helm/kind-action` 创建临时 kind 集群
+  4. `kind load docker-image` 将构建好的镜像加载到 kind 节点
+  5. Helm 部署：使用 `deploy/k8s/values-ci.yaml` + `--set image.tag` + `--set image.pullPolicy=Never`
+  6. `kubectl wait --for=condition=ready --timeout=600s` 等待 mcp-server Pod 就绪（该步骤带 `continue-on-error`，等待超时不阻断后续流程）
+  7. 冒烟测试：port-forward + curl 健康检查（该步骤同样带 `continue-on-error` 容错语义：CI runner 资源有限，部署侧验证失败仅作告警不阻断 job 结果）
+  8. 无论成功失败，输出 Pod 状态（`if: always()`）
 
 ## 扩展点
 
@@ -82,53 +83,6 @@ helm upgrade --install riskagent deploy/k8s/ \
   --set image.tag=sha-xxxxxx \
   --set image.pullPolicy=Never \
   --create-namespace -n riskagent
-```
-
-## 未来扩展路径
-
-### 1. 启用 GHCR（GitHub Container Registry）
-
-在 repo Settings → Variables 设置：
-
-```
-DOCKER_REGISTRY=ghcr.io/zheng-chuan/
-```
-
-设置后，build job 会自动推送镜像到 GHCR，deploy job 仍使用 kind load（可后续改为从 registry 拉取）。
-
-### 2. 云端 K8s 部署
-
-1. 设置 `DEPLOY_TARGET=cloud`
-2. 添加 `KUBE_CONFIG` secret（base64 编码的 kubeconfig）
-3. 在 deploy job 添加 `azure/setup-kubectl` + `k8s-set-context` 步骤
-4. 修改 `image.pullPolicy` 为 `Always` 或 `IfNotPresent`
-5. 添加 `values-cloud.yaml` 配置云端资源配额
-
-### 3. 多环境部署
-
-添加 `environment:` 字段到 deploy job，配合 `values-staging.yaml` / `values-prod.yaml` 实现多环境：
-
-```yaml
-deploy-staging:
-  needs: build
-  environment: staging
-  # ...
-```
-
-### 4. 集成测试
-
-新增 `test-integration` job，使用 GitHub service containers 启动 MySQL 和 Chroma：
-
-```yaml
-test-integration:
-  needs: test
-  services:
-    mysql:
-      image: mysql:8.0
-      # ...
-    chroma:
-      image: chromadb/chroma:latest
-      # ...
 ```
 
 ## CI values 说明

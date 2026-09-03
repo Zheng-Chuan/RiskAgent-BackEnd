@@ -144,7 +144,7 @@
 - [x] 代码：private task memory, shared memory board, confidence policy, few-shot retrieval, role drift detection
 - [x] 测试：记忆隔离单测, A/B 对照脚本, resume 集成测试
 - [x] 文档：Unified Memory Architecture 设计说明
-- [x] 评测：memory benchmark, A/B 对照结果报告
+- [x] 评测：memory benchmark, A/B 对照结果报告（结果未归档入库）
 
 ## 相关文档
 

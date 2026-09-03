@@ -103,6 +103,7 @@
   - [12.1 多平台网关（gateway/）](#section-12-1)
   - [12.2 内置调度（scheduling/）](#section-12-2)
   - [12.3 CLI 辅助（cli/）](#section-12-3)
+
 <a id="section-1"></a>
 # 1. 系统统一主流程
 ```text
@@ -1953,6 +1954,8 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 | **向量库** | Chroma `riskagent-skills` collection (1024维, BAAI/bge-m3) | 语义向量检索 (ANN) | 重启不丢失 |
 | **MySQL** | `skill_store` 表 (含 `summary` 列) | 永久持久化 | 重启不丢失 |
 
+> **注意**：Chroma 向量检索需构造 `SkillStore(llm_client=..., chroma_store=...)` 注入方生效；当前主链（proactive_workflow.py）以无参 `SkillStore()` 构造，`_chroma_enabled` 恒为 False，Hybrid 检索的向量分数实际来自进程内 `SemanticIndexer`（词袋模型，128 维）。该缺口已登记于 docs/KNOWN_ISSUES.md（KI-002）。
+
 **Redis 不存储 Skill**：与记忆模块不同,Skill 不用 Redis,直接走 MySQL 持久化。
 
 **Phase 11 升级（RFC-005 Implemented）**：
@@ -2050,9 +2053,9 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 
 **Phase 11 升级（RFC-005 Implemented）**：
 - **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
-- **Hybrid 检索**：向量 ANN 检索（Chroma, 当前 1024 维 BAAI/bge-m3）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化
+- **Hybrid 检索**：向量 ANN 检索（Chroma, 当前 1024 维 BAAI/bge-m3）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化。**实际现状**：主链 `SkillStore()` 无参构造，`_chroma_enabled=False`，向量通道未启用，Hybrid 中的“向量分数”实际来自进程内 `SemanticIndexer`（词袋模型，128 维）+ BM25（见 KI-002）
 - **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
-- **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路
+- **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路。**注**：当前主链 `_chroma_enabled=False`，embedding 从未被调用，实际始终为 SemanticIndexer + BM25（见 KI-002）
 
 **关键设计**：
 - **max_skills=3**：防止 prompt 膨胀
@@ -2327,8 +2330,8 @@ class ToolMeta:
     description: str               # 工具描述
     risk_level: str                # low | medium | high | critical
     default_timeout_ms: int        # 默认超时
-    allowed_targets: tuple[str, ...]  # 允许调用的角色列表
-    side_effect_policy: SideEffectPolicy  # 副作用策略
+    allowed_targets: Optional[tuple[str, ...]] = None  # 允许调用的角色列表
+    side_effect_policy: Optional[SideEffectPolicy] = None  # 副作用策略
 ```
 
 **已注册工具清单**：
@@ -2348,10 +2351,11 @@ class ToolMeta:
 | `kafka_lag` | read_only | system_engineer | low | system_engineer |
 | `submit_alerts` | **side_effect** | **manager** | **high** | — |
 | `write_alert` | **side_effect** | **manager** | **high** | manager |
+| `skill_view` | read_only | orchestrator | low | orchestrator |
 
-### ToolExecutor：角色隔离的执行白名单
+### tool_executor.py：角色隔离的执行白名单
 
-[tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) 维护三个角色白名单：
+[tool_executor.py](../src/riskagent_backend/orchestration/tool_executor.py) 维护四个角色白名单：
 
 ```python
 _ENGINEER_ALLOWLIST = {
@@ -2368,10 +2372,14 @@ _ANALYST_ALLOWLIST = {
 _MANAGER_ALLOWLIST = {
     "write_alert", "submit_alerts",
 }
+
+_ORCHESTRATOR_ALLOWLIST = {
+    "skill_view",
+}
 ```
 
 **角色区分逻辑**：
-1. `target_agent` 决定使用哪个 allowlist
+1. `target_agent` 决定使用哪个 allowlist（system_engineer / risk_analyst / manager / orchestrator 四分支）
 2. allowlist 查找 handler，找不到则返回 `handler_missing`
 3. 即使工具在 `_TOOL_REGISTRY` 中注册，不在角色 allowlist 中也无法执行
 
@@ -2450,7 +2458,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 <a id="section-7-7"></a>
 ## 7.7 五道治理关卡
 
-参考 [ADR-004](../docs/decisions/ADR-004-tool-governance.md)，工具调用必须通过五道关卡：
+参考 [ADR-004](decisions/ADR-004-tool-governance.md)，工具调用必须通过五道关卡：
 
 | 关卡 | 检查内容 | 拒绝条件 | 代码位置 |
 |---|---|---|---|
@@ -2524,7 +2532,7 @@ def build_stable_tier(self, *, agent_role, tools_index, behavior_rules):
 | MCP Prompts | [mcp_prompts.py](../src/riskagent_backend/prompts/mcp_prompts.py) | `register_prompts()` |
 | K8s 部署 | [mcp-server-deployment.yaml](../deploy/k8s/templates/mcp-server-deployment.yaml) | Deployment + Service |
 | 错误响应 | [errors.py](../src/riskagent_backend/tools/errors.py) | `error_payload()` |
-| 治理决策 | [ADR-004](../docs/decisions/ADR-004-tool-governance.md) | 零信任工具治理体系 |
+| 治理决策 | [ADR-004](decisions/ADR-004-tool-governance.md) | 零信任工具治理体系 |
 
 <a id="section-8"></a>
 # 8. 5min 主动监控全流程
@@ -2857,11 +2865,11 @@ LLM 成本治理是 Phase 14 新增的治理层，对多 Agent 调用的 token �
 <a id="section-10-1"></a>
 ## 10.1 TokenTracker
 
-TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑动窗口设计：
+TokenTracker（[token_tracker.py](../src/riskagent_backend/llm/token_tracker.py)）按 `agent_name + stage` 双维度统计 token 消耗，使用滑动窗口设计：
 
 - **维度**：每个 Agent 的每个执行阶段（intent / plan / execute / finalize 等）独立统计
-- **滑动窗口**：5min / 1h / 24h 三个窗口同时维护
-- **数据结构**：内存中的 `deque` + `defaultdict`，按时间戳自动淘汰过期记录
+- **滑动窗口**：**1h + 24h 两个窗口**同时维护（`__init__(window_s=3600, daily_window_s=86400)`）；5min 仅是 CostCircuitBreaker 的预算档位标签，不由 TokenTracker 维护
+- **数据结构**：内存中的 `deque[TokenUsageRecord]`（小时窗口 + 日窗口各一个 deque），按时间戳自动淘汰过期记录
 
 <a id="section-10-2"></a>
 ## 10.2 cost_model.py 定价表
@@ -2888,15 +2896,17 @@ TokenTracker 按 `agent_name + stage` 双维度统计 token 消耗，使用滑�
 <a id="section-10-3"></a>
 ## 10.3 CostCircuitBreaker 三级熔断
 
-CostCircuitBreaker 实现三级熔断机制，防止 LLM 成本失控：
+CostCircuitBreaker（[cost_circuit_breaker.py](../src/riskagent_backend/governance/cost_circuit_breaker.py)）实现三级熔断机制，防止 LLM 成本失控：
 
-| 级别 | 时间窗口 | 触发条件 | 熔断行为 |
-|------|---------|---------|----------|
-| L1 | 5min | token 超过 5min 预算 | 暂停非关键 LLM 调用 |
-| L2 | 1h | token 超过 1h 预算 | 降级为纯规则处置 |
-| L3 | 24h | token 超过 24h 预算 | 完全停止主动监控，仅响应用户任务 |
+| 级别 | 时间窗口标签 | token_limit | cost_limit | 触发条件 |
+|------|---------|---------|---------|----------|
+| L1 | 5min | 50,000 | $0.01 | `summary.total_tokens > token_limit` **或** `summary.cost_estimate > cost_limit` |
+| L2 | 1h | 500,000 | $0.10 | 同上 |
+| L3 | 24h | 10,000,000 | $2.00 | 同上 |
 
-熔断后系统自动降级，恢复条件为窗口滑过后预算余量恢复。
+**熔断行为**：三级触发返回同构 `{"should_block": bool, "reason": str, "level": str}`，唯一消费方 `ProactiveBudgetManager` 统一阻断本次主动运行（不区分级别差异行为）。
+
+**恢复机制**：固定 30 秒冷却（`cooldown_s=30`），冷却期满后自动重置该级别的 `_tripped` 标志。
 
 <a id="section-10-4"></a>
 ## 10.4 与 ProactiveBudgetManager 集成
@@ -3242,7 +3252,7 @@ class GateResult:
 <a id="section-12"></a>
 # 12. 渠道接入与调度
 
-Phase 7 交付（口径：抽象层收口）。调度能力完整落地并接入主链；Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。
+Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现并有单元测试覆盖，但生产入口未挂载（详见 §12.2）。
 
 <a id="section-12-1"></a>
 ## 12.1 多平台网关（gateway/）
@@ -3255,10 +3265,12 @@ Phase 7 交付（口径：抽象层收口）。调度能力完整落地并接入
 <a id="section-12-2"></a>
 ## 12.2 内置调度（scheduling/）
 
-- **CronManager**：[cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py) 提供 `CronTask` 定义、任务 CRUD、自然语言转 cron 表达式、触发检测与递归防护
-- **接入主链**：Cron 触发的任务统一走 `system_event → ModeratorAgent → TaskGraphExecutor` 执行内核，不允许绕过治理体系（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py) 导入 `CronTask`）
+- **CronManager**：[cron_manager.py](../src/riskagent_backend/scheduling/cron_manager.py) 提供 `CronTask` 定义、任务 CRUD、自然语言转 cron 表达式（`parse_natural_language()`）、触发检测与递归防护（`check_recursion()`）
+- **库层实现完整、生产未挂载**：`CronManager` 与 `run_cron_triggered_workflow()`（[proactive_workflow.py](../src/riskagent_backend/orchestration/proactive_workflow.py)）均有单元测试覆盖，但 src/ 中从未实例化 `CronManager`、未注册触发回调，`server.py` 启动流程不含调度器。`proactive_workflow.py` 导入 `CronTask` 仅为类型标注用途。`check_recursion()` 递归防护同为库级能力，无生产调用方
+- **设计意图**：Cron 触发的任务统一走 `system_event → ModeratorAgent → TaskGraphExecutor` 执行内核，不允许绕过治理体系
 - **场景模板**：[cron_templates.py](../src/riskagent_backend/scheduling/cron_templates.py) 预置金融风控定时任务模板
 - 测试：tests/unit/test_cron_manager.py、test_cron_manager_enhanced.py
+- 该缺口已登记于 docs/KNOWN_ISSUES.md（KI-001）
 
 <a id="section-12-3"></a>
 ## 12.3 CLI 辅助（cli/）

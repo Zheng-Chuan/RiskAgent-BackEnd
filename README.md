@@ -36,7 +36,11 @@
 - `docs/decisions/ADR-*.md`: 已经接受的架构决策和 trade-off 记录
 - `docs/decisions/RFC-*.md`: 大改动提案和待决问题 通过后再进入实现
 - `docs/phases/*.md`: 分阶段迭代计划 checkpoint exit criteria 和交付物
-- `docs/RESUME.md` 以及其他专题文档: 对关键机制做专题补充说明
+- `docs/ci-cd.md`: CI/CD 流水线说明
+- `docs/MEMORY.md`: 记忆系统设计专题
+- `docs/INTERVIEW.md`: 面试准备材料
+- `docs/RESUME.md`: 简历素材以及其他专题文档
+- `docs/KNOWN_ISSUES.md`: 已知缺口登记（库层实现但未挂载生产的能力等）
 
 文档迭代流程:
 
@@ -70,8 +74,7 @@
 
 ## 代码入口
 
-- 编排入口: `src/riskagent_backend/orchestration/proactive_workflow.py`
-- 主工作流: `src/riskagent_backend/orchestration/proactive_workflow.py`
+- 编排入口 / 主工作流: `src/riskagent_backend/orchestration/proactive_workflow.py`
 - 任务图执行: `src/riskagent_backend/orchestration/task_graph_executor.py` + `node_executors.py`
 - 工具治理: `src/riskagent_backend/orchestration/tool_executor.py`
 - 统一记忆: `src/riskagent_backend/memory/memory_store.py`
@@ -82,7 +85,11 @@
 
 - [docs/PRD.md](docs/PRD.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/ci-cd.md](docs/ci-cd.md)
+- [docs/MEMORY.md](docs/MEMORY.md)
+- [docs/INTERVIEW.md](docs/INTERVIEW.md)
 - [docs/RESUME.md](docs/RESUME.md)
+- [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)
 - [docs/decisions/](docs/decisions/)
 - [docs/phases/](docs/phases/)
 
@@ -129,6 +136,8 @@ make k8s-uninstall
 - `tests/integration`: 真实 adapter 和基础设施对接测试
 - `tests/workflows`: 面向主工作流的回归测试 当前收敛为三个回归文件: `test_monitoring_workflow_regression.py` `test_unified_memory_workflow_regression.py` `test_approval_resume_workflow_regression.py`（monitoring、unified memory、审批-恢复三条主链）
 - `tests/acceptance`: 发布前验收测试
+- `tests/scenarios`: 场景级端到端测试
+- `tests/diagnostics`: 诊断与调试辅助测试
 - 推荐执行: `pytest tests/unit`
 - 基础设施接线: `pytest tests/integration`
 - 主工作流回归: `pytest tests/workflows`
@@ -148,7 +157,7 @@ make k8s-uninstall
 - `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
 - **Phase 10**: 5min 主动感知与自主运维 — ✓ 完成 — 全链路验证通过（2026-08-03），感知→告警→LLM处置→Trace completed（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配）
-- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：embedding 供应商不可用时降级为纯 BM25 关键词检索
+- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：主链未注入 Chroma/llm_client，向量通道从未启用，实际始终为 SemanticIndexer + BM25（见 KNOWN_ISSUES KI-002）
 - **Phase 12**: BDI 信念去重与意图幂等性修复 — ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07），双层去重防护（信念层 + 意图层），RFC-006 Accepted, Implemented
-- **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9/9 API 端点 + 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
+- **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9 项验收全部通过（含 /health 基础设施端点与脱敏验证；BFF 业务端点实为 7 个，参见 ARCHITECTURE §9.1）+ 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
 - **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消

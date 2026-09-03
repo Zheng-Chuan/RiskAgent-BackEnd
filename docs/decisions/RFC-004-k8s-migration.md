@@ -1,11 +1,9 @@
 # RFC-004: K8s 全量迁移
 
-| 字段 | 值 |
-|------|-----|
-| Status | Accepted, Implemented |
-| Date | 2026-07-18 |
-| Implemented | 2026-08-03 |
-| Author | RiskAgent Team |
+**状态**：Accepted, Implemented
+**日期**：2026-07-18
+**实施完成**：2026-08-03
+**作者**：RiskAgent Team
 
 ## 背景
 当前所有中间件通过 docker-compose.yml 部署，包含 8 个服务。docker-compose 适合本地开发，但生产环境需要 K8s 的弹性伸缩、滚动更新和自愈能力。
