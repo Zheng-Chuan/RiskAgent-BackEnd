@@ -4,7 +4,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-04: 文档体系结构改进（单一事实源+引用约定）（commit 6a3f509；回填 commit 76e1e9d；评审收尾 commit <待回填>）
+## 2026-09-04: 文档体系结构改进（单一事实源+引用约定）（commit 6a3f509；回填 commit 76e1e9d；评审收尾 commit ffae479）
 
 ### Changed
 
