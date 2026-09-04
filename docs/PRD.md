@@ -104,7 +104,7 @@
 | TaskGraph DAG 调度设计 | Implemented | [ADR-002](./decisions/ADR-002-task-graph-design.md) |
 | 统一记忆架构 | Implemented | [ADR-003](./decisions/ADR-003-unified-memory-design.md) |
 | 零信任工具治理 | Implemented | [ADR-004](./decisions/ADR-004-tool-governance.md) |
-| run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
+| run_trace.v2 全链路追踪 | Implemented（能力细节见 [ARCHITECTURE](./ARCHITECTURE.md) §1 Step 8） | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
 | Hermes 五柱升级提案 | Accepted and Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
 | Evidence-First 收口提案 | Accepted and Completed | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
 | 5min 主动感知与自主运维架构 | Accepted, Completed | [RFC-003](./decisions/RFC-003-active-monitoring.md) |
@@ -190,9 +190,9 @@
 
 - 技能自创闭环: 已接入主链并完成核心测试
 - 永久化记忆与上下文压缩: 已实现主链能力, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
-- 内置调度系统: CronManager 有单元测试覆盖（`tests/unit/test_cron_manager*.py`，纳入 CI）；`run_cron_triggered_workflow()` 仅有集成测试覆盖（`tests/integration/test_cron_workflow.py`，不在 CI 的 `tests/unit/` 范围内）；库层已实现但生产入口未挂载（src/ 中未实例化、server.py 不含调度器）。见 KNOWN_ISSUES KI-001
+- 内置调度系统: 调度库层已实现、生产未挂载（见 KNOWN_ISSUES KI-001；现状注记权威处为 ARCHITECTURE §12.2）
 - 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层与统一路由. 代码库当前仍保留兼容性平台适配器实现, 但不作为对外交付承诺
-- 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%（证据文件为运行期产物、未入库，不可复核，见 KI-011）
+- 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, 实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）
 
 Hermes 五柱升级（Phase 5-8）已完成（与 STRATEGY.md 口径一致），实测结果见下表及 STRATEGY.md FAQ「Hermes 升级的 ROI 是什么？」。以下为历史验收标准及其达成状态：
 
@@ -200,13 +200,13 @@ Hermes 五柱升级（Phase 5-8）已完成（与 STRATEGY.md 口径一致），
 |------|------|
 | 系统具备从执行经验中自动创建和改进 Skill 的能力 | ✅ Phase 5 完成 |
 | 关键记忆跨会话永久保存, 不因 Redis 重启而丢失 | ✅ Phase 6 完成 |
-| 支持自然语言定义的定时风控任务 | ⚠️ 库层实现完整，生产未挂载（KI-001） |
+| 支持自然语言定义的定时风控任务 | ⚠️ 调度库层已实现、生产未挂载（见 KI-001，现状注记权威处 ARCHITECTURE §12.2） |
 | 正式能力口径只承诺 GatewayAdapter 抽象层和统一路由 | ✅ Phase 7 口径已收敛 |
-| LLM token 成本较当前下降 20% 以上 | ✅ 实测 48.40%（Phase 8）（数据不可复核，详见 KI-011） |
+| LLM token 成本较当前下降 20% 以上 | ✅ 已达成（Phase 8）——实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（不可复核，详见 KI-011） |
 | 自我改进结论可通过单次成组对照验收稳定复现 | ⚠️ Phase 8 完成单次对照实验 PASS，未做多次重跑验证“稳定复现”；且证据文件未入库（KI-011） |
 | 所有新增能力都接入统一执行内核, 不形成旁路 | ⚠️ KI-003：remediation 动作绕过统一执行内核（不经五道关卡、无 receipt）；另调度能力未挂载=未接入（KI-001） |
 
-> **口径收敛说明**：五柱中四柱已完整交付并通过验收；调度柱库层实现完整但生产未挂载，该缺口如实登记于 KNOWN_ISSUES.md（KI-001），不影响其他四柱的完成判定。
+> **口径收敛说明**：五柱中四柱已完整交付并通过验收；调度柱库层已实现、生产未挂载，该缺口如实登记于 KNOWN_ISSUES.md（KI-001，现状注记权威处为 ARCHITECTURE §12.2），不影响其他四柱的完成判定。
 
 ---
 

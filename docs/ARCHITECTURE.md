@@ -1842,7 +1842,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
     v
 [SkillStore]                       # 存储
     | 内存 dict[skill_id, skill]
-    | Chroma 向量库 (riskagent-skills collection, 1024维 embedding, BAAI/bge-m3)
+    | Chroma 向量库 (riskagent-skills collection；embedding 模型/维度与启用现状见 §6.3、§6.5，KI-002)
     | MySQL 持久化 (异步, 含 summary 列)
     v
 [planning 阶段]
@@ -2053,9 +2053,9 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 
 **Phase 11 升级（RFC-005 Implemented）**：
 - **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
-- **Hybrid 检索**：向量 ANN 检索（Chroma, 当前 1024 维 BAAI/bge-m3）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化。**实际现状**：主链 `SkillStore()` 无参构造，`_chroma_enabled=False`，向量通道未启用，Hybrid 中的“向量分数”实际来自进程内 `SemanticIndexer`（词袋模型，128 维）+ BM25（见 KI-002）
+- **Hybrid 检索**：向量 ANN 检索（Chroma）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化。**实际现状**：主链向量通道未启用，Hybrid 中的“向量分数”实际来自进程内 `SemanticIndexer`（词袋模型，128 维）+ BM25——embedding 模型/维度等细节见 [§6.3 现状注记](#section-6-3)（KI-002）
 - **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
-- **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路。**注**：当前主链 `_chroma_enabled=False`，embedding 从未被调用，实际始终为 SemanticIndexer + BM25（见 KI-002）
+- **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路。**注**：当前主链向量通道未启用，该 fallback 实际未触发过，现状见 [§6.3 注记](#section-6-3)（KI-002）
 
 **关键设计**：
 - **max_skills=3**：防止 prompt 膨胀
@@ -2172,7 +2172,7 @@ async def check_and_propose_revision(self, *, skill_id, run_id, execution_result
 | 缺点 | 风险等级 | 缓解措施 |
 |---|---|---|
 | **内存存储,重启丢失** | 中 | MySQL 异步持久化,启动时 restore_from_persistence() |
-| **语义索引仅作 fallback** | 低 | Phase 11 后主检索链路为 Chroma ANN + BM25 Hybrid；进程内 SemanticIndexer 仅在 Chroma 未注入/不可用时作为降级路径保留（记忆系统仍独立使用它） |
+| **语义索引仅作 fallback** | 低 | 设计口径为 Chroma ANN + BM25 Hybrid；当前主链向量通道未启用，实际为 SemanticIndexer + BM25（现状见 [§6.3 注记](#section-6-3)，KI-002）；记忆系统仍独立使用 SemanticIndexer |
 | **Skill 噪音污染** | 高 | confidence policy + 自动降级 + SkillGovernor 过滤 |
 | **异步落盘失败** | 低 | fire-and-forget 可能丢失,但影响小(可重新创建) |
 | **修订质量不可控** | 中 | SkillReviser 基于 critic issues,但 LLM 生成的修订可能不准确 |
@@ -3255,7 +3255,7 @@ class GateResult:
 <a id="section-12"></a>
 # 12. 渠道接入与调度
 
-Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现，其中 CronManager 有单元测试覆盖（`tests/unit/test_cron_manager*.py`，纳入 CI）、`run_cron_triggered_workflow()` 仅有集成测试覆盖（`tests/integration/test_cron_workflow.py`，不在 CI 的 `tests/unit/` 范围内），但生产入口未挂载（详见 §12.2）。
+Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现且有测试覆盖，但生产入口未挂载（KI-001，测试覆盖范围与挂载现状细节详见 §12.2）。
 
 <a id="section-12-1"></a>
 ## 12.1 多平台网关（gateway/）

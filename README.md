@@ -12,7 +12,7 @@
 - 所有工具执行都走统一 `command -> receipt` 主链
 - step 级审批 恢复执行 运行时 replan 已接到真实执行链路
 - 记忆检索会真实参与规划 恢复和 Skill 沉淀（长期经验沉淀由 SkillProposer → Skill 系统承担）
-- `run_trace.v2` 会记录 task message version_snapshot plan step command receipt approval memory final
+- `run_trace.v2` 全链路记录每次运行的关键事件并持久化（覆盖范围与能力细节见 ARCHITECTURE §1 Step 8）
 - replay 和评测会直接消费统一 trace
 - benchmark v2 已收敛为 `basic simple medium complex collaboration memory reasoning recovery approval safety prompt_layering real_world` 十二类，共 90 条用例
 
@@ -84,6 +84,7 @@
 ## 文档
 
 - [docs/PRD.md](docs/PRD.md)
+- [docs/STRATEGY.md](docs/STRATEGY.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/ci-cd.md](docs/ci-cd.md)
 - [docs/MEMORY.md](docs/MEMORY.md)
@@ -92,6 +93,22 @@
 - [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)
 - [docs/decisions/](docs/decisions/)
 - [docs/phases/](docs/phases/)
+- [monitoring/README.md](monitoring/README.md)
+
+## 文档治理约定
+
+- 现状注记块统一格式：`> **现状注记 YYYY-MM-DD**：原文为验收时点口径；当前实况见 XXX（KI-NNN / ARCHITECTURE §N.N）`
+- 单一事实源映射（其他文档只保留一句结论 + 指向权威源，不重复罗列细节）：
+
+| 高频事实 | 唯一权威源 | 其他文档写法 |
+|---|---|---|
+| LLM 网关供应商/模型/定价 | `.env.example` + [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §10.2 | 一句结论 + 括注指向权威源 |
+| 提示分层实测数字 | [CHANGELOG.md](CHANGELOG.md) 2026-07-09「Phase 9 收口」条目 | 指向该条目 + KI-011 不可复核注记 |
+| Chroma 向量通道状态 | [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) KI-002（现状注记权威处 ARCHITECTURE §6.3） | 只保留一句结论 +（见 KI-002） |
+| 调度挂载状态 | [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) KI-001（现状注记权威处 ARCHITECTURE §12.2） | 只保留一句结论 +（见 KI-001） |
+| run_trace.v2 追踪能力细节 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §1 Step 8 | 短结论 + 指向对应章节 |
+
+- 修复 KI 时须按 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) 底部“缺陷修复同步 checklist”同步各引用处。
 
 ## 开发环境
 
@@ -154,10 +171,10 @@ make k8s-uninstall
 
 - `Phase 2`: memory relevance gate 和 resume completeness contract 已落地, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
 - `Phase 7`: Gateway public API 已收口到 `GatewayAdapter` `GatewayMessage` `GatewayRouter`
-- `Phase 8`: 对照实验已完成, Token 总消耗下降 48.40%, 缓存命中率 83.33%（证据文件为运行期产物、未入库，不可复核，见 KI-011）
+- `Phase 8`: 对照实验已完成, 提示分层实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）
 - `Phase 9`: 所有 8 个 checkpoint 全部通过, P0-1 (修复 Memory A/B 退化), P0-2 (Prompt A/B 对照实验), P0-3 (成本收益报告) 全部完成
 - **Phase 10**: 5min 主动感知与自主运维 — ✓ 完成 — 全链路验证通过（2026-08-03），感知→告警→LLM处置→Trace completed（常驻感知守护进程 + 真实数据源接入 + 预过滤层 + K8s 适配）（Checkpoint 16.4.1 部分实现，见 KI-003/KI-004）
-- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（硅基流动 BAAI/bge-m3, 1024 维）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：主链未注入 Chroma/llm_client，向量通道从未启用，实际始终为 SemanticIndexer + BM25（见 KNOWN_ISSUES KI-002）
+- **Phase 11**: Skill 语义检索升级 — ✓ Implemented — 6 项需求全部实施（2026-08-08），Chroma 向量库 + 远程 Embedding（网关与模型详情见 ARCHITECTURE §10.2 / .env.example）+ Summary 摘要字段 + Hybrid 检索（向量 + BM25, α=0.7）+ Query Rewriting（LLM 改写 + LRU 缓存）+ skill_view 工具，验收时 158/158 Skill 相关测试通过；当前实测共 213 条 Skill 相关测试（`PYTHONPATH=src python -m pytest tests/unit -k skill --collect-only` 收集数，2026-08 实测），K8s 部署验证通过（Helm revision 18），已知限制：主链未注入 Chroma/llm_client，向量通道从未启用，实际始终为 SemanticIndexer + BM25（见 KNOWN_ISSUES KI-002）
 - **Phase 12**: BDI 信念去重与意图幂等性修复 — ✓ 完成 — 6 个 Checkpoint 全部实施，36 测试通过（2026-08-07），双层去重防护（信念层 + 意图层），RFC-006 Accepted, Implemented
 - **Phase 13**: REST BFF 浏览器闭环与记忆可观测性 — ✓ 完成 — K8s 验收全部通过（2026-08-07），9 项验收全部通过（含 /health 基础设施端点与脱敏验证；BFF 业务端点实为 7 个，参见 ARCHITECTURE §9.1）+ 5/5 前端联调通过，SSE 实时推送验证，脱敏验证通过
 - **Phase 14**: 性能验证与 LLM 成本模型 — 方向二十已完成 — LLM 成本模型 4 个 Checkpoint 全部完成（2026-08-07），37 个测试通过，成本计算不再为 0，by_agent_stage 维度统计，三级熔断器（5min/1h/24h（5min 为档位标签，实际共用 1h 窗口，见 KI-012）），成本预估表（5min/1h/24h/7d），集成 ProactiveBudget，新增 /api/llm/cost-model 端点；方向二十一（系统压测）与方向二十二（SLO 定义）已按决策取消

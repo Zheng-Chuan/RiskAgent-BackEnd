@@ -29,10 +29,11 @@ helm upgrade --install riskagent deploy/k8s/ \
 
 或使用 Makefile 快捷命令：
 ```bash
-make k8s-deploy       # 生产
-make k8s-deploy-dev   # 开发
+make k8s-deploy       # 生产：-f values-prod.yaml，支持 IMAGE_TAG（默认 latest）与 K8S_NAMESPACE（默认 riskagent）变量
+make k8s-deploy-dev   # 开发：-f values-dev.yaml，namespace 固定 riskagent，镜像 tag 取自 values-dev（dev）
 ```
 
+> 例：`make k8s-deploy IMAGE_TAG=v1.2.3 K8S_NAMESPACE=riskagent-staging`
 > `--create-namespace` 标志会在 namespace 不存在时由 Helm 自动创建，无需手动 `kubectl create namespace`。
 > Secret 默认由 `templates/secrets.yaml` 从 values 自动生成；如需覆盖默认密钥，可在部署后用 `kubectl create secret` 手动更新。
 
@@ -55,17 +56,27 @@ helm upgrade --install riskagent deploy/k8s/ \
 ```
 
 ### 2. 验证
+```bash
+make k8s-status       # helm status riskagent + kubectl get pods,svc -n riskagent
+# 或手动：
 kubectl get pods -n riskagent
 kubectl get svc -n riskagent
+```
 
 ### 3. 访问服务
+```bash
 kubectl port-forward svc/mcp-server 8000:8000 -n riskagent
-kubectl port-forward svc/grafana 3000:3000 -n riskagent
+kubectl port-forward svc/grafana 3000:3000 -n riskagent   # grafana 在 values-ci / values-local-e2e 中被禁用
+```
 
 ## 卸载
-make k8s-uninstall
+```bash
+make k8s-uninstall    # helm uninstall riskagent -n riskagent
+```
 
-## 环境配置
-- 默认: values.yaml
-- 开发: values-dev.yaml (make k8s-deploy-dev)
-- 生产: values-prod.yaml (make k8s-deploy)
+## 环境配置（values 文件）
+`values.yaml` 为默认基线（对应 `.env.example` 全部配置项），其余 values 文件均为其覆盖层：
+- `values-dev.yaml`：开发环境——降配资源、镜像 tag `dev`（`make k8s-deploy-dev`）
+- `values-prod.yaml`：生产环境——`pullPolicy: Always` + 更大持久化卷（`make k8s-deploy`）
+- `values-ci.yaml`：CI（GitHub Actions kind 集群）专用——资源进一步缩减、`image.pullPolicy: Never`（kind load 模式）、禁用 Prometheus/Grafana 以节省 runner 资源；由 `.github/workflows/ci.yml` 使用，非手动部署目标（资源明细见 `docs/ci-cd.md`）
+- `values-local-e2e.yaml`：本地 E2E 演示专用——显式开启 `security.allowUnauthenticated=true` 与 `hitl.autoApprove=true` 逃生舱（前端/验收脚本不携带 Token、无人值守自动审批），并禁用 Prometheus/Grafana；**生产环境严禁使用**（`values.yaml` 中两项默认均为 `false`）

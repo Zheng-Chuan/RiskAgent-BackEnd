@@ -4,6 +4,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
+## 2026-09-04: 文档体系结构改进（单一事实源+引用约定）（commit <待回填>）
+
+### Changed
+
+- README.md：top5 高频事实（网关模型/定价、实测数字、Chroma 状态、调度状态、run_trace.v2）收敛为一句结论+指向权威源引用；文档索引补 STRATEGY.md 与 monitoring/README.md 直链；新增「文档治理约定」小节（注记格式 + 单一事实源映射表 + checklist 指引）
+- docs/PRD.md：run_trace.v2 行补 ARCHITECTURE §1 Step 8 指向；网关模型行改为引用式；FR-10 需求定义保留原始描述
+- docs/STRATEGY.md：5 处高频事实收敛为引用式（网关/Chroma/调度/run_trace/数字）；L204 时点块保留完整现状描述并补引用指向
+- docs/RESUME.md：成本数字保留原值并补 CHANGELOG/KI-011 指向注记；网关行补 ARCHITECTURE §10.2 引用
+- docs/ARCHITECTURE.md：5 处内部去重——§6.1 图、§6.5 两处 Hybrid/Fallback、§6.10 风险表、§12 章首——均改为文内锚点 `[§6.3 注记](#section-6-3)` 引用
+- docs/KNOWN_ISSUES.md：底部新增「缺陷修复同步 checklist」（KI 修复时须同步的引用处清单）
+- deploy/k8s/README.md：首次纳入文档审计——补 values-ci / values-local-e2e 环境说明、make k8s-deploy 变量口径（IMAGE_TAG/K8S_NAMESPACE）、k8s-status 说明、代码围栏格式统一
+- docs/MEMORY.md：经核验零改动
+
+### Notes
+
+本轮为纯文档结构改进，零代码逻辑变更，pytest 884 tests collected 不变。
+
 ## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3；收尾 commit 586220b：补附 commit 引用；评审收尾 commit eddd3fe）
 
 ### Fixed

@@ -427,3 +427,16 @@ grep -n "total_tokens\|def summary" src/riskagent_backend/llm/token_tracker.py
 - 本文件为**缺陷登记册**，非需求文档；新增条目须满足"代码/配置中已确认、有可复现证据"，并沿用 `KI-0NN` 编号与本文格式。
 - 每条须写明**核验命令**，确保登记册本身可被独立复核、绝对真实。
 - 缺陷修复后，将对应条目状态由"未修复"更新为"已修复（commit/日期）"，**不删除历史记录**，保留缺陷发现与修复的完整轨迹。
+
+### 缺陷修复同步 checklist
+
+本 checklist 用于防止"单点修复、多点漏灌"导致文档口径漂移。
+
+修复任一 KI 条目时，须同步更新以下位置后再提交：
+
+- [ ] KNOWN_ISSUES.md：对应条目状态改为「已修复（commit <hash>，YYYY-MM-DD）」，原现象/证据描述保留不删（历史归档）
+- [ ] ARCHITECTURE.md：引用该 KI 的现状注记（grep "KI-0NN" 定位）改为已修复口径
+- [ ] README.md / PRD.md：引用该 KI 的「已知限制」描述同步更新
+- [ ] STRATEGY.md / MEMORY.md / RESUME.md：引用该 KI 的段落同步更新（grep 确认）
+- [ ] phases/ 中带该 KI 注记的验收文档：追加现状注记（不改历史原文）
+- [ ] CHANGELOG.md：新增修复条目（附 commit hash）
