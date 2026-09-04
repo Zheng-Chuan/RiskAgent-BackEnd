@@ -1954,7 +1954,7 @@ Skill 系统实现从执行经验中自动创建、复用、改进 Skill 的闭�
 | **向量库** | Chroma `riskagent-skills` collection (1024维, BAAI/bge-m3) | 语义向量检索 (ANN) | 重启不丢失 |
 | **MySQL** | `skill_store` 表 (含 `summary` 列) | 永久持久化 | 重启不丢失 |
 
-> **注意**：Chroma 向量检索需构造 `SkillStore(llm_client=..., chroma_store=...)` 注入方生效；当前主链（proactive_workflow.py）以无参 `SkillStore()` 构造，`_chroma_enabled` 恒为 False，Hybrid 检索的向量分数实际来自进程内 `SemanticIndexer`（词袋模型，128 维）。该缺口已登记于 docs/KNOWN_ISSUES.md（KI-002）。
+> **现状注记 2026-09-03**：原文为 Phase 11 验收时点口径；当前实况见 KNOWN_ISSUES KI-002。Chroma 向量检索需构造 `SkillStore(llm_client=..., chroma_store=...)` 注入方生效；当前主链（proactive_workflow.py）以无参 `SkillStore()` 构造，`_chroma_enabled` 恒为 False，Hybrid 检索的向量分数实际来自进程内 `SemanticIndexer`（词袋模型，128 维）。该缺口已登记于 docs/KNOWN_ISSUES.md（KI-002）。
 
 **Redis 不存储 Skill**：与记忆模块不同,Skill 不用 Redis,直接走 MySQL 持久化。
 
@@ -2053,7 +2053,7 @@ async def retrieve_applicable_skills(self, *, task, intent, skill_enabled=True):
 
 **Phase 11 升级（RFC-005 Implemented）**：
 - **Query Rewriting**：`_rewrite_query()` 调用 LLM 将短 query 扩展为检索导向 query, LRU 缓存（256 条）避免重复调用, 超时/fallback 到原始 query
-- **Hybrid 检索**：向量 ANN 检索（Chroma）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化。**实际现状**：主链向量通道未启用，Hybrid 中的“向量分数”实际来自进程内 `SemanticIndexer`（词袋模型，128 维）+ BM25——embedding 模型/维度等细节见 [§6.3 现状注记](#section-6-3)（KI-002）
+- **Hybrid 检索**：向量 ANN 检索（Chroma）+ BM25 关键词检索（`_keyword_fallback_search`）加权合并, α=0.7, 分数归一化。**实际现状**：主链向量通道未启用，Hybrid 中的“向量分数”实际来自进程内 `SemanticIndexer` + BM25——embedding 模型/维度/词袋维度等细节见 [§6.3 现状注记](#section-6-3)（KI-002）
 - **轻量注入**：plan 前只注入 summary 列表（name + summary, 约 0.5-1K tokens）, LLM 需要详情时调用 `skill_view` 工具按需加载
 - **Fallback 降级**：embedding 供应商不可用（如硅基流动服务异常或 key 失效）时, embedding 调用失败, 降级为纯 BM25 关键词检索, 不阻断链路。**注**：当前主链向量通道未启用，该 fallback 实际未触发过，现状见 [§6.3 注记](#section-6-3)（KI-002）
 
@@ -3255,7 +3255,7 @@ class GateResult:
 <a id="section-12"></a>
 # 12. 渠道接入与调度
 
-Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现且有测试覆盖，但生产入口未挂载（KI-001，测试覆盖范围与挂载现状细节详见 §12.2）。
+Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为抽象层与统一路由，具体平台适配器为兼容实现、未挂载主服务入口（当前对外入口为 REST BFF + MCP，见第 9、7 章）。调度能力（`CronManager` + `run_cron_triggered_workflow()`）库层已实现且有测试覆盖，但生产入口未挂载（KI-001，测试覆盖范围与挂载现状细节详见 [§12.2](#section-12-2)）。
 
 <a id="section-12-1"></a>
 ## 12.1 多平台网关（gateway/）
@@ -3274,6 +3274,8 @@ Phase 7 交付（口径：抽象层收口）。Gateway 的正式承诺收敛为�
 - **场景模板**：[cron_templates.py](../src/riskagent_backend/scheduling/cron_templates.py) 预置金融风控定时任务模板
 - 测试：tests/unit/test_cron_manager.py、test_cron_manager_enhanced.py
 - 该缺口已登记于 docs/KNOWN_ISSUES.md（KI-001）
+
+> **现状注记 2026-09-03**：上述为 Phase 7 验收时点口径；当前实况——调度库层实现与单元测试完整，但生产入口未挂载（src/ 中从未实例化 `CronManager`、`server.py` 启动流程不含调度器），见 KNOWN_ISSUES KI-001。本节即为该现状的架构侧权威描述处。
 
 <a id="section-12-3"></a>
 ## 12.3 CLI 辅助（cli/）

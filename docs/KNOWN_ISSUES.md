@@ -8,7 +8,7 @@
 
 - **登记范围**：仅收录经源码/配置逐条核实、可复现证据的缺陷。
 - **修复策略**：本批缺陷的代码修复由项目维护者后续自行处理；本文件仅负责如实登记，不代改代码逻辑。
-- **发现轮次**：全部 12 条于 **2026-09-03 第三轮文档诚实性审计**中核实登记。
+- **发现轮次**：KI-001~012 共 12 条于 **2026-09-03 第三轮文档诚实性审计**中核实登记；KI-013 于 **2026-09-04 影响面评审**新增。
 - **状态口径**：所有条目当前状态均为**未修复**（本文件创建时点）。
 
 ---
@@ -29,6 +29,7 @@
 | [KI-010](#ki-010) | Low | tool_executor.py Optional 未导入（惰性注解掩盖） | 未修复 |
 | [KI-011](#ki-011) | Low | 评测证据文件未入库（实测数字不可复核） | 未修复 |
 | [KI-012](#ki-012) | Medium | 成本熔断 5min 档位与数据窗口错配 | 未修复 |
+| [KI-013](#ki-013) | Medium | Grafana 管理员明文默认口令未强制覆盖（可原样进生产） | 未修复 |
 
 ---
 
@@ -62,7 +63,7 @@ grep -niE "cron|scheduler|CronManager" src/riskagent_backend/server.py
 
 定时触发（cron）能力**实际不可用**：库层实现与单测完整，但无生产入口挂载，用户无法通过运行中的服务创建/触发任何定时任务。
 
-> 关联文档：[ARCHITECTURE.md](ARCHITECTURE.md) §12.2 已如实标注"库层实现完整、生产未挂载"。注意 [CHANGELOG.md](../CHANGELOG.md) 顶部条目曾概括为"CronManager 已接入主链"，该措辞与代码实况及 ARCHITECTURE §12.2 不符，以本条为准。
+> 关联文档：[ARCHITECTURE.md](ARCHITECTURE.md) §12.2 已如实标注"库层实现完整、生产未挂载"。注意 [CHANGELOG.md](../CHANGELOG.md) 2026-09-02 条目（该条目已附勘误）曾概括为"CronManager 已接入主链"，该措辞与代码实况及 ARCHITECTURE §12.2 不符，以本条为准。
 
 ---
 
@@ -94,6 +95,8 @@ grep -n "_chroma_enabled" src/riskagent_backend/skills/skill_store.py
 ### 影响
 
 [RFC-005](decisions/RFC-005-skill-semantic-retrieval-upgrade.md) 需求一设计的 Chroma ANN（近似最近邻）向量检索在生产链路**未生效**，Skill 检索质量退化为词袋匹配，与文档声称的"语义向量检索"能力不符。
+
+> 关联文档：[ARCHITECTURE.md](ARCHITECTURE.md) §6.3 现状注记为本条架构侧权威描述处，§6.5/§6.10 以文内锚点引用之。
 
 ---
 
@@ -368,7 +371,10 @@ python -c "import typing; from riskagent_backend.orchestration.tool_executor imp
 
 - `eval/results/`、`eval/reports/` 目录**当前不存在**于仓库（`ls eval/` 无此二目录）。
 - 多份文档引用的"实测"数字因此**不可复核**：
-  - Token 总消耗下降 **48.40%**、缓存命中率 **83.33%**、前缀缓存节省 1,213 tokens —— 见 [phase-8-prompt-optimization.md](phases/phase-8-prompt-optimization.md) L68/L93/L100、[phase-9](phases/phase-9-evidence-first-hardening.md) L101、[STRATEGY.md](STRATEGY.md) L140、[PRD.md](PRD.md) §11「LLM token 成本较当前下降 20% 以上」行、[RESUME.md](RESUME.md) L56-59、[RFC-001](decisions/RFC-001-hermes-upgrade.md) L289、[RFC-002](decisions/RFC-002-evidence-first-hardening.md) L235。
+  - Token 总消耗下降 **48.40%**、缓存命中率 **83.33%**、前缀缓存节省 1,213 tokens。
+    - **权威源**：[CHANGELOG.md](../CHANGELOG.md) 2026-07-09「Phase 9 收口」条目 [P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)（L358-360）。
+    - **现存载体**（历史归档，不改写）：[RESUME.md](RESUME.md) L56-59、[phase-8-prompt-optimization.md](phases/phase-8-prompt-optimization.md) L68/L93/L100、[phase-9](phases/phase-9-evidence-first-hardening.md) L101、[RFC-001](decisions/RFC-001-hermes-upgrade.md) L289、[RFC-002](decisions/RFC-002-evidence-first-hardening.md) L235。
+    - README L179、PRD L195/L205、STRATEGY L140/L145/L223 已于 2026-09-04（commit 6a3f509）收敛为引用式，不再承载数字。
   - 引用的报告路径 `eval/results/prompt_layering/20260709_155819_cost_report.md`、`eval/results/memory_ab/...`（phase-2 L59/L111）均指向不存在的文件。
 - `.gitignore` L60-61 注释意图为“保留 `.gitkeep`、忽略其余产物”，但实际仅 `eval/results/.gitkeep` 一条模式（并未忽略 `eval/results/` 产物，注释与模式亦相互矛盾）；且 `git ls-files eval/results` 零命中——该目录与 `.gitkeep` 在仓库中均不存在，即历史上从未有任何评测结果入库。
 
@@ -379,8 +385,8 @@ python -c "import typing; from riskagent_backend.orchestration.tool_executor imp
 ls eval/results eval/reports
 # 历史上是否有任何评测结果入库（预期：零命中）
 git ls-files eval/results
-# 引用实测数字的文档位置
-grep -rn "48.40%\|83.33%" docs/
+# 引用实测数字的现存载体（预期命中：CHANGELOG P0-3 权威源 + RESUME/phase-8/phase-9/RFC-001/RFC-002 历史归档 + 本册 L371 自引用；README/PRD/STRATEGY 已收敛为引用式，不再命中数字）
+grep -rn "48.40%\|83.33%" docs/ CHANGELOG.md README.md
 ```
 
 ### 影响
@@ -422,6 +428,39 @@ grep -n "total_tokens\|def summary" src/riskagent_backend/llm/token_tracker.py
 
 ---
 
+<a id="ki-013"></a>
+## KI-013 · Grafana 管理员明文默认口令未强制覆盖（可原样进生产）
+
+- **严重度**：Medium
+- **状态**：未修复
+- **发现轮次**：2026-09-04 影响面评审
+
+### 现象与证据
+
+- Grafana 管理员口令以**明文**硬编码为默认值 `A5aIGZZdwSkRQeCxhkciBA`，出现于三处：[values.yaml](../deploy/k8s/values.yaml) L169（`grafana.adminPassword`）、[docker-compose.yml](../docker-compose.yml) L233（`GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-A5aIGZZdwSkRQeCxhkciBA}`）、[monitoring/README.md](../monitoring/README.md) L18/L50。
+- K8s [secrets.yaml](../deploy/k8s/templates/secrets.yaml) L24 用 `{{ required "grafana.adminPassword 必须设置 (禁止使用默认弱密码)" .Values.grafana.adminPassword | quote }}`——但 Helm `required` 仅校验值**非空**；values.yaml L169 已提供非空明文默认值，故 `required` 恒通过，**无法阻止默认弱口令进入生产**。
+- [values-prod.yaml](../deploy/k8s/values-prod.yaml) **无 grafana 段**（全文不含 `grafana`/`adminPassword`），`grafana.enabled`（values.yaml L166 默认 `true`）与 `adminPassword` 均继承 values.yaml 默认。`make k8s-deploy` 走 `-f values-prod.yaml`（覆盖层），Helm 与 values.yaml 基线合并后，生产实际使用明文默认口令。
+- [grafana-deployment.yaml](../deploy/k8s/templates/grafana-deployment.yaml) L69-73 从 secret 读取 `GF_SECURITY_ADMIN_PASSWORD`，secret 值即上述明文默认口令。
+
+### 核验命令
+
+```bash
+# 明文默认口令分布（预期：values.yaml L169、docker-compose.yml L233、monitoring/README.md 命中）
+grep -rn "A5aIGZZdwSkRQeCxhkciBA" deploy/ docker-compose.yml monitoring/
+# values-prod 是否覆盖 grafana 口令（预期：零命中，生产继承 values.yaml 明文默认）
+grep -ni "grafana\|adminPassword" deploy/k8s/values-prod.yaml
+# secrets.yaml required 仅校验非空（预期：命中 required 与 GF_SECURITY_ADMIN_PASSWORD）
+grep -n "GF_SECURITY_ADMIN_PASSWORD\|required" deploy/k8s/templates/secrets.yaml
+```
+
+### 影响
+
+生产部署（`make k8s-deploy` / `helm -f values-prod.yaml`）若未手动 `--set grafana.adminPassword=...` 或经 Secret 覆盖，Grafana 管理员将使用仓库公开的明文默认口令，任何能读到该口令者均可登录监控面板。`required` 守卫给出“禁止默认弱密码”的假象，实际不生效。docker-compose 形态同理（`${GF_SECURITY_ADMIN_PASSWORD:-默认}` 在未设环境变量时用明文默认）。
+
+> 关联文档：[monitoring/README.md](../monitoring/README.md) L18/L50 已注明默认口令可经 `GF_SECURITY_ADMIN_PASSWORD` 覆盖；[README.md](../README.md) 文档索引 monitoring 行已补生产覆盖提示。修复方向（不在本册范围）：values-prod 强制 `grafana.adminPassword` 经 Secret/`--set` 注入，或将 `required` 升级为拒绝默认值的校验。
+
+---
+
 ## 附：登记与维护约定
 
 - 本文件为**缺陷登记册**，非需求文档；新增条目须满足"代码/配置中已确认、有可复现证据"，并沿用 `KI-0NN` 编号与本文格式。
@@ -440,3 +479,5 @@ grep -n "total_tokens\|def summary" src/riskagent_backend/llm/token_tracker.py
 - [ ] STRATEGY.md / MEMORY.md / RESUME.md：引用该 KI 的段落同步更新（grep 确认）
 - [ ] phases/ 中带该 KI 注记的验收文档：追加现状注记（不改历史原文）
 - [ ] CHANGELOG.md：新增修复条目（附 commit hash）
+- [ ] 收敛/删除文档中的实测数字或事实细节时：反向核对本册各条目「现象与证据」中按文件/行号枚举的引用位置是否随之失效
+- [ ] 文档结构改进（收敛/去重/新增前置条目）时：grep 全仓对该 KI 及其证据位置的引用，范围含 deploy/、docs/ci-cd.md、docker-compose.yml、.env.example

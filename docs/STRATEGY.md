@@ -137,12 +137,12 @@ A: Hermes 五柱升级（Phase 5-8）已完成，实测回报如下：
 | 升级维度 | 预期收益 | 实测结果 |
 |---------|----------|----------|
 | Skill 自创 | 相似任务不再重复推理，直接复用历史 Skill，预计减少 30%+ 的重复规划开销 | ✅ 已完成（Phase 5），SkillProposer + SkillInjector + SkillUsageTracker 全链路落地 |
-| 提示词缓存分层 | stable_tier 前缀复用命中提供商缓存，token 成本预计下降 20%+ | ✅ 已完成（Phase 8），实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011） |
+| 提示词缓存分层 | stable_tier 前缀复用命中提供商缓存，token 成本预计下降 20%+ | ✅ 已完成（Phase 8），实测数据见 [CHANGELOG 2026-07-09「Phase 9 收口」P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011） |
 | 记忆永久化 | 关键经验跨会话保持，系统重启不丢失组织智慧，新团队成员可即时受益 | ✅ 已完成（Phase 6），MySQL 持久化 + TTL 分级策略 |
 | 上下文压缩 | 超长任务（20+ 步）不再因 context window 超限而失败，任务成功率提升 | ✅ 已完成（Phase 6），上下文压缩接入 working memory |
 | 自我改进闭环 | 系统随使用时间自动积累高质量 Skill 和经验，整体表现呈上升趋势 | ✅ 已完成（Phase 8），对照实验 PASS，质量指标稳定 |
 
-核心逻辑：让系统的边际成本随使用时间递减，边际价值随使用时间递增。Phase 8 实测数据已验证此逻辑（实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目；证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）。
+核心逻辑：让系统的边际成本随使用时间递减，边际价值随使用时间递增。Phase 8 实测数据已验证此逻辑（实测数据见 [CHANGELOG 2026-07-09「Phase 9 收口」P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)；证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）。
 
 ### Q: 系统的主要技术风险是什么？
 
@@ -220,7 +220,7 @@ A: 多 Agent 架构在实际运营中具备成本优势：
 | 错误恢复 | 失败即重跑全流程 | 需人工干预 | step 级重试 + 局部 replan |
 | 长期趋势 | 成本随复杂度线性增长 | 维护成本指数增长 | Skill 复用减少重复推理，成本递减 |
 
-关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测显著降低 token 消耗、远超 20% 目标（实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目；证据文件未入库、不可复核，见 KI-011）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。当前 Chat 网关为 DeepSeek 官方 API、Embedding 走硅基流动（网关与定价详情见 ARCHITECTURE §10.2 / .env.example）。生产部署时应根据实际需求选择模型。
+关键优势：Skill 复用减少 30%+ 重复推理；提示词缓存分层实测显著降低 token 消耗、远超 20% 目标（实测数据见 [CHANGELOG 2026-07-09「Phase 9 收口」P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)；证据文件未入库、不可复核，见 KI-011）；按角色选模型（如简单路由用轻量模型，复杂推理用推理增强模型）综合成本更优。当前 Chat 网关为 DeepSeek 官方 API、Embedding 走硅基流动（网关与定价详情见 ARCHITECTURE §10.2 / .env.example；deepseek-v4-flash 为 config_pydantic.py 代码默认值，深度思考模式由 llm_client.py `"thinking": {"type": "enabled"}` 显式开启，历史参数 enable_thinking 被官方 API 忽略）。生产部署时应根据实际需求选择模型。
 
 ---
 

@@ -33,9 +33,19 @@ make k8s-deploy       # 生产：-f values-prod.yaml，支持 IMAGE_TAG（默认
 make k8s-deploy-dev   # 开发：-f values-dev.yaml，namespace 固定 riskagent，镜像 tag 取自 values-dev（dev）
 ```
 
-> 例：`make k8s-deploy IMAGE_TAG=v1.2.3 K8S_NAMESPACE=riskagent-staging`
+示例（指定镜像 tag 与 namespace）：
+
+```bash
+make k8s-deploy IMAGE_TAG=v1.2.3 K8S_NAMESPACE=<ns>
+```
+
 > `--create-namespace` 标志会在 namespace 不存在时由 Helm 自动创建，无需手动 `kubectl create namespace`。
+>
 > Secret 默认由 `templates/secrets.yaml` 从 values 自动生成；如需覆盖默认密钥，可在部署后用 `kubectl create secret` 手动更新。
+>
+> **警示（namespace 变量作用域）**：仅 `make k8s-deploy` 支持 `K8S_NAMESPACE` 变量；`k8s-deploy-dev` / `k8s-status` / `k8s-uninstall` 在 Makefile 中硬编码 `-n riskagent`。用非默认 namespace 部署后，状态查看与卸载须手动执行 `helm status riskagent -n <ns>` / `helm uninstall riskagent -n <ns>`。
+>
+> **警示（勿当 staging 用）**：`k8s-deploy` 走 `values-prod.yaml`（生产级资源），仓库无 `values-staging.yaml`；不要以「改 namespace」的方式把生产部署当 staging 环境用。
 
 火山 CR 示例:
 ```bash
@@ -75,7 +85,7 @@ make k8s-uninstall    # helm uninstall riskagent -n riskagent
 ```
 
 ## 环境配置（values 文件）
-`values.yaml` 为默认基线（对应 `.env.example` 全部配置项），其余 values 文件均为其覆盖层：
+`values.yaml` 为默认基线（覆盖 `.env.example` 绝大多数配置项；已知缺口：`LLM_COST_PROMPT_PER_1K` / `LLM_COST_COMPLETION_PER_1K` 未纳入 values 与 configmap，生产无法经 Helm 覆盖成本单价，见 [docs/KNOWN_ISSUES.md](../../docs/KNOWN_ISSUES.md) KI-007），其余 values 文件均为其覆盖层：
 - `values-dev.yaml`：开发环境——降配资源、镜像 tag `dev`（`make k8s-deploy-dev`）
 - `values-prod.yaml`：生产环境——`pullPolicy: Always` + 更大持久化卷（`make k8s-deploy`）
 - `values-ci.yaml`：CI（GitHub Actions kind 集群）专用——资源进一步缩减、`image.pullPolicy: Never`（kind load 模式）、禁用 Prometheus/Grafana 以节省 runner 资源；由 `.github/workflows/ci.yml` 使用，非手动部署目标（资源明细见 `docs/ci-cd.md`）

@@ -4,22 +4,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/).
 
-## 2026-09-04: 文档体系结构改进（单一事实源+引用约定）（commit 6a3f509）
+## 2026-09-04: 文档体系结构改进（单一事实源+引用约定）（commit 6a3f509；回填 commit 76e1e9d；评审收尾 commit <待回填>）
 
 ### Changed
 
-- README.md：top5 高频事实（网关模型/定价、实测数字、Chroma 状态、调度状态、run_trace.v2）收敛为一句结论+指向权威源引用；文档索引补 STRATEGY.md 与 monitoring/README.md 直链；新增「文档治理约定」小节（注记格式 + 单一事实源映射表 + checklist 指引）
-- docs/PRD.md：run_trace.v2 行补 ARCHITECTURE §1 Step 8 指向；网关模型行改为引用式；FR-10 需求定义保留原始描述
-- docs/STRATEGY.md：5 处高频事实收敛为引用式（网关/Chroma/调度/run_trace/数字）；L204 时点块保留完整现状描述并补引用指向
-- docs/RESUME.md：成本数字保留原值并补 CHANGELOG/KI-011 指向注记；网关行补 ARCHITECTURE §10.2 引用
-- docs/ARCHITECTURE.md：5 处内部去重——§6.1 图、§6.5 两处 Hybrid/Fallback、§6.10 风险表、§12 章首——均改为文内锚点 `[§6.3 注记](#section-6-3)` 引用
-- docs/KNOWN_ISSUES.md：底部新增「缺陷修复同步 checklist」（KI 修复时须同步的引用处清单）
-- deploy/k8s/README.md：首次纳入文档审计——补 values-ci / values-local-e2e 环境说明、make k8s-deploy 变量口径（IMAGE_TAG/K8S_NAMESPACE）、k8s-status 说明、代码围栏格式统一
+- README.md：（commit 6a3f509）正文收敛 3 类高频事实为引用式——run_trace.v2（L15）、提示分层实测数字（L179）、LLM 网关模型括注（L182）；Chroma/调度状态本轮仅入新增「文档治理约定」小节的单一事实源映射表、正文未收敛；文档索引补 STRATEGY.md 与 monitoring/README.md 直链。（评审收尾）Chroma 已知限制行（L182）收敛为一句结论（见 KI-002，现状注记权威处 ARCHITECTURE §6.3）；映射表补「适用边界」段；分层清单补 STRATEGY/monitoring/deploy 三行；monitoring 索引行补生产口令覆盖提示；注记模板占位符 KI-NNN 修正为 KI-0NN 并补适用范围句；CHANGELOG 引用（L109/L179）与 checklist 指引改为可点击锚点
+- docs/PRD.md：（commit 6a3f509）run_trace.v2 行（L107）补 ARCHITECTURE §1 Step 8 指向；调度状态 3 处（L193/L203/L209）收敛为「库层已实现、生产未挂载（见 KI-001）」；提示分层数字 2 处（L195/L205）收敛为 CHANGELOG 引用；FR-10 需求原文保留未改。（评审收尾）L107 能力细节括注从「状态」列移至「文档」列（状态列恢复纯枚举 Implemented）；FR-10（L131）句尾补现状括注（主链向量通道未启用，见 KI-002）；CHANGELOG 引用改为可点击锚点
+- docs/STRATEGY.md：（commit 6a3f509）8 处高频事实收敛为引用式——run_trace.v2（L43/L90/L154）、提示分层数字（L140/L145/L223）、网关（L204/L223）、Chroma（L204）、调度（L209），部分行交叠；L204 时点块保留完整现状描述并补引用指向。（评审收尾）L223 网关括注补回全仓唯一「深度思考」权威指向（deepseek-v4-flash 为 config_pydantic.py 默认值、llm_client.py `"thinking": {"type": "enabled"}` 显式开启、历史参数 enable_thinking 被官方 API 忽略）；CHANGELOG 引用改为可点击锚点
+- docs/RESUME.md：（commit 6a3f509）L64 KI-002 括注补「向量通道未启用」与现状注记权威处（ARCHITECTURE §6.3）指向、L65 网关行补 ARCHITECTURE §10.2 引用。（评审收尾）时间线追加 2026-09-04 行、L70「本轮」改为 commit 2188db3。注：L56-59 成本数字与 CHANGELOG/KI-011 指向注记为 2026-09-03 轮既存，本轮未改
+- docs/ARCHITECTURE.md：（commit 6a3f509）5 处内部去重指向 §6.3——§6.5 Hybrid（L2056）、§6.5 Fallback（L2058）、§6.10 风险表（L2175）三处用文内锚点 `[§6.3 注记](#section-6-3)`；§6.1 图（L1845）位于代码围栏内、用纯文本指向 §6.3/§6.5；§12 章首（L3258）原为纯文本「详见 §12.2」。（评审收尾）§6.3 KI-002 注记（L1957）升级为「现状注记 2026-09-03」格式、§12.2 末尾追加同格式现状注记；§12 章首「详见 §12.2」改为锚点 `[§12.2](#section-12-2)`；§6.5 L2056「（词袋模型，128 维）」细节下沉至 §6.3、改为指向锚点
+- docs/KNOWN_ISSUES.md：（commit 6a3f509）底部新增「缺陷修复同步 checklist」。（评审收尾）KI-011 证据清单反向回灌（权威源改指 CHANGELOG P0-3 小节、现存载体重列、注明 README/PRD/STRATEGY 已收敛）并同步核验命令；checklist 补 2 条反向同步项；KI-002 影响段补关联文档行；KI-001 关联注记「顶部条目」修正为「2026-09-02 条目（已附勘误）」；新增 KI-013（Grafana 明文默认口令未强制覆盖，Medium，2026-09-04 影响面评审）
+- deploy/k8s/README.md：（commit 6a3f509）首次纳入文档审计——补 values-ci / values-local-e2e 环境说明、make k8s-deploy 变量口径（IMAGE_TAG/K8S_NAMESPACE）、k8s-status 说明、代码围栏格式统一。（评审收尾）values.yaml「对应 .env.example 全部配置项」改为限定表述（注明 LLM_COST_* 缺口，见 KI-007）；staging 示例改为 `<ns>` 占位并补两条警示（仅 k8s-deploy 支持 K8S_NAMESPACE、勿当 staging 用）；blockquote 串句拆为 bash 围栏示例 + 分条 blockquote
+- CHANGELOG.md：（commit 6a3f509）新增本 2026-09-04 条目；（commit 76e1e9d）回填条目头 commit 引用；（评审收尾）按 `git diff -U0 141f379..收尾` 实测逐行重写本条目，修正 README/PRD/STRATEGY/RESUME/ARCHITECTURE 各行失真表述
 - docs/MEMORY.md：经核验零改动
 
 ### Notes
 
-本轮为纯文档结构改进，零代码逻辑变更，pytest 884 tests collected 不变。
+本轮为纯文档结构改进，零代码逻辑变更；`pytest tests/unit --collect-only` 收集 884 项不变（采集范围限 tests/unit，与 CI 一致）。
 
 ## 2026-09-03: 第三轮文档-代码一致性深度审计修复（commit 2188db3；收尾 commit 586220b：补附 commit 引用；评审收尾 commit eddd3fe）
 

@@ -67,7 +67,8 @@
 - K8s/CI 演进: Chroma 镜像与客户端对齐 0.5.23; CI Docker 构建补 g++ (chroma-hnswlib 源码编译), pipeline 全绿
 - orchestration 模块拆分 + agent registry + TypedDict 契约 + mypy gate (2026-08-11)
 - 2026-08-25: 经决策取消全部规划中事项（移除 RFC-007 及全部前瞻引用，commit 4354776 + 收尾 1778dfe），文档体系仅反映已交付现状
-- 2026-09-02 / 2026-09-03: 两轮文档-代码一致性审计修复（commit 4c5b2fa 及本轮）+ 新建 docs/KNOWN_ISSUES.md 缺陷登记册（代码层已知缺口登记与文档分离，文档不再以"已修复"掩盖未落地能力）
+- 2026-09-02 / 2026-09-03: 两轮文档-代码一致性审计修复（commit 4c5b2fa 及 commit 2188db3）+ 新建 docs/KNOWN_ISSUES.md 缺陷登记册（代码层已知缺口登记与文档分离，文档不再以"已修复"掩盖未落地能力）
+- 2026-09-04: 文档体系结构改进（单一事实源+引用约定+KI 修复 checklist，commit 6a3f509；评审收尾 commit <待回填>）
 
 ## 与其他文档关系
 

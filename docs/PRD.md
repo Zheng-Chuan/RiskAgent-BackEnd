@@ -104,7 +104,7 @@
 | TaskGraph DAG 调度设计 | Implemented | [ADR-002](./decisions/ADR-002-task-graph-design.md) |
 | 统一记忆架构 | Implemented | [ADR-003](./decisions/ADR-003-unified-memory-design.md) |
 | 零信任工具治理 | Implemented | [ADR-004](./decisions/ADR-004-tool-governance.md) |
-| run_trace.v2 全链路追踪 | Implemented（能力细节见 [ARCHITECTURE](./ARCHITECTURE.md) §1 Step 8） | [ADR-005](./decisions/ADR-005-run-trace-v2.md) |
+| run_trace.v2 全链路追踪 | Implemented | [ADR-005](./decisions/ADR-005-run-trace-v2.md)（能力细节见 [ARCHITECTURE](./ARCHITECTURE.md) §1 Step 8） |
 | Hermes 五柱升级提案 | Accepted and Implemented | [RFC-001](./decisions/RFC-001-hermes-upgrade.md) |
 | Evidence-First 收口提案 | Accepted and Completed | [RFC-002](./decisions/RFC-002-evidence-first-hardening.md) |
 | 5min 主动感知与自主运维架构 | Accepted, Completed | [RFC-003](./decisions/RFC-003-active-monitoring.md) |
@@ -128,7 +128,7 @@
 | FR-7 | 系统必须支持 trace 回放 | [Phase 1](./phases/phase-1-execution-loop.md) |
 | FR-8 | 系统必须支持基于真实行为事件的评测 | [Phase 4](./phases/phase-4-evaluation.md) |
 | FR-9 | Skill 必须支持向量库存储与远程模型语义检索 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
-| FR-10 | Skill 检索必须通过远程调用 embedding 模型（硅基流动 BAAI/bge-m3）计算语义相似度 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
+| FR-10 | Skill 检索必须通过远程调用 embedding 模型（硅基流动 BAAI/bge-m3）计算语义相似度（现状：主链向量通道未启用，见 KI-002） | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | FR-11 | 每个 Skill 必须包含一句话摘要字段，用于与 task 描述做语义比对 | [RFC-005](./decisions/RFC-005-skill-semantic-retrieval-upgrade.md) |
 | FR-12 | BDI 监控循环中同一信念不得重复生成意图，已处理的信念必须被标记跳过 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
 | FR-13 | `add_intention` 必须对相同 description+tool_params 的 pending 意图做内容去重 | [RFC-006](./decisions/RFC-006-bdi-belief-dedup-intention-idempotency.md) |
@@ -192,7 +192,7 @@
 - 永久化记忆与上下文压缩: 已实现主链能力, A/B 退化已修复 (Phase 9 Checkpoint 15.1.3 已通过)
 - 内置调度系统: 调度库层已实现、生产未挂载（见 KNOWN_ISSUES KI-001；现状注记权威处为 ARCHITECTURE §12.2）
 - 多平台网关: 正式承诺收敛为 `GatewayAdapter` 抽象层与统一路由. 代码库当前仍保留兼容性平台适配器实现, 但不作为对外交付承诺
-- 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, 实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）
+- 提示词优化与自我改进闭环: 三层 prompt 分离已实现, 对照实验已完成, 实测数据见 [CHANGELOG 2026-07-09「Phase 9 收口」P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)（证据文件未入库、不可复核，见 KNOWN_ISSUES KI-011）
 
 Hermes 五柱升级（Phase 5-8）已完成（与 STRATEGY.md 口径一致），实测结果见下表及 STRATEGY.md FAQ「Hermes 升级的 ROI 是什么？」。以下为历史验收标准及其达成状态：
 
@@ -202,7 +202,7 @@ Hermes 五柱升级（Phase 5-8）已完成（与 STRATEGY.md 口径一致），
 | 关键记忆跨会话永久保存, 不因 Redis 重启而丢失 | ✅ Phase 6 完成 |
 | 支持自然语言定义的定时风控任务 | ⚠️ 调度库层已实现、生产未挂载（见 KI-001，现状注记权威处 ARCHITECTURE §12.2） |
 | 正式能力口径只承诺 GatewayAdapter 抽象层和统一路由 | ✅ Phase 7 口径已收敛 |
-| LLM token 成本较当前下降 20% 以上 | ✅ 已达成（Phase 8）——实测数据见 CHANGELOG 2026-07-09「Phase 9 收口」条目（不可复核，详见 KI-011） |
+| LLM token 成本较当前下降 20% 以上 | ✅ 已达成（Phase 8）——实测数据见 [CHANGELOG 2026-07-09「Phase 9 收口」P0-3 小节](../CHANGELOG.md#phase-9-收口---2026-07-09)（不可复核，详见 KI-011） |
 | 自我改进结论可通过单次成组对照验收稳定复现 | ⚠️ Phase 8 完成单次对照实验 PASS，未做多次重跑验证“稳定复现”；且证据文件未入库（KI-011） |
 | 所有新增能力都接入统一执行内核, 不形成旁路 | ⚠️ KI-003：remediation 动作绕过统一执行内核（不经五道关卡、无 receipt）；另调度能力未挂载=未接入（KI-001） |
 
